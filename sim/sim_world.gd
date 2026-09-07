@@ -130,6 +130,40 @@ func add_marker(id: int) -> Dictionary:
 	return marker
 
 
+## Ausloggen: der Charakter wird zum NPC und führt ab jetzt die Regelliste aus. "Hier" = aktuelle Position.
+func logout(id: int, rules: Array, role_name: String = "") -> void:
+	var c := get_character(id)
+	c.control = SimCharacter.Controller.RULES
+	c.rules = rules.duplicate(true)
+	c.logout_pos = c.pos
+	c.leash_center = c.pos
+	c.leash_radius = data.balf("npc.default_leash_radius")
+	c.active_rule_index = -1
+	c.skipped_rule_index = -1
+	c.action_state = {}
+	c.decision_timer = 0.0
+	c.path.clear()
+	c.chronicle.clear()
+	SimChronicle.add(self, c, "ausgeloggt" + (" als %s" % role_name if not role_name.is_empty() else "") + " bei %s" % _pos_text(c.pos))
+	events.append({"type": "logout", "id": id})
+
+
+## Einloggen: der Spieler übernimmt seinen Charakter dort, wo er gerade ist.
+func login(id: int) -> void:
+	var c := get_character(id)
+	c.control = SimCharacter.Controller.PLAYER
+	c.active_rule_index = -1
+	c.action_state = {}
+	c.path.clear()
+	c.leash_radius = 0.0
+	SimChronicle.add(self, c, "eingeloggt bei %s" % _pos_text(c.pos))
+	events.append({"type": "login", "id": id})
+
+
+static func _pos_text(pos: Vector2) -> String:
+	return "(%d, %d)" % [int(pos.x), int(pos.y)]
+
+
 # --- Tick -----------------------------------------------------------------
 
 func tick() -> void:
