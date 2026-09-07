@@ -60,6 +60,11 @@ var decision_timer: float = 0.0
 var leash_center: Vector2 = Vector2.ZERO
 var leash_radius: float = 0.0
 
+# Simulationsstufen (Server): fern von Online-Spielern nur alle coarse_tick_dt Sekunden rechnen
+var lod_accumulator: float = 0.0
+var lod_fine_steps: int = 0          # Zähler für Benchmarks/Tests
+var lod_coarse_steps: int = 0
+
 # Wegsuche (Controller)
 var path: Array[Vector2i] = []
 var path_goal: Vector2i = Vector2i(-1, -1)

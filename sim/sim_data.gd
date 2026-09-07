@@ -37,7 +37,7 @@ const REQUIRED_BALANCE: Array[String] = [
 	"logout.transition_seconds", "logout.combat_window",
 	"npc.default_leash_radius", "npc.preferred_combat_range", "npc.hide_delay",
 	"npc.reveal_radius", "npc.reveal_duration", "npc.decision_interval", "npc.skip_relog_minutes",
-	"offline.coarse_tick_dt", "offline.hot_radius",
+	"offline.coarse_tick_dt", "offline.hot_radius", "offline.lod_radius",
 ]
 
 var balance: Dictionary = {}

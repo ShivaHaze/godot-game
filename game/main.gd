@@ -252,6 +252,7 @@ func _on_marker_removed(marker_id: String) -> void:
 
 func _enter_live(keep_chronicle: bool = false) -> void:
 	mode = Mode.LIVE
+	world.observer_ids = []
 	hud.mode_text = "Live"
 	hud.set_hint(HINT_LIVE)
 	hud.clear_buttons()
@@ -295,6 +296,7 @@ func _on_logout_confirmed(rules: Array, role_id: String, role_name: String) -> v
 
 func _enter_offline() -> void:
 	mode = Mode.OFFLINE
+	world.observer_ids = [player_id]  # Zuschauer-Kamera: der eigene NPC und seine Umgebung laufen fein
 	view.preview_rules = []
 	hud.mode_text = "Offline – NPC handelt nach Regeln"
 	hud.set_hint(HINT_OFFLINE)
@@ -369,6 +371,7 @@ func _start_versus() -> void:
 
 func _enter_versus() -> void:
 	mode = Mode.VERSUS
+	world.observer_ids = []
 	hud.mode_text = "Gegen dich selbst"
 	hud.set_hint(HINT_VERSUS)
 	_hide_chronicle()

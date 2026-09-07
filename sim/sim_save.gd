@@ -14,7 +14,7 @@ const CHARACTER_FLOATS: Array[String] = [
 	"move_speed", "collision_radius", "hp", "max_hp", "armor", "death_time",
 	"melee_damage", "melee_range", "melee_cooldown", "hunger", "fire_cooldown",
 	"last_damage_time", "gather_progress", "hide_progress", "revealed_until",
-	"decision_timer", "leash_radius", "ai_timer", "bite_cooldown", "logout_time",
+	"decision_timer", "leash_radius", "ai_timer", "bite_cooldown", "logout_time", "lod_accumulator",
 ]
 const CHARACTER_INTS: Array[String] = [
 	"id", "kind", "control", "last_attacker_id", "active_rule_index", "last_logged_rule_index", "marker_counter",

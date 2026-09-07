@@ -219,9 +219,22 @@ static func _apply_leash(world: SimWorld, c: SimCharacter, intent: SimIntent, dt
 	if intent.move == Vector2.ZERO:
 		return
 	var speed := c.move_speed * (world.data.balf("character.weakened_speed_multiplier") if c.is_weakened() else 1.0)
-	var next := c.pos + intent.move * speed * dt
-	if next.distance_to(c.leash_center) > c.leash_radius and distance > 0.0:
+	var step := intent.move * speed * dt
+	if (offset + step).length() <= c.leash_radius:
+		return
+	# Schritt so kürzen, dass er genau auf dem Kreis endet (auch bei großen Schritten der groben Stufe):
+	# größtes f in [0, 1] mit |offset + f * step| = radius
+	var a := step.dot(step)
+	var b := 2.0 * offset.dot(step)
+	var cc := offset.dot(offset) - c.leash_radius * c.leash_radius
+	var discriminant := b * b - 4.0 * a * cc
+	var f := 0.0
+	if a > 0.0 and discriminant >= 0.0:
+		f = clampf((-b + sqrt(discriminant)) / (2.0 * a), 0.0, 1.0)
+	if f <= 0.001:
+		# Am Rand: nur noch am Kreis entlang (tangential), verkürzt, damit der Bogen nicht hinausführt
 		var radial := offset / distance
-		var outward := intent.move.dot(radial)
-		if outward > 0.0:
-			intent.move -= radial * outward  # nur noch am Kreis entlang
+		var tangent := intent.move - radial * intent.move.dot(radial)
+		intent.move = tangent * 0.5
+	else:
+		intent.move *= f

@@ -9,6 +9,7 @@ var player: SimCharacter
 func before_each() -> void:
 	data = SimData.load_from_dir("res://data")
 	world = SimWorld.new(data, 3)
+	world.lod_enabled = false  # Feinsimulation für nachvollziehbare Zeiten
 	player = world.get_character(world.setup_new_game())
 	# Wölfe weit weg, damit Tests die Distanz selbst bestimmen
 	for c: SimCharacter in world.characters.values():
@@ -48,10 +49,13 @@ func test_stranger_distance_ignores_own_dead_and_hidden() -> void:
 		if c.kind == SimCharacter.Kind.WOLF:
 			wolf = c
 	wolf.pos = player.pos + Vector2(3, 0)
+	world.spatial.rebuild(world.characters)
 	assert_almost_eq(SimSensors.nearest_stranger_distance(world, player), 3.0, 0.001, "Wolf zählt als Fremder")
 	var friend := world.spawn_player(player.pos + Vector2(1, 0), player.owner_id, "Eigener")
+	world.spatial.rebuild(world.characters)
 	assert_almost_eq(SimSensors.nearest_stranger_distance(world, player), 3.0, 0.001, "gleicher Besitzer ist kein Fremder")
 	var other := world.spawn_player(player.pos + Vector2(0, 2), "p2", "Fremder")
+	world.spatial.rebuild(world.characters)
 	assert_almost_eq(SimSensors.nearest_stranger_distance(world, player), 2.0, 0.001, "anderer Spieler ist Fremder")
 	other.hidden = true
 	assert_almost_eq(SimSensors.nearest_stranger_distance(world, player), 3.0, 0.001, "versteckt = unsichtbar")
@@ -60,6 +64,7 @@ func test_stranger_distance_ignores_own_dead_and_hidden() -> void:
 			c.dead = true
 	other.hidden = false
 	other.dead = true
+	world.spatial.rebuild(world.characters)
 	assert_gt(SimSensors.nearest_stranger_distance(world, player), 100.0, "nur Tote übrig: kein Fremder")
 	assert_eq(friend.owner_id, player.owner_id)
 

@@ -12,6 +12,7 @@ var npc: SimCharacter
 func before_each() -> void:
 	data = SimData.load_from_dir("res://data")
 	world = SimWorld.new(data, 5)
+	world.lod_enabled = false  # Feinsimulation für nachvollziehbare Zeiten
 	npc = world.get_character(world.setup_new_game())
 	npc.pos = OPEN
 	npc.name = "NPC"

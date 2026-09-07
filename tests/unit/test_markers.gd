@@ -9,6 +9,7 @@ var player: SimCharacter
 func before_each() -> void:
 	data = SimData.load_from_dir("res://data")
 	world = SimWorld.new(data, 3)
+	world.lod_enabled = false  # Feinsimulation für nachvollziehbare Zeiten
 	player = world.get_character(world.setup_new_game())
 
 

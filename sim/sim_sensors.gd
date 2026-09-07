@@ -5,6 +5,7 @@ extends RefCounted
 ## vorhandenen Wert nutzt, braucht hier nichts; ein neuer Sensorwert ist eine Zeile in facts_for().
 
 const FAR: float = 1.0e9  # "kein Fremder" – größer als jeder Radius
+const SEARCH_RADIUS: float = 20.0  # Weiter sucht kein Sensor (größter Radius-Parameter in conditions.json)
 
 
 static func facts_for(world: SimWorld, c: SimCharacter) -> Dictionary:
@@ -36,7 +37,7 @@ static func inventory_state(c: SimCharacter, capacity: int) -> String:
 static func nearest_stranger(world: SimWorld, c: SimCharacter) -> SimCharacter:
 	var best: SimCharacter = null
 	var best_d := INF
-	for other: SimCharacter in world.characters.values():
+	for other: SimCharacter in world.spatial.query(c.pos, SEARCH_RADIUS):
 		if other == c or other.dead or other.hidden or other.owner_id == c.owner_id:
 			continue
 		var d := other.pos.distance_squared_to(c.pos)

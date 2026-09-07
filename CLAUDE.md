@@ -8,7 +8,7 @@ Der Twist: Beim "Ausloggen" wird der Spielercharakter zum NPC, der nach vom Spie
 Designfragen, die das Dokument nicht beantwortet: **nicht raten, fragen.** Eigene Entscheidungen, die das Design berühren, dort als [T]/[O] eintragen und Bescheid sagen.
 
 ## Stand (2026-09-07)
-Schritte 1–8 (Phase 0) plus 9–10 sind gebaut und committet: Gerüst, Daten, Sim-Kern, Regelmaschine + Chronik, Kampf + Wolf, NPC-Modus, Ausloggen-Menü, Zeitsprung + Gegen-sich-selbst, Spielstand, Logout-Übergang, Chronik-Spur, Marker verwalten, Werkbank/Ausrüstung, Balancing-Bericht. 109 Tests laufen headless grün. Nächster Schritt laut Design: Netzwerk-Spike (Godot headless als Server, 300 NPCs, Tickzeit; 50 Bot-Clients per ENet).
+Schritte 1–8 (Phase 0) plus 9–11 sind gebaut und committet: Gerüst, Daten, Sim-Kern, Regelmaschine + Chronik, Kampf + Wolf, NPC-Modus, Ausloggen-Menü, Zeitsprung + Gegen-sich-selbst, Spielstand, Logout-Übergang, Chronik-Spur, Marker verwalten, Werkbank/Ausrüstung, Balancing-Bericht, Simulationsstufen pro Charakter + Nachbarschaftsraster (Server-Benchmark: 300 NPCs bei 15 ms/Tick). 116 Tests laufen headless grün. Nächster Schritt: ENet-Server, Bot-Clients, Netzwerk-Client im Spiel.
 
 ## Scope Phase 0 (nichts darüber hinaus ohne Rückfrage)
 - Karte aus Datendatei (Kacheln: Boden, Hindernis, Holzquelle, Beerenbusch). Rechtecke, keine Grafik.
@@ -36,6 +36,7 @@ Schritte 1–8 (Phase 0) plus 9–10 sind gebaut und committet: Gerüst, Daten, 
 4. **Tests für die Sim** laufen headless (GUT). Abgedeckt: Regelmaschine (Priorität, Sonst-Fallback, Leine), Hunger-Tick, Richtungstreffer, Karte/Kollision/Wegsuche, Kampf, Wolf, NPC-Controller, Zeitsprung, Determinismus, Menü und Hauptszene.
 5. **Balancing sichtbar.** Alle Tuning-Werte in `data/balance.json` (mit `_`-Erklärungen), ohne Code-Kenntnis editierbar. Pflichtschlüssel werden beim Laden geprüft (`SimData.REQUIRED_BALANCE`).
 6. **Determinismus.** Die Sim nutzt einen eigenen, geseedeten `RandomNumberGenerator` (kein globales `randi()`); gleicher Seed = gleicher Zeitsprung (per Test belegt).
+7. **Simulationsstufen.** Charaktere ohne Online-Spieler (oder Zuschauer, `SimWorld.observer_ids`) in `offline.lod_radius` rechnen einmal pro `coarse_tick_dt` mit großem Schritt. `world.lod_enabled = false` erzwingt Feinsimulation (Tests). Umkreis-Abfragen laufen über `SimSpatial`, gültig nach jedem `step()`; wer Positionen von Hand setzt und dann abfragt, ruft `world.spatial.rebuild(world.characters)`.
 
 **Warum JSON statt Godot-Resources:** ohne Editor les- und editierbar, diffbar in Git, keine `class_name`-Registrierung nötig, identisches Laden auf Client und headless-Server. Typprüfung übernimmt `sim/sim_data.gd`.
 
@@ -61,6 +62,7 @@ sim/                 Simulation ohne Nodes:
   npc_controller.gd    Offline-Modus: Regelliste ausführen, Leine, Aktionen
   wolf_ai.gd           Wolf-Verhalten
   sim_nav.gd           Wegfolge (A*, Sichtlinie, kein Überschießen bei groben Ticks)
+  sim_spatial.gd       Nachbarschaftsraster (pro Tick neu), Basis aller Umkreis-Abfragen
 game/                Darstellung und Eingabe (liest sim/, schreibt nur Intents):
   main.gd/.tscn        Modi Live / Menü / Offline / Zeitsprung / Versus, Tick-Akkumulator, Kamera
   world_view.gd        Zeichnet Karte, Quellen, Charaktere, Projektile, Marker, Leinen (interpoliert)
@@ -69,7 +71,8 @@ game/                Darstellung und Eingabe (liest sim/, schreibt nur Intents):
   craft_panel.gd       Werkbank aus items.json
 tests/unit/          GUT-Tests (test_*.gd)
 tools/               run_tests.ps1 / run_tests.sh (headless), smoke_run.gd (Rauchtest mit Fenster), screenshot_run.gd (Bildschirmfotos),
-                     balance_report.gd (Rollen × Seeds × 8 h headless, druckt Überleben/Vorräte)
+                     balance_report.gd (Rollen × Seeds × 8 h headless, druckt Überleben/Vorräte),
+                     server_bench.gd (N NPCs + Spieler headless bei 20 Hz, Tickzeit und Simulationsstufen)
 addons/gut/          Test-Framework GUT 9.6.1 (einziges Addon)
 ```
 
@@ -87,6 +90,7 @@ godot --headless --path . -s addons/gut/gut_cmdln.gd
 Zeichen- und UI-Code läuft headless nicht; dafür: `godot --path . -s tools/smoke_run.gd` (öffnet kurz ein Fenster, meldet `SMOKE OK`).
 Bildschirmfotos aller Ansichten: `godot --path . -s tools/screenshot_run.gd -- <Ordner>`.
 Balancing-Bericht: `godot --headless --path . -s tools/balance_report.gd -- 5 8` (Seeds, Stunden).
+Server-Benchmark: `godot --headless --path . -s tools/server_bench.gd -- 300 5 30` (NPCs, Spieler, Sekunden).
 
 ## Spielen
 `godot --path .` oder Projekt im Editor öffnen. WASD bewegen, Maus zielen, Linksklick angreifen, E halten sammeln/plündern, F essen, Q Waffe wechseln, C Werkbank, M Marker, Esc Ausloggen-Menü, R neuer Charakter nach dem Tod. Im Offline-Modus Knöpfe unten rechts: Zeitsprung, einloggen, gegen sich selbst antreten. Spielstand wird automatisch geführt; 'Neues Spiel' (zweimal klicken) löscht ihn.

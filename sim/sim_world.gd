@@ -7,6 +7,9 @@ extends RefCounted
 var data: SimData
 var map: SimMap
 var characters: Dictionary = {}          # id -> SimCharacter
+var spatial := SimSpatial.new(4.0)      # Nachbarschaftsraster, pro Tick neu gefüllt
+var lod_enabled: bool = true             # Simulationsstufen pro Charakter (false: alles fein, z. B. in Tests)
+var observer_ids: Array[int] = []        # Charaktere, die wie Online-Spieler zählen (Zuschauer-Kamera)
 var projectiles: Array[SimProjectile] = []
 var events: Array[Dictionary] = []       # Ereignisse des letzten Ticks (für Darstellung/Chronik)
 var time: float = 0.0                    # Sim-Sekunden seit Spielstart
@@ -285,6 +288,8 @@ func tick() -> void:
 
 
 ## Ein Simulationsschritt von dt Sekunden. Reihenfolge: Controller -> Absichten -> Projektile -> Unterhalt -> Welt.
+## Simulationsstufen: Charaktere ohne Online-Spieler in offline.lod_radius rechnen nur alle coarse_tick_dt
+## Sekunden (mit entsprechend großem Schritt), alle anderen jeden Tick.
 func step(dt: float) -> void:
 	events.clear()
 	tick_count += 1
@@ -293,29 +298,58 @@ func step(dt: float) -> void:
 		c.prev_pos = c.pos
 	for p: SimProjectile in projectiles:
 		p.prev_pos = p.pos
-	_run_controllers(dt)
+	spatial.rebuild(characters)
+	var coarse_dt := data.balf("offline.coarse_tick_dt")
+	var lod_radius := data.balf("offline.lod_radius")
 	for c: SimCharacter in characters.values():
 		if c.dead:
 			continue
+		var step_dt := dt
+		if lod_enabled and c.control != SimCharacter.Controller.PLAYER and dt < coarse_dt and not _near_online(c, lod_radius):
+			c.lod_accumulator += dt
+			if c.lod_accumulator + 1e-6 < coarse_dt:
+				continue
+			step_dt = c.lod_accumulator
+			c.lod_accumulator = 0.0
+			c.lod_coarse_steps += 1
+		else:
+			c.lod_accumulator = 0.0
+			c.lod_fine_steps += 1
 		var intent: SimIntent = _intents.get(c.id, null)
-		_apply_intent(c, intent if intent != null else SimIntent.new(), dt)
+		match c.control:
+			SimCharacter.Controller.WOLF_AI:
+				intent = WolfAI.decide(self, c, step_dt)
+			SimCharacter.Controller.RULES:
+				intent = NpcController.decide(self, c, step_dt)
+		_apply_intent(c, intent if intent != null else SimIntent.new(), step_dt)
 	_intents.clear()
+	spatial.rebuild(characters)
 	_update_projectiles(dt)
 	_update_hunger(dt)
 	_update_nodes(dt)
 	_update_wolves(dt)
 
 
-## Controller für nicht vom Spieler gesteuerte Charaktere erzeugen ihre Absichten.
-func _run_controllers(dt: float) -> void:
-	for c: SimCharacter in characters.values():
-		if c.dead:
+## Ist ein lebender Online-Spieler (vom Spieler gesteuert oder beobachtet) in Reichweite?
+func _near_online(c: SimCharacter, radius: float) -> bool:
+	if observer_ids.has(c.id):
+		return true
+	for other: SimCharacter in spatial.query(c.pos, radius):
+		if other.dead or other.pos.distance_to(c.pos) > radius:
 			continue
-		match c.control:
-			SimCharacter.Controller.WOLF_AI:
-				_intents[c.id] = WolfAI.decide(self, c, dt)
-			SimCharacter.Controller.RULES:
-				_intents[c.id] = NpcController.decide(self, c, dt)
+		if other.control == SimCharacter.Controller.PLAYER or observer_ids.has(other.id):
+			return true
+	return false
+
+
+## Lebende Charaktere im Radius (Kandidaten aus dem Raster, Distanz geprüft).
+func near(pos: Vector2, radius: float) -> Array[SimCharacter]:
+	var result: Array[SimCharacter] = []
+	var r2 := radius * radius
+	for c: SimCharacter in spatial.query(pos, radius):
+		if not c.dead and c.pos.distance_squared_to(pos) <= r2:
+			result.append(c)
+	return result
 
 
 func _apply_intent(c: SimCharacter, intent: SimIntent, dt: float) -> void:
@@ -471,7 +505,7 @@ func _melee(c: SimCharacter) -> void:
 func nearest_enemy(c: SimCharacter, radius: float) -> SimCharacter:
 	var best: SimCharacter = null
 	var best_d := radius * radius
-	for other: SimCharacter in characters.values():
+	for other: SimCharacter in spatial.query(c.pos, radius):
 		if other == c or other.dead or other.hidden or other.owner_id == c.owner_id:
 			continue
 		var d := other.pos.distance_squared_to(c.pos)
@@ -509,7 +543,7 @@ func _update_projectiles(dt: float) -> void:
 
 
 func _projectile_victim(p: SimProjectile) -> SimCharacter:
-	for c: SimCharacter in characters.values():
+	for c: SimCharacter in spatial.query(p.pos, 1.0):
 		if c.dead or c.hidden or c.id == p.owner_id:
 			continue
 		var r := c.collision_radius + 0.1
@@ -600,16 +634,20 @@ func _update_nodes(dt: float) -> void:
 func _update_wolves(dt: float) -> void:
 	var reveal_radius_sq := pow(data.balf("npc.reveal_radius"), 2.0)
 	var regen := data.balf("wolf.regen_per_second")
+	var reveal_radius := data.balf("npc.reveal_radius")
 	for c: SimCharacter in characters.values():
 		if c.dead:
 			continue
 		if c.kind == SimCharacter.Kind.WOLF and c.ai_state == WolfAI.STATE_WANDER and c.hp < c.max_hp and not SimSensors.is_under_attack(self, c):
 			c.hp = minf(c.max_hp, c.hp + regen * dt)
+		if not c.hidden:
+			continue
 		# Wer über einen Versteckten läuft, entdeckt ihn
-		for other: SimCharacter in characters.values():
-			if other.hidden and not other.dead and other.owner_id != c.owner_id and other.pos.distance_squared_to(c.pos) <= reveal_radius_sq:
-				reveal(other)
-				events.append({"type": "discovered", "id": other.id, "by": c.id})
+		for other: SimCharacter in spatial.query(c.pos, reveal_radius):
+			if other != c and not other.dead and other.owner_id != c.owner_id and other.pos.distance_squared_to(c.pos) <= reveal_radius_sq:
+				reveal(c)
+				events.append({"type": "discovered", "id": c.id, "by": other.id})
+				break
 	if count_alive_wolves() >= data.bali("wolf.max_alive") or data.wolf_spawns.is_empty():
 		_wolf_respawn_timer = 0.0
 		return
@@ -656,6 +694,7 @@ func _advance_one(target_time: float) -> void:
 func is_hot() -> bool:
 	if not projectiles.is_empty():
 		return true
+	spatial.rebuild(characters)  # Positionen können sich seit dem letzten Tick geändert haben
 	var radius := data.balf("offline.hot_radius")
 	for c: SimCharacter in characters.values():
 		if c.dead or c.kind != SimCharacter.Kind.PLAYER:

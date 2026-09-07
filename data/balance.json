@@ -116,7 +116,10 @@
   "offline": {
     "_doc": "Zeitsprung: die Sim tickt ohne Darstellung. Ohne Gefahr in der Nähe grob (Simulationsstufen), bei Kampf fein.",
     "coarse_tick_dt": 1.0,
-    "_coarse_tick_dt": "Sekunden pro grobem Tick, wenn kein Feind in hot_radius ist und keine Projektile fliegen.",
-    "hot_radius": 10.0
+    "_coarse_tick_dt": "Sekunden pro grobem Tick (Zeitsprung ohne Gefahr; auf dem Server: Charaktere ohne Online-Spieler in lod_radius).",
+    "hot_radius": 10.0,
+    "_hot_radius": "Zeitsprung: Feind näher als das an einem Spielercharakter = fein simulieren.",
+    "lod_radius": 12.0,
+    "_lod_radius": "Server: Charaktere ohne Online-Spieler in dieser Distanz laufen grob (Simulationsstufen)."
   }
 }
