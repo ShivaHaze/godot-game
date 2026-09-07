@@ -52,6 +52,7 @@ var _build_mode: bool = false
 var _build_part: String = ""
 var _build_rot: int = 0
 var _build_click: bool = false
+var _sign_edit: SimBuilding = null      # Schild, das gerade beschriftet wird
 
 
 func _ready() -> void:
@@ -123,6 +124,7 @@ func _ready() -> void:
 	trade_panel.buy_requested.connect(func(id: int, index: int) -> void: _trade_action("table_buy", {"id": id, "index": index}))
 	trade_panel.closed.connect(func() -> void: trade_panel.close())
 	add_child(trade_panel)
+	hud.chat_input.text_submitted.connect(_on_chat_submitted)
 
 	hud.world = world
 	hud.player_id = player_id
@@ -163,6 +165,8 @@ func _process_net(delta: float) -> void:
 				hud.mode_text = "Online als %s" % net.player_name
 				hud.set_hint(HINT_LIVE)
 				hud.show_message("Verbunden. Dein Charakter wartet auf dem Server.", 3.0)
+			"chat":
+				hud.add_chat_line("[%s] %s: %s" % ["global" if msg.get("scope", "") == "global" else "nah", msg.get("from", "?"), msg.get("text", "")])
 			"info":
 				hud.show_message(String(msg.get("text", "")), 2.0)
 				craft_panel.show_status(String(msg.get("text", "")))
@@ -345,8 +349,17 @@ func _process_live_input(player: SimCharacter) -> void:
 			craft_panel.close()
 		else:
 			craft_panel.open(data, player)
+	if hud.chat_input.visible:
+		if Input.is_action_just_pressed("logout_menu"):
+			_close_chat()
+		return  # Tippen im Chat: keine Spielsteuerung
+	if Input.is_action_just_pressed("chat") and not player.dead:
+		hud.chat_input.visible = true
+		hud.chat_input.grab_focus()
+		return
 	if Input.is_action_just_pressed("interact") and not player.dead and not _build_mode:
-		_toggle_trade_panel(player)
+		if not _toggle_sign_edit(player):
+			_toggle_trade_panel(player)
 	if Input.is_action_just_pressed("build_mode") and not player.dead:
 		_toggle_build_mode(player)
 	if _build_mode:
@@ -358,6 +371,8 @@ func _process_live_input(player: SimCharacter) -> void:
 
 func _build_player_intent(player: SimCharacter) -> SimIntent:
 	var intent := SimIntent.new()
+	if hud.chat_input.visible:
+		return intent  # keine Bewegung, während getippt wird
 	intent.move = Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	intent.aim = view.mouse_world_pos() - player.pos
 	intent.shoot = Input.is_action_pressed("shoot") and not craft_panel.visible and not _build_mode
@@ -368,6 +383,63 @@ func _build_player_intent(player: SimCharacter) -> SimIntent:
 		_heal_active = false
 	intent.heal = _heal_active
 	return intent
+
+
+# --- Chat und Schilder ----------------------------------------------------
+
+func _close_chat() -> void:
+	hud.chat_input.text = ""
+	hud.chat_input.visible = false
+	hud.chat_input.release_focus()
+
+
+func _on_chat_submitted(text: String) -> void:
+	var line := text.strip_edges()
+	if _sign_edit != null:
+		_apply_sign_text(line)
+		_sign_edit = null
+		hud.chat_input.placeholder_text = "Nah-Chat … (/g für global, Esc bricht ab)"
+		_close_chat()
+		return
+	if line.is_empty():
+		_close_chat()
+		return
+	var scope := "near"
+	if line.begins_with("/g "):
+		scope = "global"
+		line = line.substr(3).strip_edges()
+	if net != null:
+		net.send({"t": "chat", "text": line, "scope": scope}, true)
+	else:
+		hud.add_chat_line("[%s] Du: %s (niemand hört zu – Einzelspieler)" % ["global" if scope == "global" else "nah", line])
+	_close_chat()
+
+
+## E neben einem eigenen Schild: Text eingeben. true, wenn ein Schild in Reichweite ist.
+func _toggle_sign_edit(player: SimCharacter) -> bool:
+	var sign := world.sign_near(player)
+	if sign == null:
+		return false
+	if sign.owner_id != player.owner_id:
+		hud.show_message("Schild von %s: „%s“" % [sign.owner_id, sign.label], 4.0)
+		return true
+	_sign_edit = sign
+	hud.chat_input.placeholder_text = "Schildtext (max %d Zeichen), Enter speichert" % data.bali("building.sign_max_length")
+	hud.chat_input.text = sign.label
+	hud.chat_input.visible = true
+	hud.chat_input.grab_focus()
+	return true
+
+
+func _apply_sign_text(text: String) -> void:
+	if _sign_edit == null:
+		return
+	if net != null:
+		net.send({"t": "sign_text", "id": _sign_edit.id, "text": text}, true)
+		return
+	var player := world.get_character(player_id)
+	var reason := world.set_sign_text(player, _sign_edit, text)
+	hud.show_message("Schild beschriftet." if reason.is_empty() else "Schild: %s" % reason, 2.0)
 
 
 # --- Handelstisch ---------------------------------------------------------

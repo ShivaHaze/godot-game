@@ -112,6 +112,16 @@ func _draw_claims() -> void:
 		draw_rect(Rect2(claim.anchor_tile.x * TILE, claim.anchor_tile.y * TILE, TILE, TILE), Color(color.r, color.g, color.b, 0.8), false, 2.0)
 
 
+func _viewer_character() -> SimCharacter:
+	for c: SimCharacter in world.characters.values():
+		if c.owner_id == viewer_owner and c.control == SimCharacter.Controller.PLAYER and not c.dead:
+			return c
+	for c: SimCharacter in world.characters.values():
+		if c.owner_id == viewer_owner and not c.dead:
+			return c
+	return null
+
+
 func _building_color(part: String) -> Color:
 	if not _building_colors.has(part):
 		_building_colors[part] = Color.html(String(world.data.buildings.get(part, {}).get("color", "#ff00ff")))
@@ -127,6 +137,15 @@ func _draw_buildings() -> void:
 		var color := _building_color(b.part)
 		var frac := b.hp / maxf(1.0, b.max_hp)
 		var def: Dictionary = world.data.buildings.get(b.part, {})
+		if def.get("sign", false) and not b.label.is_empty():
+			var viewer := _viewer_character()
+			if viewer != null and viewer.pos.distance_to(b.center()) <= world.data.balf("building.sign_read_distance"):
+				var font := ThemeDB.fallback_font
+				var text := "„%s“" % b.label
+				var size := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12)
+				var top_left := b.center() * TILE + Vector2(-size.x * 0.5 - 4, -TILE * 0.5 - size.y - 6)
+				draw_rect(Rect2(top_left, size + Vector2(8, 4)), Color(0.1, 0.08, 0.05, 0.8))
+				draw_string(font, top_left + Vector2(4, size.y - 3), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1.0, 0.95, 0.7))
 		if def.has("sensor_radius") and b.owner_id == viewer_owner:
 			var triggered := world.time < b.triggered_until
 			draw_arc(b.center() * TILE, float(def["sensor_radius"]) * TILE, 0.0, TAU, 48, Color(1.0, 0.3, 0.3, 0.6) if triggered else Color(0.3, 0.8, 1.0, 0.25), 1.0)

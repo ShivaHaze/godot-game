@@ -40,6 +40,15 @@ func _run() -> void:
 	await _frames(5)
 	await _shot("2a_bauen")
 	main._toggle_build_mode(builder)
+	var sign: SimBuilding = main.world.place_building(builder, "sign", SimBuilding.half_cell_of(builder.pos + Vector2(-1.5, 0.0)), 0)
+	main.world.set_sign_text(builder, sign, "Fremde zahlen Zoll: 2 Beeren")
+	main.hud.add_chat_line("[nah] Ben: Hallo Nachbar")
+	main.hud.add_chat_line("[global] Cleo: Kauft Beeren am Markt!")
+	main.hud.chat_input.visible = true
+	main.hud.chat_input.text = "/g Wer hat Stein?"
+	await _frames(5)
+	await _shot("2a2_schild_chat")
+	main.hud.chat_input.visible = false
 	main.craft_panel.open(main.data, main.world.get_character(main.player_id))
 	await _frames(5)
 	await _shot("2b_werkbank")

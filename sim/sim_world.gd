@@ -646,6 +646,41 @@ func container_near(owner_id: String, pos: Vector2, radius: float) -> SimBuildin
 	return best
 
 
+# --- Schilder -------------------------------------------------------------
+
+func is_sign(b: SimBuilding) -> bool:
+	return b != null and bool(data.buildings.get(b.part, {}).get("sign", false))
+
+
+## Schild in Interaktionsreichweite (nächstes), sonst null.
+func sign_near(c: SimCharacter) -> SimBuilding:
+	var best: SimBuilding = null
+	var best_d := data.balf("character.interact_range") + 0.5
+	for b: SimBuilding in map.buildings.values():
+		if not is_sign(b):
+			continue
+		var d := b.center().distance_to(c.pos)
+		if d <= best_d:
+			best_d = d
+			best = b
+	return best
+
+
+## Besitzer beschriftet sein Schild (live). Rückgabe: Grund oder leer.
+func set_sign_text(c: SimCharacter, b: SimBuilding, text: String) -> String:
+	if not is_sign(b):
+		return "kein Schild"
+	if b.owner_id != c.owner_id:
+		return "nicht dein Schild"
+	if c.control != SimCharacter.Controller.PLAYER or c.dead:
+		return "nur live"
+	if b.center().distance_to(c.pos) > data.balf("character.interact_range") + 0.5:
+		return "zu weit weg"
+	b.label = text.strip_edges().substr(0, data.bali("building.sign_max_length"))
+	events.append({"type": "sign_text", "building": b.id, "id": c.id})
+	return ""
+
+
 # --- Handelstisch ---------------------------------------------------------
 
 func is_trade_table(b: SimBuilding) -> bool:

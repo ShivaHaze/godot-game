@@ -107,6 +107,24 @@
       "trap_damage": 12.0,
       "hidden": true,
       "_doc": "Für Fremde unsichtbar. Wer sie betritt (Fremde und Tiere), nimmt Schaden und wird enttarnt; die Falle ist danach verbraucht."
+    },
+    {
+      "id": "sign",
+      "name": "Schild",
+      "tier": "wood",
+      "cost": {
+        "wood": 2
+      },
+      "hp": 10,
+      "size": [
+        1,
+        1
+      ],
+      "passable": "all",
+      "decay_per_hour": 0.5,
+      "color": "#e0c068",
+      "sign": true,
+      "_doc": "Text bis 80 Zeichen, den jeder in der Nähe liest (E daneben zum Beschriften, nur der Besitzer). Die einzige Kommunikation eines Offline-Charakters."
     }
   ]
 }

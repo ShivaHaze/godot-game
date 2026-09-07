@@ -15,6 +15,9 @@ var _chronicle_title: Label
 var _chronicle_label: Label
 var _chronicle_scroll: ScrollContainer
 var _buttons: HBoxContainer
+var _chat_log: Label
+var chat_input: LineEdit
+var _chat_lines: PackedStringArray = []
 
 
 func _ready() -> void:
@@ -72,6 +75,30 @@ func _ready() -> void:
 	_chronicle_label.add_theme_font_size_override("font_size", 13)
 	_chronicle_scroll.add_child(_chronicle_label)
 
+	_chat_log = Label.new()
+	_chat_log.anchor_top = 1.0
+	_chat_log.anchor_bottom = 1.0
+	_chat_log.offset_left = 8
+	_chat_log.offset_top = -190
+	_chat_log.offset_right = 520
+	_chat_log.offset_bottom = -60
+	_chat_log.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	_chat_log.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_chat_log.add_theme_font_size_override("font_size", 13)
+	_chat_log.add_theme_color_override("font_color", Color(0.9, 0.95, 1.0))
+	add_child(_chat_log)
+	chat_input = LineEdit.new()
+	chat_input.anchor_top = 1.0
+	chat_input.anchor_bottom = 1.0
+	chat_input.offset_left = 8
+	chat_input.offset_top = -58
+	chat_input.offset_right = 520
+	chat_input.offset_bottom = -34
+	chat_input.placeholder_text = "Nah-Chat … (/g für global, Esc bricht ab)"
+	chat_input.max_length = 160
+	chat_input.visible = false
+	add_child(chat_input)
+
 	_buttons = HBoxContainer.new()
 	_buttons.anchor_left = 1.0
 	_buttons.anchor_right = 1.0
@@ -87,6 +114,13 @@ func _ready() -> void:
 
 func set_hint(text: String) -> void:
 	_hint.text = text
+
+
+func add_chat_line(text: String) -> void:
+	_chat_lines.append(text)
+	while _chat_lines.size() > 8:
+		_chat_lines.remove_at(0)
+	_chat_log.text = "\n".join(_chat_lines)
 
 
 func show_message(text: String, seconds: float = 2.5) -> void:

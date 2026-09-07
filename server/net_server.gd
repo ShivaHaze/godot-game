@@ -11,6 +11,8 @@ var peers: Dictionary = {}           # ENetPacketPeer -> {"char_id": int, "name"
 var accumulator: float = 0.0
 var tick_index: int = 0
 const INTENT_TTL_TICKS: int = 10     # Ohne neue Absicht steht der Charakter nach 0,5 s still
+const CHAT_NEAR_RADIUS: float = 12.0 # Nah-Chat: so weit trägt die Stimme
+const CHAT_MAX_LENGTH: int = 160
 
 # Statistik
 var bytes_out: int = 0
@@ -155,6 +157,15 @@ func _on_message(peer: ENetPacketPeer, msg: Dictionary) -> void:
 						reason = world.table_buy(c, b, int(msg.get("index", -1)))
 				if not reason.is_empty():
 					_send(peer, {"t": "info", "text": "Handel: %s" % reason}, true)
+		"sign_text":
+			if c != null:
+				var b: SimBuilding = world.map.buildings.get(int(msg.get("id", -1)))
+				var reason := world.set_sign_text(c, b, String(msg.get("text", "")))
+				if not reason.is_empty():
+					_send(peer, {"t": "info", "text": "Schild: %s" % reason}, true)
+		"chat":
+			if c != null:
+				_relay_chat(c, String(msg.get("text", "")).strip_edges().substr(0, CHAT_MAX_LENGTH), String(msg.get("scope", "near")))
 		"claim_tile":
 			if c != null:
 				var tile := Vector2i(int(msg.get("x", 0)), int(msg.get("y", 0)))
@@ -176,6 +187,21 @@ func _on_message(peer: ENetPacketPeer, msg: Dictionary) -> void:
 				info["claims"] = {}
 				info["self_hash"] = 0
 				_send(peer, {"t": "welcome", "id": fresh.id}, true)
+
+
+## Chat: nah = alle in CHAT_NEAR_RADIUS um den Sprecher (mit Name); global = alle, ohne Positionsdaten.
+func _relay_chat(sender: SimCharacter, text: String, scope: String) -> void:
+	if text.is_empty():
+		return
+	var global := scope == "global"
+	var out := {"t": "chat", "from": sender.name, "text": text, "scope": "global" if global else "near"}
+	for peer: ENetPacketPeer in peers:
+		var info: Dictionary = peers[peer]
+		var listener := world.get_character(int(info["char_id"]))
+		if listener == null:
+			continue
+		if global or listener.pos.distance_to(sender.pos) <= CHAT_NEAR_RADIUS:
+			_send(peer, out, true)
 
 
 ## Beitritt: bestehenden lebenden Charakter dieses Namens übernehmen (einloggen), sonst neu am Spawn.

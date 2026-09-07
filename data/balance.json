@@ -121,7 +121,9 @@
     "_melee_damage_multiplier": "Faktor auf den Nahkampfschaden gegen Bauteile der Stufe Holz.",
     "table_capacity": 60,
     "_table_capacity": "Gegenstände, die ein Handelstisch insgesamt fasst.",
-    "table_max_offers": 3
+    "table_max_offers": 3,
+    "sign_max_length": 80,
+    "sign_read_distance": 5.0
   },
 
   "claim": {
