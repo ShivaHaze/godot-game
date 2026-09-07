@@ -179,7 +179,7 @@ func _on_message(peer: ENetPacketPeer, msg: Dictionary) -> void:
 				world.claims.release_tile(world, c, Vector2i(int(msg.get("x", 0)), int(msg.get("y", 0))))
 		"respawn":
 			if c != null and c.dead:
-				var fresh := world.spawn_player(world.random_player_spawn(), c.owner_id, c.name)
+				var fresh := world.spawn_player(world.spawn_point_for(c.owner_id), c.owner_id, c.name)
 				info["char_id"] = fresh.id
 				info["known"] = {}
 				info["nodes"] = {}
@@ -224,7 +224,7 @@ func _on_join(peer: ENetPacketPeer, name: String) -> void:
 			world.login(existing.id)
 		info["char_id"] = existing.id
 	else:
-		var fresh := world.spawn_player(world.random_player_spawn(), name, name)
+		var fresh := world.spawn_player(world.spawn_point_for(name), name, name)
 		info["char_id"] = fresh.id
 	info["known"] = {}
 	info["nodes"] = {}

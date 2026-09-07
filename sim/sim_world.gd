@@ -99,6 +99,22 @@ func spawn_wolf(pos: Vector2) -> SimCharacter:
 	return c
 
 
+## Wo ein neuer Charakter dieses Besitzers erscheint: neben dem eigenen Spawn-Anker, sonst am Kartenrand.
+func spawn_point_for(owner_id: String) -> Vector2:
+	for b: SimBuilding in map.buildings.values():
+		if b.owner_id == owner_id and bool(data.buildings.get(b.part, {}).get("spawn", false)):
+			var origin := SimMap.cell_of(b.center())
+			for ring in range(1, 5):
+				for dy in range(-ring, ring + 1):
+					for dx in range(-ring, ring + 1):
+						if maxi(absi(dx), absi(dy)) != ring:
+							continue
+						var cell := origin + Vector2i(dx, dy)
+						if map.is_walkable_for(cell, owner_id, data) and not map.built_half.has(cell * 2):
+							return SimMap.cell_center(cell)
+	return random_player_spawn()
+
+
 ## Ein Spieler-Spawn (bei mehreren zufällig, Design: gewichtete Spawn-Zonen kommen später).
 func random_player_spawn() -> Vector2:
 	var cell: Vector2i = data.player_spawns[rng.randi_range(0, data.player_spawns.size() - 1)]
@@ -440,10 +456,18 @@ func can_place(c: SimCharacter, part_id: String, origin: Vector2i, rotation: int
 		var reason := claims.anchor_reason(data, c, anchor_tile)
 		if not reason.is_empty():
 			return reason
+	if bool(def.get("one_per_owner", false)):
+		for b: SimBuilding in map.buildings.values():
+			if b.owner_id == c.owner_id and b.part == part_id:
+				return "du hast schon %s" % [def["name"]]
 	for half: Vector2i in cells:
 		var tile := Vector2i(floori(half.x / 2.0), floori(half.y / 2.0))
 		if claims.is_foreign(tile, c.owner_id):
 			return "fremder Claim"
+		if bool(def.get("claim_only", false)):
+			var own := claims.claim_at(tile)
+			if own == null or own.owner_id != c.owner_id:
+				return "nur im eigenen Claim"
 	return ""
 
 

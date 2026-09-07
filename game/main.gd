@@ -783,8 +783,8 @@ func _toggle_yesterday_chronicle() -> void:
 ## Neuer, frischer Charakter am Spawn; die Leiche bleibt liegen.
 func _respawn_player() -> void:
 	var old := world.get_character(player_id)
-	var spawn := SimMap.cell_center(data.player_spawns[0])
-	var fresh := world.spawn_player(spawn, old.owner_id if old != null else "p1", old.name if old != null else "Du")
+	var owner_id := old.owner_id if old != null else "p1"
+	var fresh := world.spawn_player(world.spawn_point_for(owner_id), owner_id, old.name if old != null else "Du")
 	player_id = fresh.id
 	hud.player_id = player_id
 	hud.set_hint(HINT_VERSUS if mode == Mode.VERSUS else HINT_LIVE)

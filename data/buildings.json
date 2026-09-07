@@ -125,6 +125,27 @@
       "color": "#e0c068",
       "sign": true,
       "_doc": "Text bis 80 Zeichen, den jeder in der Nähe liest (E daneben zum Beschriften, nur der Besitzer). Die einzige Kommunikation eines Offline-Charakters."
+    },
+    {
+      "id": "spawn_anchor",
+      "name": "Spawn-Anker",
+      "tier": "wood",
+      "cost": {
+        "wood": 25,
+        "stone": 8
+      },
+      "hp": 40,
+      "size": [
+        2,
+        2
+      ],
+      "passable": "none",
+      "decay_per_hour": 0.5,
+      "color": "#60c0e0",
+      "spawn": true,
+      "claim_only": true,
+      "one_per_owner": true,
+      "_doc": "Teures Claim-Upgrade: nur im eigenen Claim, einer je Besitzer. Neue Charaktere des Besitzers (R nach dem Tod, Beitritt) erscheinen daneben statt am Kartenrand."
     }
   ]
 }
