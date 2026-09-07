@@ -63,7 +63,12 @@ func spawn_depot(cell: Vector2i) -> SimBuilding:
 	b.placed_time = time
 	b.cells = SimBuilding.cells_for(def["size"], b.origin, 0)
 	map.add_building(b)
-	b.label = "Markt-Depot %d" % depots().size()
+	var zone := zone_def(map.zone(cell))
+	var count := 0
+	for other: SimBuilding in depots():
+		if map.zone(SimMap.cell_of(other.center())) == map.zone(cell):
+			count += 1
+	b.label = "%s %d" % [zone.get("depot_label", "Depot"), count]
 	return b
 
 
@@ -611,8 +616,8 @@ func can_place(c: SimCharacter, part_id: String, origin: Vector2i, rotation: int
 		var tile := Vector2i(floori(half.x / 2.0), floori(half.y / 2.0))
 		if not map.is_walkable(tile):
 			return "kein freier Boden"
-		if map.zone(tile) == "market":
-			return "auf dem Markt wird nicht gebaut"
+		if not map.zone(tile).is_empty():
+			return String(zone_def(map.zone(tile)).get("build_reason", "hier wird nicht gebaut"))
 		if map.built_half.has(half):
 			return "schon bebaut"
 		center += SimBuilding.half_cell_center(half)
@@ -843,7 +848,7 @@ func _update_bombs() -> void:
 			if other != null and other.center().distance_to(center) <= radius:
 				damage_building(other, float(spec["building_damage"]), -1)
 		for c: SimCharacter in spatial.query(center, radius):
-			if not c.dead and c.pos.distance_to(center) <= radius and not in_market(c.pos):
+			if not c.dead and c.pos.distance_to(center) <= radius and not in_peace_zone(c.pos):
 				apply_damage(c, float(spec["character_damage"]), (c.pos - center).normalized() if c.pos != center else Vector2.DOWN, -1, "", "einen Sprengsatz")
 
 
@@ -871,7 +876,7 @@ func _update_turrets(_dt: float) -> void:
 		var target: SimCharacter = null
 		var best := radius * radius
 		for other: SimCharacter in spatial.query(center, radius):
-			if other.dead or other.hidden or other.owner_id == b.owner_id or in_market(other.pos):
+			if other.dead or other.hidden or other.owner_id == b.owner_id or in_peace_zone(other.pos):
 				continue
 			var d := other.pos.distance_squared_to(center)
 			# Sichtlinie ab dem Rand des eigenen Bauteils (sonst blockiert sich das Turret selbst), Bauteile zählen
@@ -997,9 +1002,28 @@ func depots() -> Array[SimBuilding]:
 	return result
 
 
-## Kampffreie Zone: auf Marktboden gibt es keinen Schaden.
+## Zonendefinition aus balance.json (leer, wenn keine Zone).
+func zone_def(zone: String) -> Dictionary:
+	return data.balance.get("zones", {}).get(zone, {}) if not zone.is_empty() else {}
+
+
+func zone_at(pos: Vector2) -> Dictionary:
+	return zone_def(map.zone(SimMap.cell_of(pos)))
+
+
+## Marktboden (neutraler Markt).
 func in_market(pos: Vector2) -> bool:
 	return map.zone(SimMap.cell_of(pos)) == "market"
+
+
+## Kampffreie Zone: kein Schaden, Projektile verpuffen, Wölfe und Turrets lassen die Leute in Ruhe.
+func in_peace_zone(pos: Vector2) -> bool:
+	return bool(zone_at(pos).get("peace", false))
+
+
+## Gebühr eines Depots (nach seiner Zone).
+func depot_fee_of(b: SimBuilding) -> float:
+	return float(zone_at(b.center()).get("depot_fee", 0.2))
 
 
 ## Depot in Interaktionsreichweite, sonst null.
@@ -1041,7 +1065,7 @@ func depot_deposit(c: SimCharacter, b: SimBuilding, rid: String, amount: int, al
 		return reason
 	if not data.resources.has(rid):
 		return "unbekannter Rohstoff"
-	if bool(data.resources[rid].get("raid_good", false)):
+	if bool(data.resources[rid].get("raid_good", false)) and not bool(zone_at(b.center()).get("raid_goods", false)):
 		return "Raidware: am neutralen Markt nicht handelbar"
 	amount = mini(amount, int(c.inventory.get(rid, 0)))
 	if amount <= 0:
@@ -1050,7 +1074,7 @@ func depot_deposit(c: SimCharacter, b: SimBuilding, rid: String, amount: int, al
 	var room := capacity - depot_stock_count(b, c.owner_id)
 	if room <= 0:
 		return "Depot voll (%d)" % capacity
-	var keep_fraction := 1.0 - data.balf("market.depot_fee")
+	var keep_fraction := 1.0 - depot_fee_of(b)
 	var kept := int(floorf(float(amount) * keep_fraction))
 	if kept <= 0:
 		return "zu wenig, die Gebühr frisst alles"
@@ -1633,7 +1657,7 @@ func _update_projectiles(dt: float) -> void:
 		var part := p.velocity * dt / float(steps)
 		for s in steps:
 			p.pos += part
-			if not map.is_walkable(SimMap.cell_of(p.pos)) or map.building_at(p.pos) != null or in_market(p.pos):
+			if not map.is_walkable(SimMap.cell_of(p.pos)) or map.building_at(p.pos) != null or in_peace_zone(p.pos):
 				events.append({"type": "projectile_wall", "pos": p.pos})
 				removed = true
 				break
@@ -1664,7 +1688,7 @@ func _projectile_victim(p: SimProjectile) -> SimCharacter:
 ## Fügt Schaden mit Richtungstreffer zu. hit_dir = Flugrichtung des Treffers (Angreifer -> Opfer).
 func apply_damage(victim: SimCharacter, base_damage: float, hit_dir: Vector2, attacker_id: int, effect: String = "", attacker_label: String = "") -> Dictionary:
 	var peace_attacker := get_character(attacker_id)
-	if in_market(victim.pos) or (peace_attacker != null and in_market(peace_attacker.pos)):
+	if in_peace_zone(victim.pos) or (peace_attacker != null and in_peace_zone(peace_attacker.pos)):
 		events.append({"type": "market_peace", "id": victim.id, "attacker": attacker_id, "pos": victim.pos})
 		return {}
 	var side := SimCombat.hit_side(victim.facing, hit_dir, data.balf("combat.front_arc_degrees"), data.balf("combat.back_arc_degrees"))

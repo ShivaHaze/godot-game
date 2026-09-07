@@ -22,9 +22,11 @@ func before_each() -> void:
 
 
 func _depot() -> SimBuilding:
-	var list := world.depots()
-	assert_eq(list.size(), 1, "ein Depot auf der Handkarte")
-	return list[0]
+	for b: SimBuilding in world.depots():
+		if world.map.zone(SimMap.cell_of(b.center())) == "market":
+			return b
+	assert_true(false, "Markt-Depot auf der Handkarte")
+	return null
 
 
 func test_market_zone_blocks_damage_building_and_claims() -> void:
@@ -167,10 +169,13 @@ func test_map_generator_places_markets_with_depots() -> void:
 	var gen := SimData.load_from_dir("res://data")
 	var problems := gen.apply_map(MapGen.generate(120, 90, 7))
 	assert_true(problems.is_empty(), "Karte gültig: %s" % [problems])
-	assert_eq(gen.depot_spawns.size(), 3, "3 Märkte auf 120×90")
+	var markets := 0
 	for cell: Vector2i in gen.depot_spawns:
-		assert_eq(gen.map_tile_ids[cell.y * gen.map_width + cell.x], "market")
+		if gen.map_tile_ids[cell.y * gen.map_width + cell.x] != "market":
+			continue  # der Räuber-Outpost hat sein eigenes Depot
+		markets += 1
 		assert_eq(gen.map_tile_ids[(cell.y - 2) * gen.map_width + cell.x - 2], "market", "5×5 Marktboden")
+	assert_eq(markets, 3, "3 Märkte auf 120×90")
 	var big := SimWorld.new(gen, 1)
 	big.setup_new_game()
-	assert_eq(big.depots().size(), 3)
+	assert_eq(big.depots().size(), 4, "3 Markt-Depots und 1 Outpost-Depot")

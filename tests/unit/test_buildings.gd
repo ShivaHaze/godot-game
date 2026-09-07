@@ -180,7 +180,7 @@ func test_save_and_snapshot_carry_buildings() -> void:
 	var state := {}
 	world.tick()
 	var snap := NetProtocol.snapshot(world, player.id, known, nodes, state)
-	assert_eq(snap["bld"].size(), 2, "neues Bauteil und das Markt-Depot im Snapshot")
+	assert_eq(snap["bld"].size(), 3, "neues Bauteil und die beiden Depots im Snapshot")
 	var again := NetProtocol.snapshot(world, player.id, known, nodes, state)
 	assert_false(again.has("bld"), "unverändert: nicht nochmal")
 	var mirror := SimWorld.new(data, 0)

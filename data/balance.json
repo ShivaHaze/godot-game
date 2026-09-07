@@ -154,8 +154,28 @@
     "repair_max_loss": 0.2
   },
   "market": {
-    "_doc": "Neutraler Markt (Design [E]): kampffrei, hohe Depotgebühr als Senke. depot_fee = Anteil der eingelagerten Menge, der verloren geht (abgerundet zugunsten der Gebühr); depot_capacity = Stück je Besitzer und Depot.",
-    "depot_fee": 0.2,
+    "_doc": "Depots (alle Zonen): depot_capacity = Stück je Besitzer und Depot. Gebühren stehen je Zone unter 'zones'.",
     "depot_capacity": 200
+  },
+  "zones": {
+    "_doc": "Kartenzonen (tiles.json 'zone'). peace = kein Schaden, Projektile verpuffen, Wölfe jagen nicht, Turrets/Sprengsätze treffen nicht. depot_fee = Anteil beim Einlagern (Senke), raid_goods = Raidwaren einlagerbar. Bauen und Beanspruchen sind in jeder Zone verboten (Texte build_reason/claim_reason).",
+    "market": {
+      "name": "Neutraler Markt",
+      "peace": true,
+      "depot_fee": 0.2,
+      "raid_goods": false,
+      "build_reason": "auf dem Markt wird nicht gebaut",
+      "claim_reason": "Marktland gehört niemandem",
+      "depot_label": "Markt-Depot"
+    },
+    "outpost": {
+      "name": "Räuber-Outpost",
+      "peace": false,
+      "depot_fee": 0.05,
+      "raid_goods": true,
+      "build_reason": "im Räuber-Outpost wird nicht gebaut",
+      "claim_reason": "Outpost-Land gehört niemandem",
+      "depot_label": "Outpost-Depot"
+    }
   }
 }

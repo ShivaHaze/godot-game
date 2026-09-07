@@ -42,7 +42,7 @@ const REQUIRED_BALANCE: Array[String] = [
 	"building.reach", "building.refund_fraction", "building.melee_damage_multiplier", "building.table_capacity", "building.table_max_offers", "building.sign_max_length", "building.sign_read_distance",
 	"effects.bleeding.duration", "effects.bleeding.damage_per_second",
 	"wear.repair_cost_fraction", "wear.repair_max_loss",
-	"market.depot_fee", "market.depot_capacity", "combat.name_range", "combat.corpse_rot_hours",
+	"market.depot_capacity", "zones.market.depot_fee", "zones.outpost.depot_fee", "combat.name_range", "combat.corpse_rot_hours",
 	"claim.max_tiles_solo", "claim.tile_cost_wood", "claim.upkeep_base", "claim.upkeep_growth", "claim.stock_capacity",
 	"claim.shrink_interval_hours", "claim.grace_hours", "claim.min_anchor_distance", "claim.foreign_decay_multiplier",
 ]
@@ -147,7 +147,7 @@ func apply_map(raw: Dictionary) -> PackedStringArray:
 
 ## Roh-Dictionary der aktuellen Karte (für Übertragung und Speicherung).
 func map_dict() -> Dictionary:
-	return {"width": map_width, "height": map_height, "rows": Array(map_rows), "spawn_chars": {"P": "player", "W": "wolf", "D": "depot"}}
+	return {"width": map_width, "height": map_height, "rows": Array(map_rows), "spawn_chars": {"P": "player", "W": "wolf", "D": "depot", "R": "depot_outpost"}}
 
 
 func tile_id_at(x: int, y: int) -> String:
@@ -409,6 +409,9 @@ func _parse_map(raw: Dictionary) -> void:
 						wolf_spawns.append(Vector2i(x, y))
 					"depot":
 						map_tile_ids.append("market" if tiles.has("market") else "floor")
+						depot_spawns.append(Vector2i(x, y))
+					"depot_outpost":
+						map_tile_ids.append("outpost" if tiles.has("outpost") else "floor")
 						depot_spawns.append(Vector2i(x, y))
 					_:
 						map_tile_ids.append("floor")

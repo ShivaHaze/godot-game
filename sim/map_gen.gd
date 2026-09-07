@@ -19,6 +19,8 @@ const PLAYER: String = "P"
 const WOLF: String = "W"
 const MARKET: String = "M"
 const DEPOT: String = "D"
+const OUTPOST: String = "O"
+const OUTPOST_DEPOT: String = "R"
 const MARKET_RADIUS: int = 2  # Markt = 5×5 Kacheln mit Depot in der Mitte
 
 
@@ -87,6 +89,22 @@ static func generate(width: int, height: int, seed: int, rock_clusters_per_100: 
 			for dx in range(-MARKET_RADIUS, MARKET_RADIUS + 1):
 				grid[center.y + dy][center.x + dx] = MARKET
 		grid[center.y][center.x] = DEPOT
+	# Ein Räuber-Outpost (Design: kein Kampfverbot, niedrige Gebühr), fern der Märkte
+	for attempt in 40:
+		var center := _random_floor(grid, rng, width, height, 0.3, 1.0)
+		if center.x < MARKET_RADIUS + 1 or center.y < MARKET_RADIUS + 1 or center.x >= width - MARKET_RADIUS - 1 or center.y >= height - MARKET_RADIUS - 1:
+			continue
+		var far := true
+		for other: Vector2i in markets:
+			if other.distance_to(center) < 20.0:
+				far = false
+		if not far:
+			continue
+		for dy in range(-MARKET_RADIUS, MARKET_RADIUS + 1):
+			for dx in range(-MARKET_RADIUS, MARKET_RADIUS + 1):
+				grid[center.y + dy][center.x + dx] = OUTPOST
+		grid[center.y][center.x] = OUTPOST_DEPOT
+		break
 	# Spieler-Spawns am Rand (ruhig), Wolf-Spawns innen (gefährlich)
 	var player_spawns := maxi(1, int(inner_cells / 400.0))
 	var wolf_spawns := maxi(1, int(inner_cells / 400.0))
@@ -108,10 +126,10 @@ static func generate(width: int, height: int, seed: int, rock_clusters_per_100: 
 	for y in height:
 		rows.append("".join(grid[y]))
 	return {
-		"_doc": "Generierte Karte (MapGen, Seed %d, %d×%d). Zeichen laut tiles.json; P = Spieler-Spawn, W = Wolf-Spawn, D = Markt-Depot." % [seed, width, height],
+		"_doc": "Generierte Karte (MapGen, Seed %d, %d×%d). Zeichen laut tiles.json; P = Spieler-Spawn, W = Wolf-Spawn, D = Markt-Depot, R = Outpost-Depot." % [seed, width, height],
 		"width": width,
 		"height": height,
-		"spawn_chars": {"P": "player", "W": "wolf", "D": "depot"},
+		"spawn_chars": {"P": "player", "W": "wolf", "D": "depot", "R": "depot_outpost"},
 		"rows": rows,
 	}
 

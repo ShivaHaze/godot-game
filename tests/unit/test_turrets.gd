@@ -162,7 +162,10 @@ func test_npc_delivers_shot_to_turret_and_depot_refuses_raid_goods() -> void:
 			found = true
 	assert_true(found)
 	world.login(player.id)
-	var depot := world.depots()[0]
+	var depot: SimBuilding = null
+	for b: SimBuilding in world.depots():
+		if world.map.zone(SimMap.cell_of(b.center())) == "market":
+			depot = b
 	player.pos = depot.center() + Vector2(-1.2, 0)
 	player.inventory["powder"] = 2
 	assert_eq(world.depot_deposit(player, depot, "powder", 2), "Raidware: am neutralen Markt nicht handelbar")

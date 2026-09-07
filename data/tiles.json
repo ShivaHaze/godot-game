@@ -70,6 +70,15 @@
       "_doc": "Neutraler Markt: kampffrei (kein Schaden, Projektile verpuffen, Wölfe jagen hier nicht), nicht bebaubar, nicht beanspruchbar. D = Markt-Depot auf Marktboden."
     },
     {
+      "id": "outpost",
+      "char": "O",
+      "name": "Räuber-Outpost",
+      "walkable": true,
+      "color": "#4a3030",
+      "zone": "outpost",
+      "_doc": "Kein Kampfverbot, Depot mit niedriger Gebühr, Raidwaren erlaubt (Schwefelware zwingt hierher). R = Outpost-Depot."
+    },
+    {
       "id": "iron_vein",
       "char": "I",
       "name": "Eisenader",

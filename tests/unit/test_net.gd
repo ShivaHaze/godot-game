@@ -35,8 +35,9 @@ func test_snapshot_contains_only_aoi_and_own_details() -> void:
 	world.add_marker(id)
 	world.tick()
 	var known := {}
+	var building_state := {}  # Bauteile (Depots) nur einmal, wie auf dem Server
 	var node_state := {}
-	var snap := NetProtocol.snapshot(world, id, known, node_state)
+	var snap := NetProtocol.snapshot(world, id, known, node_state, building_state)
 	var ids := {}
 	for row: Array in snap["chars"]:
 		ids[int(row[0])] = row
@@ -47,7 +48,7 @@ func test_snapshot_contains_only_aoi_and_own_details() -> void:
 	for intro: Dictionary in snap["intro"]:
 		assert_false(intro.has("rules"), "fremde Regeln werden nie gesendet")
 	assert_true(snap.has("nodes"), "erster Snapshot bringt die Quellen mit")
-	var second := NetProtocol.snapshot(world, id, known, node_state)
+	var second := NetProtocol.snapshot(world, id, known, node_state, building_state)
 	assert_false(second.has("intro"), "bekannte Charaktere: keine Stammdaten mehr")
 	assert_false(second.has("nodes"), "unveränderte Quellen gehen nicht nochmal mit")
 	var block := NetProtocol.self_block(me)
