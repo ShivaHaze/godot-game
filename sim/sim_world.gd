@@ -324,8 +324,10 @@ func refresh_equipment(c: SimCharacter) -> void:
 		c.melee_damage = float(weapon["damage"])
 		c.melee_range = float(weapon["range"])
 		c.melee_cooldown = float(weapon["cooldown"])
+		c.melee_effect = String(weapon.get("effect", ""))
 	else:
 		c.melee_damage = 0.0
+		c.melee_effect = ""
 
 
 ## Werkbank: baut einen Gegenstand (Ausrüstung) oder ein Verbrauchsgut (Rohstoff mit 'cost'). Rückgabe: leer = gebaut, sonst der Grund.
@@ -386,7 +388,7 @@ func heal_item_of(c: SimCharacter) -> String:
 
 ## Heilung = Kanalisierung: heal_time Sekunden ohne Angriff (Laufen erlaubt), dann +heal Leben, Verband weg.
 func _update_healing(c: SimCharacter, intent: SimIntent, dt: float) -> void:
-	if not intent.heal or intent.shoot or intent.melee or c.hp >= c.max_hp:
+	if not intent.heal or intent.shoot or intent.melee or (c.hp >= c.max_hp and not has_effect(c, "bleeding")):
 		c.heal_progress = 0.0
 		return
 	var rid := heal_item_of(c)
@@ -400,7 +402,41 @@ func _update_healing(c: SimCharacter, intent: SimIntent, dt: float) -> void:
 		var before := c.hp
 		c.hp = minf(c.max_hp, c.hp + float(def["heal"]))
 		c.inventory[rid] = int(c.inventory[rid]) - 1
-		events.append({"type": "healed", "id": c.id, "amount": c.hp - before, "resource": rid, "left": int(c.inventory[rid])})
+		var stopped := c.effects.erase("bleeding")  # Gegenmittel der Blutung
+		events.append({"type": "healed", "id": c.id, "amount": c.hp - before, "resource": rid, "left": int(c.inventory[rid]), "stopped_bleeding": stopped})
+
+
+# --- Zustandseffekte ------------------------------------------------------
+
+func has_effect(c: SimCharacter, effect: String) -> bool:
+	return float(c.effects.get(effect, -1e9)) > time
+
+
+## Effekt anlegen oder verlängern; ignoriert Rüstung. Chronik nur beim Beginn.
+func apply_effect(c: SimCharacter, effect: String, attacker_id: int) -> void:
+	if c.dead or not data.balance.get("effects", {}).has(effect):
+		return
+	var fresh := not has_effect(c, effect)
+	c.effects[effect] = time + data.balf("effects.%s.duration" % effect)
+	events.append({"type": "effect", "id": c.id, "effect": effect, "attacker": attacker_id, "fresh": fresh})
+	if fresh and c.kind == SimCharacter.Kind.PLAYER and c.control == SimCharacter.Controller.RULES:
+		SimChronicle.add(self, c, "blutet" if effect == "bleeding" else effect)
+
+
+## Laufende Effekte: Blutung zieht Leben ohne Rüstung ab und kann töten ("verblutet").
+func _update_effects(c: SimCharacter, dt: float) -> void:
+	if c.effects.is_empty():
+		return
+	for effect: String in c.effects.keys():
+		if float(c.effects[effect]) <= time:
+			c.effects.erase(effect)
+			events.append({"type": "effect_ended", "id": c.id, "effect": effect})
+			continue
+		if effect == "bleeding":
+			c.hp = maxf(0.0, c.hp - data.balf("effects.bleeding.damage_per_second") * dt)
+			if c.hp <= 0.0:
+				_kill(c, c.last_attacker_id, "verblutet")
+				return
 
 
 func set_active_weapon(c: SimCharacter, item_id: String) -> bool:
@@ -984,6 +1020,7 @@ func _apply_intent(c: SimCharacter, intent: SimIntent, dt: float) -> void:
 		_melee(c)
 	_update_healing(c, intent, dt)
 	_update_hiding(c, intent, dt)
+	_update_effects(c, dt)
 
 	c.fire_cooldown = maxf(0.0, c.fire_cooldown - dt)
 	c.bite_cooldown = maxf(0.0, c.bite_cooldown - dt)
@@ -1137,7 +1174,7 @@ func _melee(c: SimCharacter) -> void:
 		return
 	c.bite_cooldown = c.melee_cooldown
 	reveal(c)
-	apply_damage(target, c.melee_damage, (target.pos - c.pos).normalized(), c.id)
+	apply_damage(target, c.melee_damage, (target.pos - c.pos).normalized(), c.id, c.melee_effect)
 
 
 ## Nächster lebender, sichtbarer Charakter eines anderen Besitzers im Radius.
@@ -1192,7 +1229,7 @@ func _projectile_victim(p: SimProjectile) -> SimCharacter:
 
 
 ## Fügt Schaden mit Richtungstreffer zu. hit_dir = Flugrichtung des Treffers (Angreifer -> Opfer).
-func apply_damage(victim: SimCharacter, base_damage: float, hit_dir: Vector2, attacker_id: int) -> Dictionary:
+func apply_damage(victim: SimCharacter, base_damage: float, hit_dir: Vector2, attacker_id: int, effect: String = "") -> Dictionary:
 	var side := SimCombat.hit_side(victim.facing, hit_dir, data.balf("combat.front_arc_degrees"), data.balf("combat.back_arc_degrees"))
 	var amount := SimCombat.damage(base_damage, victim.armor, side, data)
 	victim.hp = maxf(0.0, victim.hp - amount)
@@ -1207,19 +1244,22 @@ func apply_damage(victim: SimCharacter, base_damage: float, hit_dir: Vector2, at
 		unlock(victim.owner_id, "attacked_by_npc", victim)
 	if victim.hp <= 0.0:
 		_kill(victim, attacker_id)
+	elif not effect.is_empty():
+		apply_effect(victim, effect, attacker_id)
 	return event
 
 
-func _kill(victim: SimCharacter, attacker_id: int) -> void:
+func _kill(victim: SimCharacter, attacker_id: int, cause: String = "") -> void:
 	victim.dead = true
 	victim.hp = 0.0
 	victim.hidden = false
+	victim.effects.clear()
 	victim.death_time = time
 	var attacker := get_character(attacker_id)
 	var attacker_name := attacker.name if attacker != null else "Unbekannt"
-	events.append({"type": "death", "id": victim.id, "attacker": attacker_id})
+	events.append({"type": "death", "id": victim.id, "attacker": attacker_id, "cause": cause})
 	if victim.kind == SimCharacter.Kind.PLAYER:
-		SimChronicle.add(self, victim, "gestorben durch %s" % attacker_name)
+		SimChronicle.add(self, victim, ("%s, zuletzt getroffen von %s" % [cause, attacker_name]) if not cause.is_empty() else "gestorben durch %s" % attacker_name)
 	if attacker != null and attacker.kind == SimCharacter.Kind.PLAYER and attacker.control == SimCharacter.Controller.RULES:
 		SimChronicle.add(self, attacker, "%s getötet" % victim.name)
 

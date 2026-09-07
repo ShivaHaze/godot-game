@@ -26,6 +26,8 @@ var death_time: float = -1e9
 var melee_damage: float = 0.0        # 0 = kein Nahkampf (Spielercharaktere schießen nur)
 var melee_range: float = 0.9
 var melee_cooldown: float = 1.0
+var melee_effect: String = ""       # Zustandseffekt der Nahkampfwaffe (z. B. bleeding)
+var effects: Dictionary = {}         # Zustandseffekt -> Sim-Zeit, bis zu der er wirkt
 
 var hunger: float = 100.0
 var inventory: Dictionary = {}       # Rohstoff-Kennung -> Anzahl

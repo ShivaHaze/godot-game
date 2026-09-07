@@ -224,6 +224,9 @@ func _draw_characters() -> void:
 		if c.hidden:
 			color.a = 0.35
 		draw_rect(Rect2(top_left, Vector2(size, size)), color)
+		if world.has_effect(c, "bleeding"):
+			draw_rect(Rect2(top_left, Vector2(size, size)), Color(0.8, 0.05, 0.05), false, 2.0)
+			draw_circle(p + Vector2(size * 0.35, size * 0.45), 3.0, Color(0.8, 0.05, 0.05))
 		draw_line(p, p + c.facing * TILE * 0.6, Color(1, 1, 1, 0.9), 2.0)
 		# Lebensbalken
 		draw_rect(Rect2(top_left.x, top_left.y - 7, size, 4), Color(0, 0, 0, 0.6))

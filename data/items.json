@@ -1,5 +1,5 @@
 {
-  "_doc": "Ausrüstung: Waffen und Rüstung. Spieler und Offline-NPC nutzen dieselben Werte. 'cost' = Rohstoffe, die die Werkbank (Taste C) verbraucht; leer = nicht baubar. 'starting' = gehört jedem neuen Charakter. Waffen: 'attack' ranged (Projektil: damage, projectile_speed, projectile_lifetime, cooldown, max_projectiles) oder melee (damage, range, cooldown). Rüstung: 'armor' = flacher Abzug pro Treffer; die beste besessene Rüstung zählt.",
+  "_doc": "Ausrüstung: Waffen und Rüstung. Spieler und Offline-NPC nutzen dieselben Werte. 'cost' = Rohstoffe, die die Werkbank (Taste C) verbraucht; leer = nicht baubar. 'starting' = gehört jedem neuen Charakter. Waffen: 'attack' ranged (Projektil: damage, projectile_speed, projectile_lifetime, cooldown, max_projectiles) oder melee (damage, range, cooldown). Rüstung: 'armor' = flacher Abzug pro Treffer; die beste besessene Rüstung zählt. 'effect' = Zustandseffekt, den ein Treffer auslöst (balance.json 'effects'); ignoriert Rüstung.",
   "items": [
     {
       "id": "sling",
@@ -39,7 +39,8 @@
       "cost": {
         "stone": 2,
         "wood": 2
-      }
+      },
+      "effect": "bleeding"
     },
     {
       "id": "wood_armor",

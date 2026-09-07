@@ -22,7 +22,7 @@ func test_real_data_is_valid() -> void:
 	var data := SimData.load_from_dir("res://data")
 	assert_true(data.is_valid(), "Fehler: %s" % data.errors)
 	assert_eq(data.resource_order, ["wood", "berries", "stone", "fibers", "bandage"] as Array[String])
-	assert_eq(data.condition_order.size(), 8, "5 Bedingungen + Sonst + gesperrte 'Fremder im Claim' und 'Sensor ausgelöst'")
+	assert_eq(data.condition_order.size(), 9, "5 Bedingungen + Sonst + gesperrte 'Fremder im Claim', 'Sensor ausgelöst' und 'blutet'")
 	assert_eq(data.action_order.size(), 9, "6 Start-Aktionen + gesperrte 'greife an', 'verbinde dich', 'liefere'")
 	assert_eq(data.role_order, ["hide", "guard", "gatherer", "trader"] as Array[String])
 	assert_eq(data.else_condition_id, "else")

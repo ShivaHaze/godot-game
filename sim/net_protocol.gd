@@ -17,7 +17,8 @@ const SNAPSHOT_EVERY_TICKS: int = 2     # 20 Hz Sim -> 10 Hz Snapshots
 
 const FLAG_DEAD: int = 1
 const FLAG_HIDDEN: int = 2
-const CONTROL_SHIFT: int = 2
+const FLAG_BLEEDING: int = 4
+const CONTROL_SHIFT: int = 3
 
 
 static func encode(msg: Dictionary) -> PackedByteArray:
@@ -73,7 +74,7 @@ static func character_intro(c: SimCharacter) -> Dictionary:
 
 ## Bewegliche Daten eines Charakters, kompakt.
 static func character_dynamic(c: SimCharacter) -> Array:
-	var flags := (FLAG_DEAD if c.dead else 0) | (FLAG_HIDDEN if c.hidden else 0) | (int(c.control) << CONTROL_SHIFT)
+	var flags := (FLAG_DEAD if c.dead else 0) | (FLAG_HIDDEN if c.hidden else 0) | (FLAG_BLEEDING if c.effects.has("bleeding") else 0) | (int(c.control) << CONTROL_SHIFT)
 	return [c.id, PackedFloat32Array([c.pos.x, c.pos.y, c.facing.x, c.facing.y, c.hp, c.gather_progress, c.heal_progress]), flags]
 
 
@@ -225,6 +226,10 @@ static func apply_snapshot(mirror: SimWorld, snap: Dictionary) -> void:
 		c.heal_progress = values[6] if values.size() > 6 else 0.0
 		c.dead = (flags & FLAG_DEAD) != 0
 		c.hidden = (flags & FLAG_HIDDEN) != 0
+		if (flags & FLAG_BLEEDING) != 0:
+			c.effects["bleeding"] = 1e18  # Dauer kennt der Client nicht; Anzeige bis der Server sie beendet
+		else:
+			c.effects.erase("bleeding")
 		c.control = (flags >> CONTROL_SHIFT) as SimCharacter.Controller
 	for id: int in mirror.characters.keys():
 		if not seen.has(id):

@@ -181,6 +181,8 @@ func refresh() -> void:
 		state = "\nTOT"
 	elif c.hidden:
 		state = "\nversteckt"
+	if not c.dead and world.has_effect(c, "bleeding"):
+		state += "\nBLUTET – Verband anlegen (H)"
 	var here := world.claims.claim_at_pos(c.pos)
 	var mine := world.claims.claim_of_owner(c.owner_id)
 	if mine != null:

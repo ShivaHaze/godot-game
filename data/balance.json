@@ -1,15 +1,11 @@
 {
   "_doc": "Alle Tuning-Werte des Prototyps. Einheiten: Zeiten in Sekunden, Distanzen in Kacheln, Geschwindigkeiten in Kacheln pro Sekunde, Schaden in Lebenspunkten. Wer hier Zahlen ändert, braucht keinen Code anzufassen. Schlüssel mit Unterstrich davor sind nur Erklärungen.",
-
   "tick_rate": 20,
   "_tick_rate": "Simulationsschritte pro Sekunde (fester Tick).",
-
   "clock_start_hour": 8,
   "_clock_start_hour": "Uhrzeit beim Spielstart, für die Zeitstempel der Chronik.",
-
   "time_skip_hours": 8,
   "_time_skip_hours": "Wie viele Stunden der Zeitsprung-Knopf überspringt.",
-
   "character": {
     "_doc": "Gilt für Spieler und Offline-NPC gleichermaßen (gleicher Körper, gleiches Kampfsystem).",
     "max_hp": 30,
@@ -22,7 +18,6 @@
     "interact_range": 1.3,
     "_interact_range": "Maximale Distanz (Mitte zu Kachelmitte) zum Sammeln oder Plündern."
   },
-
   "hunger": {
     "_doc": "Hunger ist Unterhalt, kein Minispiel. 100 = satt, 0 = geschwächt.",
     "max": 100,
@@ -34,19 +29,16 @@
     "decay_per_second_offline": 0.006,
     "_decay_per_second_offline": "Abbau pro Sekunde im NPC-Modus, stark verlangsamt (100 -> 0 in ca. 4,6 Stunden)."
   },
-
   "inventory": {
     "capacity": 20,
     "_capacity": "Gesamtzahl aller Gegenstände, ab der das Inventar als 'voll' gilt."
   },
-
   "gathering": {
     "gather_time": 0.8,
     "_gather_time": "Sekunden pro gesammeltem Gegenstand.",
     "node_regrow_time": 120.0,
     "_node_regrow_time": "Sekunden, bis eine Quelle einen Gegenstand nachwachsen lässt."
   },
-
   "combat": {
     "_doc": "Richtungstreffer und Rüstung. Waffenwerte (Schaden, Projektile, Cooldown) stehen in items.json. TTK nackt mit der Schleuder ca. 3 Treffer.",
     "front_arc_degrees": 120,
@@ -62,7 +54,6 @@
     "under_attack_window": 5.0,
     "_under_attack_window": "Sekunden nach dem letzten Treffer, in denen 'wird angegriffen' wahr ist."
   },
-
   "wolf": {
     "_doc": "Einfacher PvE-Druck: nähert sich, beißt, flieht bei niedrigem Leben.",
     "max_hp": 24,
@@ -86,7 +77,6 @@
     "_respawn_time": "Sekunden, bis ein toter Wolf an einem Wolf-Spawn ersetzt wird.",
     "max_alive": 3
   },
-
   "logout": {
     "_doc": "Ausloggen macht nie sofort sicher (Design [E]). Während des Übergangs kann sich der Charakter nicht verstecken.",
     "transition_seconds": 45,
@@ -94,7 +84,6 @@
     "combat_window": 60,
     "_combat_window": "Kam in diesen Sekunden vor oder nach dem Ausloggen Schaden, beginnt der Übergang erst danach."
   },
-
   "npc": {
     "_doc": "Verhalten des Charakters im Offline-Modus (Regelmaschine).",
     "default_leash_radius": 6.0,
@@ -112,7 +101,6 @@
     "skip_relog_minutes": 30,
     "_skip_relog_minutes": "Eine übersprungene Regel mit demselben Grund wird frühestens nach so vielen Minuten erneut in der Chronik vermerkt."
   },
-
   "building": {
     "_doc": "Bauen (nur live). Reichweite vom Charakter zum Bauteil, Rückgabe beim Abriss eigener Teile, Nahkampfschaden gegen Holz.",
     "reach": 3.0,
@@ -125,7 +113,6 @@
     "sign_max_length": 80,
     "sign_read_distance": 5.0
   },
-
   "claim": {
     "_doc": "Land: Anker + zusammenhängende Kacheln. Unterhalt je Stunde in Holz = upkeep_base * Kacheln * (1 + Kacheln / upkeep_growth), abgeliefert am Anker (E daneben). Ohne Vorrat schrumpft der Claim alle shrink_interval_hours um die äußerste Kachel.",
     "max_tiles_solo": 40,
@@ -141,7 +128,6 @@
     "foreign_decay_multiplier": 3.0,
     "_foreign_decay_multiplier": "Bauteile auf fremdem oder verlorenem Land verfallen so viel schneller."
   },
-
   "offline": {
     "_doc": "Zeitsprung: die Sim tickt ohne Darstellung. Ohne Gefahr in der Nähe grob (Simulationsstufen), bei Kampf fein.",
     "coarse_tick_dt": 1.0,
@@ -150,5 +136,12 @@
     "_hot_radius": "Zeitsprung: Feind näher als das an einem Spielercharakter = fein simulieren.",
     "lod_radius": 12.0,
     "_lod_radius": "Server: Charaktere ohne Online-Spieler in dieser Distanz laufen grob (Simulationsstufen)."
+  },
+  "effects": {
+    "_doc": "Zustandseffekte ignorieren Rüstung; je eine Quelle und ein Gegenmittel (Design). Blutung: Klingen (Steinbeil) verursachen sie, ein fertig angelegter Verband stoppt sie; ein neuer Klingentreffer verlängert.",
+    "bleeding": {
+      "duration": 8.0,
+      "damage_per_second": 1.0
+    }
   }
 }

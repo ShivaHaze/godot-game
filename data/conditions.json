@@ -140,6 +140,21 @@
       }
     },
     {
+      "id": "bleeding",
+      "label": "blutet",
+      "log": "blutet",
+      "unlock": {
+        "fact": "owned_bandage",
+        "label": "Frei, sobald du einen Verband hergestellt hast."
+      },
+      "params": [],
+      "check": {
+        "fact": "is_bleeding",
+        "op": "==",
+        "value": true
+      }
+    },
+    {
       "id": "else",
       "label": "Sonst",
       "log": "sonst",
