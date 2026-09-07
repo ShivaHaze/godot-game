@@ -1,5 +1,5 @@
 {
-  "_doc": "Ausrüstung: Waffen und Rüstung. Spieler und Offline-NPC nutzen dieselben Werte. 'cost' = Rohstoffe, die die Werkbank (Taste C) verbraucht; leer = nicht baubar. 'starting' = gehört jedem neuen Charakter. Waffen: 'attack' ranged (Projektil: damage, projectile_speed, projectile_lifetime, cooldown, max_projectiles) oder melee (damage, range, cooldown). Rüstung: 'armor' = flacher Abzug pro Treffer; die beste besessene Rüstung zählt. 'effect' = Zustandseffekt, den ein Treffer auslöst (balance.json 'effects'); ignoriert Rüstung.",
+  "_doc": "Ausrüstung: Waffen und Rüstung. Spieler und Offline-NPC nutzen dieselben Werte. 'cost' = Rohstoffe, die die Werkbank (Taste C) verbraucht; leer = nicht baubar. 'starting' = gehört jedem neuen Charakter. Waffen: 'attack' ranged (Projektil: damage, projectile_speed, projectile_lifetime, cooldown, max_projectiles) oder melee (damage, range, cooldown). Rüstung: 'armor' = flacher Abzug pro Treffer; die beste besessene Rüstung zählt. 'effect' = Zustandseffekt, den ein Treffer auslöst (balance.json 'effects'); ignoriert Rüstung. 'durability' = Nutzungen (Schuss/Schlag bzw. bei Rüstung erlittene Treffer), bis der Gegenstand zerbricht; Reparatur an der Werkbank, siehe balance.json 'wear'.",
   "items": [
     {
       "id": "sling",
@@ -12,7 +12,11 @@
       "cooldown": 0.5,
       "max_projectiles": 3,
       "starting": true,
-      "cost": {}
+      "cost": {
+        "fibers": 2,
+        "wood": 1
+      },
+      "durability": 120
     },
     {
       "id": "club",
@@ -25,7 +29,8 @@
       "starting": false,
       "cost": {
         "wood": 3
-      }
+      },
+      "durability": 60
     },
     {
       "id": "stone_axe",
@@ -40,7 +45,8 @@
         "stone": 2,
         "wood": 2
       },
-      "effect": "bleeding"
+      "effect": "bleeding",
+      "durability": 50
     },
     {
       "id": "wood_armor",
@@ -50,7 +56,8 @@
       "starting": false,
       "cost": {
         "wood": 6
-      }
+      },
+      "durability": 40
     }
   ]
 }

@@ -175,7 +175,7 @@ static func self_block(viewer: SimCharacter) -> Dictionary:
 	for marker: Dictionary in viewer.markers:
 		markers.append({"id": marker["id"], "name": marker["name"], "pos": [marker["pos"].x, marker["pos"].y]})
 	return {
-		"inv": viewer.inventory.duplicate(), "items": viewer.items.duplicate(),
+		"inv": viewer.inventory.duplicate(), "items": viewer.items.duplicate(), "dur": viewer.durability.duplicate(true),
 		"weapon": viewer.active_weapon, "rules": viewer.rules.duplicate(true),
 		"role": viewer.role_id, "markers": markers, "chronicle": chronicle,
 		"logout_time": viewer.logout_time, "last_damage_time": viewer.last_damage_time,
@@ -322,6 +322,10 @@ static func apply_self(mirror: SimWorld, you_id: int, block: Dictionary) -> void
 	for item_id: Variant in block.get("items", []):
 		you.items.append(String(item_id))
 	you.active_weapon = String(block.get("weapon", ""))
+	you.durability = {}
+	for item_id: Variant in block.get("dur", {}):
+		var entry: Dictionary = block["dur"][item_id]
+		you.durability[String(item_id)] = {"left": float(entry["left"]), "max": float(entry["max"])}
 	you.rules = block.get("rules", [])
 	you.role_id = String(block.get("role", ""))
 	you.markers = []

@@ -126,6 +126,11 @@ func _on_message(peer: ENetPacketPeer, msg: Dictionary) -> void:
 			if c != null and c.control == SimCharacter.Controller.PLAYER and not c.dead:
 				var reason := world.craft(c, String(msg.get("item", "")))
 				_send(peer, {"t": "info", "text": ("%s gebaut." % data.items[msg["item"]]["name"]) if reason.is_empty() else "Geht nicht: %s" % reason}, true)
+		"repair":
+			if c != null and c.control == SimCharacter.Controller.PLAYER and not c.dead:
+				var item_id := String(msg.get("item", ""))
+				var reason := world.repair(c, item_id)
+				_send(peer, {"t": "info", "text": ("%s repariert." % data.items.get(item_id, {}).get("name", item_id)) if reason.is_empty() else "Geht nicht: %s" % reason}, true)
 		"weapon":
 			if c != null:
 				world.set_active_weapon(c, String(msg.get("item", "")))

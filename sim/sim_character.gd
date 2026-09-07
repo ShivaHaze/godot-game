@@ -33,6 +33,7 @@ var hunger: float = 100.0
 var inventory: Dictionary = {}       # Rohstoff-Kennung -> Anzahl
 var items: Array[String] = []        # Besessene Ausrüstung (Kennungen aus items.json)
 var active_weapon: String = ""       # Aktive Waffe (Kennung) oder leer
+var durability: Dictionary = {}      # Gegenstand -> {"left": Rest, "max": aktuelles Maximum}; siehe balance.json wear
 
 var fire_cooldown: float = 0.0
 var last_damage_time: float = -1e9   # Sim-Zeit des letzten erlittenen Treffers

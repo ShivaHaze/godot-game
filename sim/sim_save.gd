@@ -141,6 +141,7 @@ static func character_to_dict(c: SimCharacter) -> Dictionary:
 	dict["gather_target"] = v2i(c.gather_target)
 	dict["inventory"] = c.inventory.duplicate()
 	dict["effects"] = c.effects.duplicate()
+	dict["durability"] = c.durability.duplicate(true)
 	var skipped := []
 	for index: int in c.skipped_rules:
 		skipped.append({"index": index, "reason": c.skipped_rules[index]["reason"], "time": c.skipped_rules[index]["time"]})
@@ -187,6 +188,10 @@ static func character_from_dict(data: SimData, dict: Dictionary) -> SimCharacter
 	c.effects = {}
 	for effect: Variant in dict.get("effects", {}):
 		c.effects[String(effect)] = float(dict["effects"][effect])
+	c.durability = {}
+	for item_id: Variant in dict.get("durability", {}):
+		var entry: Dictionary = dict["durability"][item_id]
+		c.durability[String(item_id)] = {"left": float(entry["left"]), "max": float(entry["max"])}
 	c.rules = data.normalize_rule_list(dict.get("rules", []), "Spielstand Charakter %d" % c.id) if not dict.get("rules", []).is_empty() else []
 	c.markers = []
 	for marker: Dictionary in dict.get("markers", []):

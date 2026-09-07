@@ -49,7 +49,7 @@ func _run() -> void:
 	await _frames(5)
 	await _shot("2a2_schild_chat")
 	main.hud.chat_input.visible = false
-	main.craft_panel.open(main.data, main.world.get_character(main.player_id))
+	main.craft_panel.open(main.data, main.world.get_character(main.player_id), main.world)
 	await _frames(5)
 	await _shot("2b_werkbank")
 	main.craft_panel.close()

@@ -143,5 +143,10 @@
       "duration": 8.0,
       "damage_per_second": 1.0
     }
+  },
+  "wear": {
+    "_doc": "Verschleiß (Design-Senke): jede Nutzung kostet 1 Haltbarkeit, bei 0 zerbricht der Gegenstand. Reparatur an der Werkbank kostet repair_cost_fraction der Baukosten (aufgerundet) und senkt das Maximum je Reparatur um repair_max_loss der ursprünglichen Haltbarkeit – nie wieder 100 %, irgendwann nicht mehr reparierbar (Maximum < 1).",
+    "repair_cost_fraction": 0.5,
+    "repair_max_loss": 0.2
   }
 }

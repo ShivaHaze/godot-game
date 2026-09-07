@@ -3,16 +3,19 @@ extends CanvasLayer
 ## der Bau selbst läuft über das Signal in die Sim (main.gd -> SimWorld.craft).
 
 signal craft_requested(item_id: String)
+signal repair_requested(item_id: String)
 signal closed
 
 var data: SimData
 var character: SimCharacter
+var world: SimWorld
 
 var _root: PanelContainer
 var _rows: VBoxContainer
 var _status: Label
 var _buttons: Dictionary = {}  # item_id -> Button
 var _info: Dictionary = {}     # item_id -> Label
+var _repair: Dictionary = {}   # item_id -> Button
 
 
 func _ready() -> void:
@@ -23,8 +26,8 @@ func _ready() -> void:
 	_root.anchor_right = 0.5
 	_root.anchor_top = 0.5
 	_root.anchor_bottom = 0.5
-	_root.offset_left = -300
-	_root.offset_right = 300
+	_root.offset_left = -440
+	_root.offset_right = 440
 	_root.offset_top = -160
 	_root.offset_bottom = 160
 	add_child(_root)
@@ -47,9 +50,10 @@ func _ready() -> void:
 	vbox.add_child(close)
 
 
-func open(p_data: SimData, p_character: SimCharacter) -> void:
+func open(p_data: SimData, p_character: SimCharacter, p_world: SimWorld = null) -> void:
 	data = p_data
 	character = p_character
+	world = p_world
 	_status.text = ""
 	_build_rows()
 	refresh()
@@ -70,6 +74,7 @@ func _build_rows() -> void:
 		child.queue_free()
 	_buttons.clear()
 	_info.clear()
+	_repair.clear()
 	var all_ids: Array[String] = []
 	all_ids.assign(data.item_order)
 	all_ids.append_array(data.craftable_resources())
@@ -83,7 +88,7 @@ func _build_rows() -> void:
 		row.add_child(name_label)
 		var info := Label.new()
 		info.text = _describe(def)
-		info.custom_minimum_size = Vector2(230, 0)
+		info.custom_minimum_size = Vector2(330, 0)
 		row.add_child(info)
 		_info[item_id] = info
 		var cost := Label.new()
@@ -95,6 +100,12 @@ func _build_rows() -> void:
 		button.pressed.connect(func() -> void: craft_requested.emit(item_id))
 		row.add_child(button)
 		_buttons[item_id] = button
+		if data.items.has(item_id):
+			var repair := Button.new()
+			repair.text = "Reparieren"
+			repair.pressed.connect(func() -> void: repair_requested.emit(item_id))
+			row.add_child(repair)
+			_repair[item_id] = repair
 		_rows.add_child(row)
 
 
@@ -128,6 +139,18 @@ func refresh() -> void:
 	for item_id: String in _buttons:
 		var def: Dictionary = data.items[item_id] if data.items.has(item_id) else data.resources[item_id]
 		var button: Button = _buttons[item_id]
+		if _repair.has(item_id):
+			var repair: Button = _repair[item_id]
+			repair.visible = character.items.has(item_id)
+			if world != null and character.items.has(item_id):
+				var reason := world.repair_reason(character, item_id)
+				var cost_parts: PackedStringArray = []
+				for rid: String in world.repair_cost(item_id):
+					cost_parts.append("%d %s" % [int(world.repair_cost(item_id)[rid]), data.resources[rid]["name"]])
+				repair.text = "Reparieren (%s)" % ", ".join(cost_parts)
+				repair.disabled = not reason.is_empty()
+				repair.tooltip_text = reason
+				_info[item_id].text = _describe(def) + " · Zustand %d/%d" % [int(ceilf(world.durability_left(character, item_id))), int(world.durability_max(character, item_id))]
 		if data.items.has(item_id) and character.items.has(item_id):
 			button.text = "vorhanden"
 			button.disabled = true

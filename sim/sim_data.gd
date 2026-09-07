@@ -41,6 +41,7 @@ const REQUIRED_BALANCE: Array[String] = [
 	"offline.coarse_tick_dt", "offline.hot_radius", "offline.lod_radius",
 	"building.reach", "building.refund_fraction", "building.melee_damage_multiplier", "building.table_capacity", "building.table_max_offers", "building.sign_max_length", "building.sign_read_distance",
 	"effects.bleeding.duration", "effects.bleeding.damage_per_second",
+	"wear.repair_cost_fraction", "wear.repair_max_loss",
 	"claim.max_tiles_solo", "claim.tile_cost_wood", "claim.upkeep_base", "claim.upkeep_growth", "claim.stock_capacity",
 	"claim.shrink_interval_hours", "claim.grace_hours", "claim.min_anchor_distance", "claim.foreign_decay_multiplier",
 ]
@@ -504,7 +505,7 @@ func _parse_items(raw: Dictionary) -> void:
 		errors.append("items.json: 'items' muss ein Array sein")
 		return
 	for entry: Variant in list:
-		if not _require_fields(entry, {"id": TYPE_STRING, "name": TYPE_STRING, "kind": TYPE_STRING, "starting": TYPE_BOOL, "cost": TYPE_DICTIONARY}, "items.json"):
+		if not _require_fields(entry, {"id": TYPE_STRING, "name": TYPE_STRING, "kind": TYPE_STRING, "starting": TYPE_BOOL, "cost": TYPE_DICTIONARY, "durability": TYPE_FLOAT}, "items.json"):
 			continue
 		var id := String(entry["id"])
 		var context := "items.json Gegenstand '%s'" % id

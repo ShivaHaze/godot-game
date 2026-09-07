@@ -67,6 +67,7 @@ func spawn_player(pos: Vector2, owner_id: String, display_name: String) -> SimCh
 	for item_id: String in data.item_order:
 		if data.items[item_id].get("starting", false):
 			c.items.append(item_id)
+			c.durability[item_id] = {"left": float(data.items[item_id]["durability"]), "max": float(data.items[item_id]["durability"])}
 			if c.active_weapon.is_empty() and data.items[item_id]["kind"] == "weapon":
 				c.active_weapon = item_id
 	refresh_equipment(c)
@@ -349,9 +350,95 @@ func craft(c: SimCharacter, item_id: String) -> String:
 	for rid: String in cost:
 		c.inventory[rid] = int(c.inventory[rid]) - int(cost[rid])
 	c.items.append(item_id)
+	c.durability[item_id] = {"left": float(def["durability"]), "max": float(def["durability"])}
 	refresh_equipment(c)
 	events.append({"type": "craft", "id": c.id, "item": item_id})
 	return ""
+
+
+# --- Verschleiß und Reparatur ---------------------------------------------
+
+func durability_left(c: SimCharacter, item_id: String) -> float:
+	return float(c.durability.get(item_id, {}).get("left", 0.0))
+
+
+func durability_max(c: SimCharacter, item_id: String) -> float:
+	return float(c.durability.get(item_id, {}).get("max", 0.0))
+
+
+## Reparaturkosten: Anteil der Baukosten, aufgerundet. Leer = nicht reparierbar.
+func repair_cost(item_id: String) -> Dictionary:
+	var cost: Dictionary = data.items.get(item_id, {}).get("cost", {})
+	var result := {}
+	for rid: String in cost:
+		result[rid] = int(ceilf(float(cost[rid]) * data.balf("wear.repair_cost_fraction")))
+	return result
+
+
+## Warum die Werkbank einen Gegenstand nicht reparieren kann; leer = möglich.
+func repair_reason(c: SimCharacter, item_id: String) -> String:
+	if not c.items.has(item_id):
+		return "nicht vorhanden"
+	if c.control != SimCharacter.Controller.PLAYER or c.dead:
+		return "nur live"
+	var cost := repair_cost(item_id)
+	if cost.is_empty():
+		return "nicht reparierbar"
+	var left := durability_left(c, item_id)
+	var current_max := durability_max(c, item_id)
+	if left >= current_max - 0.001:
+		return "nicht abgenutzt"
+	var next_max := current_max - float(data.items[item_id]["durability"]) * data.balf("wear.repair_max_loss")
+	if next_max < 1.0:
+		return "zu abgenutzt, nicht mehr reparierbar"
+	for rid: String in cost:
+		if int(c.inventory.get(rid, 0)) < int(cost[rid]):
+			return "zu wenig %s (%d nötig)" % [data.resources[rid]["name"], int(cost[rid])]
+	return ""
+
+
+## Repariert an der Werkbank: zurück auf das gesunkene Maximum (nie wieder 100 %). Rückgabe: Grund oder leer.
+func repair(c: SimCharacter, item_id: String) -> String:
+	var reason := repair_reason(c, item_id)
+	if not reason.is_empty():
+		return reason
+	var cost := repair_cost(item_id)
+	for rid: String in cost:
+		c.inventory[rid] = int(c.inventory[rid]) - int(cost[rid])
+	var next_max := durability_max(c, item_id) - float(data.items[item_id]["durability"]) * data.balf("wear.repair_max_loss")
+	c.durability[item_id] = {"left": next_max, "max": next_max}
+	events.append({"type": "repair", "id": c.id, "item": item_id, "max": next_max})
+	return ""
+
+
+## Eine Nutzung abziehen; bei 0 zerbricht der Gegenstand (Ereignis, Chronik für Offline-Charaktere).
+func wear(c: SimCharacter, item_id: String, amount: float = 1.0) -> void:
+	if not c.items.has(item_id):
+		return
+	if not c.durability.has(item_id):
+		c.durability[item_id] = {"left": float(data.items[item_id]["durability"]), "max": float(data.items[item_id]["durability"])}
+	var entry: Dictionary = c.durability[item_id]
+	entry["left"] = float(entry["left"]) - amount
+	if float(entry["left"]) > 0.0:
+		return
+	c.items.erase(item_id)
+	c.durability.erase(item_id)
+	refresh_equipment(c)
+	events.append({"type": "item_broken", "id": c.id, "item": item_id})
+	if c.kind == SimCharacter.Kind.PLAYER and c.control == SimCharacter.Controller.RULES:
+		SimChronicle.add(self, c, "%s zerbrochen" % data.items[item_id]["name"])
+
+
+## Beste intakte Rüstung (Kennung) oder leer.
+func armor_item_of(c: SimCharacter) -> String:
+	var best := ""
+	var best_value := 0.0
+	for item_id: String in c.items:
+		var def: Dictionary = data.items.get(item_id, {})
+		if def.get("kind", "") == "armor" and float(def["armor"]) > best_value:
+			best_value = float(def["armor"])
+			best = item_id
+	return best
 
 
 func _craft_consumable(c: SimCharacter, rid: String) -> String:
@@ -1095,6 +1182,8 @@ func _loot(c: SimCharacter) -> bool:
 				if not c.items.has(item_id):
 					other.items.erase(item_id)
 					c.items.append(item_id)
+					c.durability[item_id] = other.durability.get(item_id, {"left": float(data.items[item_id]["durability"]), "max": float(data.items[item_id]["durability"])})
+					other.durability.erase(item_id)
 					items_taken.append(item_id)
 		if taken.is_empty() and items_taken.is_empty():
 			continue
@@ -1155,6 +1244,7 @@ func _shoot(c: SimCharacter, weapon: Dictionary) -> void:
 	c.fire_cooldown = float(weapon["cooldown"])
 	reveal(c)
 	events.append({"type": "shoot", "id": c.id})
+	wear(c, c.active_weapon)
 
 
 func _melee(c: SimCharacter) -> void:
@@ -1171,10 +1261,12 @@ func _melee(c: SimCharacter) -> void:
 		c.bite_cooldown = c.melee_cooldown
 		reveal(c)
 		damage_building(b, c.melee_damage * data.balf("building.melee_damage_multiplier"), c.id)
+		wear(c, c.active_weapon)
 		return
 	c.bite_cooldown = c.melee_cooldown
 	reveal(c)
 	apply_damage(target, c.melee_damage, (target.pos - c.pos).normalized(), c.id, c.melee_effect)
+	wear(c, c.active_weapon)
 
 
 ## Nächster lebender, sichtbarer Charakter eines anderen Besitzers im Radius.
@@ -1233,6 +1325,9 @@ func apply_damage(victim: SimCharacter, base_damage: float, hit_dir: Vector2, at
 	var side := SimCombat.hit_side(victim.facing, hit_dir, data.balf("combat.front_arc_degrees"), data.balf("combat.back_arc_degrees"))
 	var amount := SimCombat.damage(base_damage, victim.armor, side, data)
 	victim.hp = maxf(0.0, victim.hp - amount)
+	var armor_item := armor_item_of(victim)
+	if not armor_item.is_empty():
+		wear(victim, armor_item)
 	victim.last_damage_time = time
 	victim.last_attacker_id = attacker_id
 	reveal(victim)

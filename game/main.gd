@@ -114,6 +114,7 @@ func _ready() -> void:
 
 	craft_panel = CraftPanelScript.new()
 	craft_panel.craft_requested.connect(_on_craft_requested)
+	craft_panel.repair_requested.connect(_on_repair_requested)
 	craft_panel.closed.connect(func() -> void: craft_panel.close())
 	add_child(craft_panel)
 
@@ -348,7 +349,7 @@ func _process_live_input(player: SimCharacter) -> void:
 		if craft_panel.visible:
 			craft_panel.close()
 		else:
-			craft_panel.open(data, player)
+			craft_panel.open(data, player, world)
 	if hud.chat_input.visible:
 		if Input.is_action_just_pressed("logout_menu"):
 			_close_chat()
@@ -602,6 +603,19 @@ func _switch_weapon(player: SimCharacter) -> void:
 	hud.show_message("Waffe: %s" % data.items[next_id]["name"], 1.5)
 
 
+func _on_repair_requested(item_id: String) -> void:
+	var player := world.get_character(player_id)
+	if player == null:
+		return
+	if net != null:
+		net.send({"t": "repair", "item": item_id}, true)
+		return
+	var reason := world.repair(player, item_id)
+	var label := String(data.items[item_id]["name"])
+	craft_panel.show_status(("%s repariert (Maximum sinkt je Reparatur)." % label) if reason.is_empty() else "Geht nicht: %s" % reason)
+	craft_panel.refresh()
+
+
 func _on_craft_requested(item_id: String) -> void:
 	var player := world.get_character(player_id)
 	if player == null:
@@ -838,6 +852,8 @@ func _handle_events() -> void:
 				hud.show_message("%d Holz am Anker abgeliefert, Vorrat %d." % [event["amount"], int(event["stock"])], 2.0)
 			"trap_triggered":
 				hud.show_message("In eine Falle getreten!", 2.0)
+			"item_broken":
+				hud.show_message("%s zerbrochen!" % data.items[event["item"]]["name"], 3.0)
 			"healed":
 				_heal_active = false
 				hud.show_message("Verband angelegt: +%d Leben (%d übrig)." % [int(event["amount"]), event["left"]], 2.0)
