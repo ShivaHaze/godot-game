@@ -16,13 +16,13 @@ static func direction_toward(world: SimWorld, c: SimCharacter, goal: Vector2, dt
 		c.path.clear()
 		return Vector2.ZERO
 	var map := world.map
-	if line_clear(map, c.pos, goal, c.collision_radius):
+	if line_clear(map, c.pos, goal, c.collision_radius, c.owner_id, world.data):
 		c.path.clear()
 		return _capped(to_goal, c, dt)
 	c.path_age += dt
 	var goal_cell := map.nearest_walkable_cell(SimMap.cell_of(goal))
 	if goal_cell != c.path_goal or c.path_age >= REPLAN_INTERVAL or c.path.is_empty():
-		c.path = map.find_path(SimMap.cell_of(c.pos), goal_cell)
+		c.path = map.find_path(SimMap.cell_of(c.pos), goal_cell, 4000, c.owner_id, world.data)
 		c.path_goal = goal_cell
 		c.path_age = 0.0
 	while not c.path.is_empty() and c.pos.distance_to(SimMap.cell_center(c.path[0])) < WAYPOINT_REACHED:
@@ -43,11 +43,11 @@ static func _capped(offset: Vector2, c: SimCharacter, dt: float) -> Vector2:
 
 
 ## Ist die gerade Strecke für einen Kreis mit radius frei von Hindernissen?
-static func line_clear(map: SimMap, a: Vector2, b: Vector2, radius: float) -> bool:
+static func line_clear(map: SimMap, a: Vector2, b: Vector2, radius: float, owner_id: String = "", data: SimData = null) -> bool:
 	var length := a.distance_to(b)
 	var steps := maxi(1, ceili(length / LINE_SAMPLE))
 	for i in range(1, steps + 1):
 		var sample := a.lerp(b, float(i) / float(steps))
-		if map.circle_blocked(sample, radius):
+		if map.circle_blocked(sample, radius, owner_id, data):
 			return false
 	return true

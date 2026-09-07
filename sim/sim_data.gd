@@ -13,6 +13,7 @@ const FILE_NAMES: Dictionary = {
 	"actions": "actions.json",
 	"roles": "roles.json",
 	"items": "items.json",
+	"buildings": "buildings.json",
 }
 
 const ALLOWED_OPS: Array[String] = ["<", "<=", ">", ">=", "==", "!="]
@@ -38,6 +39,7 @@ const REQUIRED_BALANCE: Array[String] = [
 	"npc.default_leash_radius", "npc.preferred_combat_range", "npc.hide_delay",
 	"npc.reveal_radius", "npc.reveal_duration", "npc.decision_interval", "npc.skip_relog_minutes",
 	"offline.coarse_tick_dt", "offline.hot_radius", "offline.lod_radius",
+	"building.reach", "building.refund_fraction", "building.melee_damage_multiplier",
 ]
 
 var balance: Dictionary = {}
@@ -61,6 +63,8 @@ var role_order: Array[String] = []
 var default_rules: Array = []
 var items: Dictionary = {}              # id -> Definition (Waffen, Rüstung)
 var item_order: Array[String] = []
+var buildings: Dictionary = {}          # id -> Bauteil-Definition
+var building_order: Array[String] = []
 var errors: PackedStringArray = []
 
 
@@ -278,6 +282,7 @@ func _parse_all(raw: Dictionary) -> void:
 	_parse_actions(raw["actions"])
 	_parse_roles(raw["roles"])
 	_parse_items(raw["items"])
+	_parse_buildings(raw["buildings"])
 
 
 func _parse_balance(raw: Dictionary) -> void:
@@ -509,6 +514,40 @@ func _parse_items(raw: Dictionary) -> void:
 			continue
 		items[id] = entry
 		item_order.append(id)
+
+
+func _parse_buildings(raw: Dictionary) -> void:
+	var list: Variant = raw.get("buildings")
+	if not (list is Array):
+		errors.append("buildings.json: 'buildings' muss ein Array sein")
+		return
+	for entry: Variant in list:
+		if not _require_fields(entry, {"id": TYPE_STRING, "name": TYPE_STRING, "tier": TYPE_STRING, "cost": TYPE_DICTIONARY, "hp": TYPE_FLOAT, "size": TYPE_ARRAY, "passable": TYPE_STRING, "decay_per_hour": TYPE_FLOAT, "color": TYPE_STRING}, "buildings.json"):
+			continue
+		var id := String(entry["id"])
+		var context := "buildings.json Bauteil '%s'" % id
+		var ok := true
+		if buildings.has(id):
+			errors.append("%s: doppelte Kennung" % context)
+			continue
+		if not ["wood", "stone", "iron"].has(String(entry["tier"])):
+			errors.append("%s: 'tier' muss wood, stone oder iron sein" % context)
+			ok = false
+		if not ["none", "owner", "all"].has(String(entry["passable"])):
+			errors.append("%s: 'passable' muss none, owner oder all sein" % context)
+			ok = false
+		var size: Array = entry["size"]
+		if size.size() != 2 or not _is_number(size[0]) or not _is_number(size[1]) or int(size[0]) < 1 or int(size[1]) < 1:
+			errors.append("%s: 'size' muss [Breite, Höhe] in Halbzellen ≥ 1 sein" % context)
+			ok = false
+		for rid: Variant in entry["cost"]:
+			if not resources.has(rid) or not _is_number(entry["cost"][rid]) or float(entry["cost"][rid]) <= 0.0:
+				errors.append("%s: cost.%s ungültig" % [context, rid])
+				ok = false
+		if not ok:
+			continue
+		buildings[id] = entry
+		building_order.append(id)
 
 
 # --- Hilfsfunktionen ------------------------------------------------------

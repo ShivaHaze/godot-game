@@ -17,7 +17,7 @@ const CraftPanelScript := preload("res://game/craft_panel.gd")
 const MAX_TICKS_PER_FRAME: int = 5      # Schutz gegen Aufholspiralen bei Rucklern
 const SKIP_BUDGET_MSEC: int = 14        # Echtzeit pro Frame für den Zeitsprung (Fortschritt bleibt sichtbar)
 const SAVE_PATH: String = "user://save.dat"
-const HINT_LIVE: String = "WASD · Maus zielen · Linksklick angreifen · E halten: sammeln/plündern · F essen · Q Waffe · C Werkbank · M Marker · Esc Ausloggen"
+const HINT_LIVE: String = "WASD · Maus zielen · Linksklick angreifen · E halten: sammeln/plündern · F essen · Q Waffe · C Werkbank · B Bauen · M Marker · Esc Ausloggen"
 const HINT_DEAD: String = "Du bist tot. R = neuer Charakter am Spawn."
 const HINT_OFFLINE: String = "Dein Charakter handelt jetzt nach seinen Regeln. Du schaust nur zu."
 const HINT_SKIPPING: String = "Zeitsprung läuft …"
@@ -45,6 +45,10 @@ var _chronicle_id: int = -1          # Wessen Chronik die Tafel zeigt (-1 = kein
 var _yesterday_id: int = -1          # Im Versus-Modus: der eigene NPC von gestern
 var _new_game_armed_until: float = 0.0  # Doppelklick-Schutz für 'Neues Spiel'
 var _net_saw_rules: bool = false        # Online: Server hat den eigenen Charakter als NPC gemeldet
+var _build_mode: bool = false
+var _build_part: String = ""
+var _build_rot: int = 0
+var _build_click: bool = false
 
 
 func _ready() -> void:
@@ -312,6 +316,10 @@ func _process_live_input(player: SimCharacter) -> void:
 			craft_panel.close()
 		else:
 			craft_panel.open(data, player)
+	if Input.is_action_just_pressed("build_mode") and not player.dead:
+		_toggle_build_mode(player)
+	if _build_mode:
+		_update_build_mode(player)
 	if Input.is_action_just_pressed("logout_menu") and not player.dead and mode == Mode.LIVE:
 		craft_panel.close()
 		_open_menu()
@@ -321,11 +329,74 @@ func _build_player_intent(player: SimCharacter) -> SimIntent:
 	var intent := SimIntent.new()
 	intent.move = Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	intent.aim = view.mouse_world_pos() - player.pos
-	intent.shoot = Input.is_action_pressed("shoot") and not craft_panel.visible
+	intent.shoot = Input.is_action_pressed("shoot") and not craft_panel.visible and not _build_mode
 	intent.interact = Input.is_action_pressed("interact")
 	intent.eat = _eat_pressed
 	_eat_pressed = false
 	return intent
+
+
+# --- Bauen ----------------------------------------------------------------
+
+func _toggle_build_mode(player: SimCharacter) -> void:
+	_build_mode = not _build_mode
+	if _build_mode:
+		if _build_part.is_empty() and not data.building_order.is_empty():
+			_build_part = data.building_order[0]
+		hud.set_hint(_build_hint())
+	else:
+		view.ghost = {}
+		hud.set_hint(HINT_VERSUS if mode == Mode.VERSUS else HINT_LIVE)
+
+
+func _build_hint() -> String:
+	var parts: PackedStringArray = []
+	for i in data.building_order.size():
+		var def: Dictionary = data.buildings[data.building_order[i]]
+		var cost: PackedStringArray = []
+		for rid: String in def["cost"]:
+			cost.append("%d %s" % [int(def["cost"][rid]), data.resources[rid]["name"]])
+		parts.append("%d %s (%s)%s" % [i + 1, def["name"], ", ".join(cost), " ◄" if data.building_order[i] == _build_part else ""])
+	return "Bauen: " + " · ".join(parts) + " · T drehen · Linksklick setzen · X eigenes Teil abreißen · B beenden"
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not _build_mode or not (event is InputEventKey) or not event.pressed or event.echo:
+		return
+	var index := int(event.keycode) - int(KEY_1)
+	if index >= 0 and index < data.building_order.size():
+		_build_part = data.building_order[index]
+		hud.set_hint(_build_hint())
+
+
+func _update_build_mode(player: SimCharacter) -> void:
+	if Input.is_action_just_pressed("rotate_build"):
+		_build_rot = (_build_rot + 1) % 2
+	var def: Dictionary = data.buildings.get(_build_part, {})
+	if def.is_empty():
+		return
+	var origin := SimBuilding.half_cell_of(view.mouse_world_pos())
+	var reason := world.can_place(player, _build_part, origin, _build_rot)
+	view.ghost = {"cells": SimBuilding.cells_for(def["size"], origin, _build_rot), "valid": reason.is_empty()}
+	if Input.is_action_just_pressed("shoot"):
+		if net != null:
+			net.send({"t": "build", "part": _build_part, "x": origin.x, "y": origin.y, "rot": _build_rot}, true)
+		elif reason.is_empty():
+			world.place_building(player, _build_part, origin, _build_rot)
+			hud.show_message("%s gesetzt" % def["name"], 1.0)
+		else:
+			hud.show_message("Bauen geht nicht: %s" % reason, 1.5)
+	if Input.is_action_just_pressed("demolish"):
+		var b := world.map.building_at(view.mouse_world_pos())
+		if b == null:
+			hud.show_message("Kein Bauteil unter der Maus.", 1.0)
+		elif net != null:
+			net.send({"t": "demolish", "id": b.id}, true)
+		elif world.can_demolish(player, b):
+			world.remove_building(b.id, player)
+			hud.show_message("Abgerissen, %d %% der Kosten zurück." % int(data.balf("building.refund_fraction") * 100.0), 1.5)
+		else:
+			hud.show_message("Nicht dein Bauteil oder zu weit weg.", 1.5)
 
 
 ## Q: nächste besessene Waffe.
@@ -555,6 +626,8 @@ func _handle_events() -> void:
 				hud.show_message("Geplündert: " + ", ".join(parts), 2.0)
 			"unlock":
 				hud.show_message("Neuer Regel-Baustein freigeschaltet: %s" % event["label"], 5.0)
+			"building_hit":
+				pass
 			"death":
 				var killer := world.get_character(int(event["attacker"]))
 				var killer_name: String = killer.name if killer != null else "Unbekannt"

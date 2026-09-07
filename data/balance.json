@@ -113,6 +113,14 @@
     "_skip_relog_minutes": "Eine übersprungene Regel mit demselben Grund wird frühestens nach so vielen Minuten erneut in der Chronik vermerkt."
   },
 
+  "building": {
+    "_doc": "Bauen (nur live). Reichweite vom Charakter zum Bauteil, Rückgabe beim Abriss eigener Teile, Nahkampfschaden gegen Holz.",
+    "reach": 3.0,
+    "refund_fraction": 0.5,
+    "melee_damage_multiplier": 1.0,
+    "_melee_damage_multiplier": "Faktor auf den Nahkampfschaden gegen Bauteile der Stufe Holz."
+  },
+
   "offline": {
     "_doc": "Zeitsprung: die Sim tickt ohne Darstellung. Ohne Gefahr in der Nähe grob (Simulationsstufen), bei Kampf fein.",
     "coarse_tick_dt": 1.0,

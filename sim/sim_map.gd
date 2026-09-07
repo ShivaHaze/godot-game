@@ -13,6 +13,8 @@ var height: int = 0
 var tile_ids: Array[String] = []
 var walkable: PackedByteArray = PackedByteArray()
 var nodes: Dictionary = {}  # Vector2i -> SimResourceNode
+var buildings: Dictionary = {}       # id -> SimBuilding
+var built_half: Dictionary = {}      # Halbzelle (Vector2i) -> Gebäude-Kennung
 
 
 func _init(data: SimData) -> void:
@@ -57,6 +59,70 @@ func node_at(cell: Vector2i) -> SimResourceNode:
 	return nodes.get(cell)
 
 
+# --- Bauteile -------------------------------------------------------------
+
+func add_building(b: SimBuilding) -> void:
+	buildings[b.id] = b
+	for half: Vector2i in b.cells:
+		built_half[half] = b.id
+
+
+func remove_building(id: int) -> void:
+	var b: SimBuilding = buildings.get(id)
+	if b == null:
+		return
+	for half: Vector2i in b.cells:
+		built_half.erase(half)
+	buildings.erase(id)
+
+
+func building_at_half(half: Vector2i) -> SimBuilding:
+	return buildings.get(built_half.get(half, -1))
+
+
+func building_at(pos: Vector2) -> SimBuilding:
+	return building_at_half(SimBuilding.half_cell_of(pos))
+
+
+## Blockiert diese Halbzelle den Besitzer `owner_id`? (Türen lassen ihren Besitzer durch.)
+func half_blocked_for(half: Vector2i, owner_id: String, data: SimData) -> bool:
+	var b := building_at_half(half)
+	if b == null:
+		return false
+	var passable := String(data.buildings[b.part]["passable"])
+	if passable == "all":
+		return false
+	if passable == "owner" and b.owner_id == owner_id:
+		return false
+	return true
+
+
+## Ist die Kachel für diesen Besitzer frei von blockierenden Bauteilen? (Für die Wegsuche: eine Halbzelle reicht.)
+func cell_built_for(cell: Vector2i, owner_id: String, data: SimData) -> bool:
+	for dy in 2:
+		for dx in 2:
+			if half_blocked_for(Vector2i(cell.x * 2 + dx, cell.y * 2 + dy), owner_id, data):
+				return true
+	return false
+
+
+## Bauteil-Halbzellen, die ein Kreis berührt; nur die für `owner_id` blockierenden.
+func circle_hits_building(pos: Vector2, radius: float, owner_id: String, data: SimData) -> bool:
+	if built_half.is_empty():
+		return false
+	var min_half := SimBuilding.half_cell_of(pos - Vector2(radius, radius))
+	var max_half := SimBuilding.half_cell_of(pos + Vector2(radius, radius))
+	for hy in range(min_half.y, max_half.y + 1):
+		for hx in range(min_half.x, max_half.x + 1):
+			var half := Vector2i(hx, hy)
+			if not half_blocked_for(half, owner_id, data):
+				continue
+			var closest := Vector2(clampf(pos.x, hx * 0.5, hx * 0.5 + 0.5), clampf(pos.y, hy * 0.5, hy * 0.5 + 0.5))
+			if closest.distance_squared_to(pos) < radius * radius:
+				return true
+	return false
+
+
 ## Nächste Quelle (optional nur eines Rohstoffs) innerhalb max_dist um pos; null, wenn keine.
 func nearest_node(pos: Vector2, max_dist: float, resource: String = "", require_stock: bool = false) -> SimResourceNode:
 	var best: SimResourceNode = null
@@ -73,8 +139,11 @@ func nearest_node(pos: Vector2, max_dist: float, resource: String = "", require_
 	return best
 
 
-## Prüft, ob ein Kreis (Charakterkörper) eine nicht begehbare Kachel berührt.
-func circle_blocked(pos: Vector2, radius: float) -> bool:
+## Prüft, ob ein Kreis (Charakterkörper) eine nicht begehbare Kachel oder ein Bauteil berührt.
+## owner_id/data: für Türen des eigenen Besitzers; leer = nur Kacheln prüfen.
+func circle_blocked(pos: Vector2, radius: float, owner_id: String = "", data: SimData = null) -> bool:
+	if data != null and circle_hits_building(pos, radius, owner_id, data):
+		return true
 	var min_cell := cell_of(pos - Vector2(radius, radius))
 	var max_cell := cell_of(pos + Vector2(radius, radius))
 	for y in range(min_cell.y, max_cell.y + 1):
@@ -88,27 +157,27 @@ func circle_blocked(pos: Vector2, radius: float) -> bool:
 
 
 ## Bewegt einen Kreis um delta und gleitet an Wänden entlang (Achsen getrennt). Große Schritte werden unterteilt.
-func resolve_move(from: Vector2, delta: Vector2, radius: float) -> Vector2:
+func resolve_move(from: Vector2, delta: Vector2, radius: float, owner_id: String = "", data: SimData = null) -> Vector2:
 	var pos := from
 	var steps := maxi(1, ceili(delta.length() / MOVE_SUBSTEP))
 	var part := delta / steps
 	for i in steps:
-		pos = _move_axis(pos, Vector2(part.x, 0.0), radius)
-		pos = _move_axis(pos, Vector2(0.0, part.y), radius)
+		pos = _move_axis(pos, Vector2(part.x, 0.0), radius, owner_id, data)
+		pos = _move_axis(pos, Vector2(0.0, part.y), radius, owner_id, data)
 	return pos
 
 
 ## Bewegt entlang einer Achse; bei Kollision per Bisektion bis dicht an die Wand.
-func _move_axis(pos: Vector2, delta: Vector2, radius: float) -> Vector2:
+func _move_axis(pos: Vector2, delta: Vector2, radius: float, owner_id: String, data: SimData) -> Vector2:
 	if delta == Vector2.ZERO:
 		return pos
-	if not circle_blocked(pos + delta, radius):
+	if not circle_blocked(pos + delta, radius, owner_id, data):
 		return pos + delta
 	var lo := 0.0
 	var hi := 1.0
 	for i in 5:
 		var mid := (lo + hi) * 0.5
-		if circle_blocked(pos + delta * mid, radius):
+		if circle_blocked(pos + delta * mid, radius, owner_id, data):
 			hi = mid
 		else:
 			lo = mid
@@ -137,11 +206,22 @@ func nearest_walkable_cell(cell: Vector2i, max_ring: int = 3) -> Vector2i:
 	return Vector2i(-1, -1)
 
 
+## Begehbar für einen Besitzer: Kachel frei und kein blockierendes Bauteil darin (Türen des Besitzers zählen nicht).
+func is_walkable_for(cell: Vector2i, owner_id: String, data: SimData) -> bool:
+	if not is_walkable(cell):
+		return false
+	if data == null or built_half.is_empty():
+		return true
+	return not cell_built_for(cell, owner_id, data)
+
+
 ## A* auf dem Raster, 8 Richtungen ohne Eckenschneiden. Ergebnis: Zellen nach dem Start bis einschließlich Ziel.
-## Leer, wenn kein Weg existiert oder Start == Ziel.
-func find_path(from_cell: Vector2i, to_cell: Vector2i, max_expansions: int = 4000) -> Array[Vector2i]:
+## Leer, wenn kein Weg existiert oder Start == Ziel. owner_id/data berücksichtigen Bauteile (Türen des Besitzers offen).
+func find_path(from_cell: Vector2i, to_cell: Vector2i, max_expansions: int = 4000, owner_id: String = "", data: SimData = null) -> Array[Vector2i]:
 	var result: Array[Vector2i] = []
-	if not is_walkable(from_cell) or not is_walkable(to_cell) or from_cell == to_cell:
+	_path_owner = owner_id
+	_path_data = data
+	if not is_walkable_for(from_cell, owner_id, data) or not is_walkable_for(to_cell, owner_id, data) or from_cell == to_cell:
 		return result
 	var open: Array[Vector2i] = [from_cell]
 	var came_from: Dictionary = {}
@@ -171,13 +251,17 @@ func find_path(from_cell: Vector2i, to_cell: Vector2i, max_expansions: int = 400
 			_consider(current, current + step, 1.0, to_cell, open, came_from, g_score, f_score, closed)
 		for step: Vector2i in NEIGHBORS_DIAG:
 			# Kein Eckenschneiden: beide orthogonalen Nachbarn müssen frei sein
-			if is_walkable(current + Vector2i(step.x, 0)) and is_walkable(current + Vector2i(0, step.y)):
+			if is_walkable_for(current + Vector2i(step.x, 0), _path_owner, _path_data) and is_walkable_for(current + Vector2i(0, step.y), _path_owner, _path_data):
 				_consider(current, current + step, 1.41421356, to_cell, open, came_from, g_score, f_score, closed)
 	return result
 
 
+var _path_owner: String = ""
+var _path_data: SimData = null
+
+
 func _consider(current: Vector2i, neighbor: Vector2i, cost: float, goal: Vector2i, open: Array[Vector2i], came_from: Dictionary, g_score: Dictionary, f_score: Dictionary, closed: Dictionary) -> void:
-	if closed.has(neighbor) or not is_walkable(neighbor):
+	if closed.has(neighbor) or not is_walkable_for(neighbor, _path_owner, _path_data):
 		return
 	var tentative: float = g_score[current] + cost
 	if g_score.has(neighbor) and tentative >= g_score[neighbor]:

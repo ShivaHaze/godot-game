@@ -74,7 +74,7 @@ func _poll_network() -> void:
 		var peer: ENetPacketPeer = event[1]
 		match kind:
 			ENetConnection.EVENT_CONNECT:
-				peers[peer] = {"char_id": -1, "name": "", "intent": SimIntent.new(), "intent_tick": -1000, "known": {}, "nodes": {}, "self_hash": 0}
+				peers[peer] = {"char_id": -1, "name": "", "intent": SimIntent.new(), "intent_tick": -1000, "known": {}, "nodes": {}, "buildings": {}, "self_hash": 0}
 			ENetConnection.EVENT_DISCONNECT:
 				_on_disconnect(peer)
 			ENetConnection.EVENT_RECEIVE:
@@ -127,12 +127,26 @@ func _on_message(peer: ENetPacketPeer, msg: Dictionary) -> void:
 		"weapon":
 			if c != null:
 				world.set_active_weapon(c, String(msg.get("item", "")))
+		"build":
+			if c != null:
+				var origin := Vector2i(int(msg.get("x", 0)), int(msg.get("y", 0)))
+				var reason := world.can_place(c, String(msg.get("part", "")), origin, int(msg.get("rot", 0)))
+				if reason.is_empty():
+					world.place_building(c, String(msg["part"]), origin, int(msg.get("rot", 0)))
+				else:
+					_send(peer, {"t": "info", "text": "Bauen geht nicht: %s" % reason}, true)
+		"demolish":
+			if c != null:
+				var b: SimBuilding = world.map.buildings.get(int(msg.get("id", -1)))
+				if world.can_demolish(c, b):
+					world.remove_building(b.id, c)
 		"respawn":
 			if c != null and c.dead:
 				var fresh := world.spawn_player(world.random_player_spawn(), c.owner_id, c.name)
 				info["char_id"] = fresh.id
 				info["known"] = {}
 				info["nodes"] = {}
+				info["buildings"] = {}
 				info["self_hash"] = 0
 				_send(peer, {"t": "welcome", "id": fresh.id}, true)
 
@@ -161,6 +175,7 @@ func _on_join(peer: ENetPacketPeer, name: String) -> void:
 		info["char_id"] = fresh.id
 	info["known"] = {}
 	info["nodes"] = {}
+	info["buildings"] = {}
 	info["self_hash"] = 0
 	_send(peer, {"t": "welcome", "id": int(info["char_id"]), "time": world.time, "map": data.map_dict()}, true)
 
@@ -181,7 +196,7 @@ func _send_snapshots() -> void:
 		var char_id := int(info["char_id"])
 		if char_id < 0:
 			continue
-		var snap := NetProtocol.snapshot(world, char_id, info["known"], info["nodes"])
+		var snap := NetProtocol.snapshot(world, char_id, info["known"], info["nodes"], info["buildings"])
 		if snap.is_empty():
 			continue
 		_send(peer, snap, false)

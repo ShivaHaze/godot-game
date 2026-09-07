@@ -20,6 +20,7 @@ var rng := RandomNumberGenerator.new()
 var unlocks_by_owner: Dictionary = {}    # Besitzer -> {fact: true}: freigeschaltete Regel-Bausteine (todesfest)
 
 var _next_id: int = 1
+var _next_building_id: int = 1
 var _intents: Dictionary = {}            # id -> SimIntent, gilt nur für den nächsten Tick
 var _wolf_respawn_timer: float = 0.0
 
@@ -321,6 +322,120 @@ func owned_weapons(c: SimCharacter) -> Array[String]:
 	return result
 
 
+# --- Bauen ----------------------------------------------------------------
+
+## Warum ein Bauteil hier nicht gesetzt werden kann; leer = möglich.
+func can_place(c: SimCharacter, part_id: String, origin: Vector2i, rotation: int) -> String:
+	var def: Dictionary = data.buildings.get(part_id, {})
+	if def.is_empty():
+		return "unbekanntes Bauteil"
+	if c.control != SimCharacter.Controller.PLAYER or c.dead:
+		return "nur live baubar"
+	var cells := SimBuilding.cells_for(def["size"], origin, rotation)
+	var center := Vector2.ZERO
+	for half: Vector2i in cells:
+		var tile := Vector2i(floori(half.x / 2.0), floori(half.y / 2.0))
+		if not map.is_walkable(tile):
+			return "kein freier Boden"
+		if map.built_half.has(half):
+			return "schon bebaut"
+		center += SimBuilding.half_cell_center(half)
+	center /= cells.size()
+	if center.distance_to(c.pos) > data.balf("building.reach"):
+		return "zu weit weg"
+	for other: SimCharacter in characters.values():
+		if other.dead or other.pos.distance_squared_to(center) > 16.0:
+			continue
+		for half: Vector2i in cells:
+			var closest := Vector2(clampf(other.pos.x, half.x * 0.5, half.x * 0.5 + 0.5), clampf(other.pos.y, half.y * 0.5, half.y * 0.5 + 0.5))
+			if closest.distance_to(other.pos) < other.collision_radius:
+				return "jemand steht im Weg"
+	for rid: String in def["cost"]:
+		if int(c.inventory.get(rid, 0)) < int(def["cost"][rid]):
+			return "zu wenig %s (%d nötig)" % [data.resources[rid]["name"], int(def["cost"][rid])]
+	return ""
+
+
+## Setzt ein Bauteil (nur live). null, wenn nicht möglich.
+func place_building(c: SimCharacter, part_id: String, origin: Vector2i, rotation: int) -> SimBuilding:
+	if not can_place(c, part_id, origin, rotation).is_empty():
+		return null
+	var def: Dictionary = data.buildings[part_id]
+	for rid: String in def["cost"]:
+		c.inventory[rid] = int(c.inventory[rid]) - int(def["cost"][rid])
+	var b := SimBuilding.new()
+	b.id = _next_building_id
+	_next_building_id += 1
+	b.part = part_id
+	b.owner_id = c.owner_id
+	b.origin = origin
+	b.rotation = rotation % 2
+	b.max_hp = float(def["hp"])
+	b.hp = b.max_hp
+	b.placed_time = time
+	b.cells = SimBuilding.cells_for(def["size"], origin, b.rotation)
+	map.add_building(b)
+	events.append({"type": "build", "id": c.id, "building": b.id, "part": part_id})
+	return b
+
+
+## Darf der Charakter dieses Teil abreißen (eigenes Teil, live, in Reichweite)?
+func can_demolish(c: SimCharacter, b: SimBuilding) -> bool:
+	return b != null and b.owner_id == c.owner_id and c.control == SimCharacter.Controller.PLAYER and not c.dead \
+		and b.center().distance_to(c.pos) <= data.balf("building.reach")
+
+
+## Entfernt ein Bauteil; mit refund_to bekommt der Abreißende einen Teil der Kosten zurück.
+func remove_building(id: int, refund_to: SimCharacter = null) -> bool:
+	var b: SimBuilding = map.buildings.get(id)
+	if b == null:
+		return false
+	if refund_to != null:
+		var def: Dictionary = data.buildings[b.part]
+		var capacity := data.bali("inventory.capacity")
+		for rid: String in def["cost"]:
+			var back := int(floorf(float(def["cost"][rid]) * data.balf("building.refund_fraction")))
+			back = mini(back, capacity - refund_to.inventory_count())
+			if back > 0:
+				refund_to.inventory[rid] = int(refund_to.inventory.get(rid, 0)) + back
+	map.remove_building(id)
+	events.append({"type": "demolish", "building": id, "id": refund_to.id if refund_to != null else -1})
+	return true
+
+
+## Schaden an einem Bauteil (Nahkampf gegen Holz, später Werkzeuge/Sprengsätze). Bei 0 verschwindet es.
+func damage_building(b: SimBuilding, amount: float, attacker_id: int) -> void:
+	b.hp = maxf(0.0, b.hp - amount)
+	events.append({"type": "building_hit", "building": b.id, "attacker": attacker_id, "damage": amount, "pos": b.center()})
+	if b.hp <= 0.0:
+		map.remove_building(b.id)
+		events.append({"type": "building_destroyed", "building": b.id, "attacker": attacker_id, "pos": b.center()})
+
+
+## Bauteil vor dem Charakter in Nahkampfreichweite (entlang der Blickrichtung getastet).
+func building_in_reach(c: SimCharacter, reach: float) -> SimBuilding:
+	var steps := maxi(1, ceili(reach / 0.25))
+	for i in range(1, steps + 1):
+		var b := map.building_at(c.pos + c.facing * (reach * float(i) / float(steps)))
+		if b != null:
+			return b
+	return null
+
+
+func _update_buildings(dt: float) -> void:
+	if map.buildings.is_empty():
+		return
+	for id: int in map.buildings.keys():
+		var b: SimBuilding = map.buildings[id]
+		var decay := float(data.buildings[b.part]["decay_per_hour"]) / 3600.0 * dt
+		if decay <= 0.0:
+			continue
+		b.hp -= decay
+		if b.hp <= 0.0:
+			map.remove_building(id)
+			events.append({"type": "building_destroyed", "building": id, "attacker": -1, "pos": b.center(), "decayed": true})
+
+
 # --- Tick -----------------------------------------------------------------
 
 func tick() -> void:
@@ -367,6 +482,7 @@ func step(dt: float) -> void:
 	_update_projectiles(dt)
 	_update_hunger(dt)
 	_update_nodes(dt)
+	_update_buildings(dt)
 	_update_wolves(dt)
 
 
@@ -405,7 +521,7 @@ func _apply_intent(c: SimCharacter, intent: SimIntent, dt: float) -> void:
 		var speed := c.move_speed
 		if c.is_weakened():
 			speed *= data.balf("character.weakened_speed_multiplier")
-		c.pos = map.resolve_move(c.pos, move * speed * dt, c.collision_radius)
+		c.pos = map.resolve_move(c.pos, move * speed * dt, c.collision_radius, c.owner_id, data)
 		if c.hidden:
 			reveal(c)
 
@@ -535,6 +651,15 @@ func _melee(c: SimCharacter) -> void:
 		return
 	var target := nearest_enemy(c, c.melee_range)
 	if target == null:
+		# Nur Live-Spieler schlagen Bauteile (Holz) ein; NPCs und Tiere nie (nur Live kann Nehmen und Verändern)
+		if c.control != SimCharacter.Controller.PLAYER or c.kind != SimCharacter.Kind.PLAYER:
+			return
+		var b := building_in_reach(c, c.melee_range)
+		if b == null or String(data.buildings[b.part]["tier"]) != "wood":
+			return
+		c.bite_cooldown = c.melee_cooldown
+		reveal(c)
+		damage_building(b, c.melee_damage * data.balf("building.melee_damage_multiplier"), c.id)
 		return
 	c.bite_cooldown = c.melee_cooldown
 	reveal(c)
@@ -564,7 +689,7 @@ func _update_projectiles(dt: float) -> void:
 		var part := p.velocity * dt / float(steps)
 		for s in steps:
 			p.pos += part
-			if not map.is_walkable(SimMap.cell_of(p.pos)):
+			if not map.is_walkable(SimMap.cell_of(p.pos)) or map.building_at(p.pos) != null:
 				events.append({"type": "projectile_wall", "pos": p.pos})
 				removed = true
 				break

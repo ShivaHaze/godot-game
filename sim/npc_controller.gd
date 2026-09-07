@@ -18,10 +18,11 @@ static func decide(world: SimWorld, c: SimCharacter, dt: float) -> SimIntent:
 		c.transition_logged = true
 		SimChronicle.add(world, c, "Übergang beendet, Charakter ist jetzt offline")
 		c.decision_timer = 0.0
+	var navigating := false
 	if c.active_rule_index >= 0 and c.active_rule_index < c.rules.size():
-		_execute(world, c, c.rules[c.active_rule_index], intent, dt)
+		navigating = _execute(world, c, c.rules[c.active_rule_index], intent, dt)
 	_face_threat_if_idle(world, c, intent)
-	_apply_leash(world, c, intent, dt)
+	_apply_leash(world, c, intent, dt, navigating)
 	return intent
 
 
@@ -102,19 +103,24 @@ static func _eat_now(world: SimWorld, c: SimCharacter, index: int, rule: Diction
 	SimChronicle.log_rule(world, c, index, rule, "%s %d→%d" % [name, event["before"], event["after"]])
 
 
-static func _execute(world: SimWorld, c: SimCharacter, rule: Dictionary, intent: SimIntent, dt: float) -> void:
+## Führt die Aktion aus. Rückgabe true, wenn der NPC gerade per Wegsuche zu einem Ort unterwegs ist
+## (dann darf die Leine ihn außerhalb des Kreises nicht übersteuern).
+static func _execute(world: SimWorld, c: SimCharacter, rule: Dictionary, intent: SimIntent, dt: float) -> bool:
 	var params: Dictionary = rule["then"]["params"]
 	match String(rule["then"]["action"]):
 		"flee_to":
 			_go_to(world, c, c.place_pos(String(params["place"])), float(params["radius"]) * 0.5, intent, dt)
 			if intent.move != Vector2.ZERO:
 				intent.aim = intent.move  # rennt, zeigt den Rücken
+			return true
 		"stay_at":
 			var center := c.place_pos(String(params["place"]))
 			if c.pos.distance_to(center) > float(params["radius"]) * 0.8:
 				_go_to(world, c, center, float(params["radius"]) * 0.5, intent, dt)
+			return true
 		"gather":
 			_gather(world, c, String(params["resource"]), c.place_pos(String(params["place"])), float(params["radius"]), intent, dt)
+			return true
 		"fight_back":
 			_fight_back(world, c, intent, dt)
 		"attack":
@@ -123,6 +129,7 @@ static func _execute(world: SimWorld, c: SimCharacter, rule: Dictionary, intent:
 			intent.hide = true
 		"eat":
 			pass  # bereits bei der Auswertung ausgeführt
+	return false
 
 
 static func _go_to(world: SimWorld, c: SimCharacter, goal: Vector2, arrive: float, intent: SimIntent, dt: float) -> void:
@@ -224,14 +231,16 @@ static func _face_threat_if_idle(world: SimWorld, c: SimCharacter, intent: SimIn
 		intent.aim = threat.pos - c.pos
 
 
-## Leine: kein Schritt darf den Kreis verlassen; außerhalb geht es nur zurück zur Mitte.
-static func _apply_leash(world: SimWorld, c: SimCharacter, intent: SimIntent, dt: float) -> void:
+## Leine: kein Schritt darf den Kreis verlassen. Außerhalb (nach einem Regelwechsel) führt die Wegsuche der
+## Ortsaktion zurück; andere Aktionen werden zur Mitte gelenkt.
+static func _apply_leash(world: SimWorld, c: SimCharacter, intent: SimIntent, dt: float, navigating: bool = false) -> void:
 	if c.leash_radius <= 0.0:
 		return
 	var offset := c.pos - c.leash_center
 	var distance := offset.length()
 	if distance > c.leash_radius:
-		intent.move = -offset.normalized()
+		if not navigating:
+			intent.move = SimNav.direction_toward(world, c, c.leash_center, dt, c.leash_radius * 0.5)
 		return
 	if intent.move == Vector2.ZERO:
 		return

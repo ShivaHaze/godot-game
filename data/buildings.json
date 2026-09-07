@@ -1,0 +1,27 @@
+{
+  "_doc": "Bauteile. Raster: halbe Kacheln (Design [E]); 'size' in Halbzellen [Breite, Höhe], drehbar (R). Nur live baubar, NPCs bauen und brechen nie (Design: nur Live kann Nehmen und Verändern). 'passable': none = blockiert alle, owner = nur der Besitzer (und seine NPCs) geht durch (Tür). 'tier': wood wird mit Nahkampf beschädigt und verfällt (decay_per_hour Lebenspunkte je Stunde); stone/iron kommen später (Eisenwerkzeug bzw. Sprengsatz). Projektile bleiben an Bauteilen hängen, ohne sie zu beschädigen.",
+  "buildings": [
+    {
+      "id": "wood_wall",
+      "name": "Holzwand",
+      "tier": "wood",
+      "cost": { "wood": 4 },
+      "hp": 40,
+      "size": [1, 2],
+      "passable": "none",
+      "decay_per_hour": 1.0,
+      "color": "#8a5a2b"
+    },
+    {
+      "id": "wood_door",
+      "name": "Holztür",
+      "tier": "wood",
+      "cost": { "wood": 6 },
+      "hp": 30,
+      "size": [1, 2],
+      "passable": "owner",
+      "decay_per_hour": 1.0,
+      "color": "#c48a4a"
+    }
+  ]
+}

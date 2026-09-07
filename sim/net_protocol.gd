@@ -79,7 +79,7 @@ static func character_dynamic(c: SimCharacter) -> Array:
 ## Snapshot für einen Empfänger. `known` (id -> true) sind die Charaktere, die der Empfänger schon kennt;
 ## `node_state` (Vector2i -> Vorrat) ist sein letzter Stand der Quellen. Beides wird hier fortgeschrieben,
 ## Quellen gehen nur als Änderung mit.
-static func snapshot(world: SimWorld, viewer_id: int, known: Dictionary, node_state: Dictionary) -> Dictionary:
+static func snapshot(world: SimWorld, viewer_id: int, known: Dictionary, node_state: Dictionary, building_state: Dictionary = {}) -> Dictionary:
 	var viewer := world.get_character(viewer_id)
 	if viewer == null:
 		return {}
@@ -118,6 +118,24 @@ static func snapshot(world: SimWorld, viewer_id: int, known: Dictionary, node_st
 		snap["nodes"] = nodes
 	if not intros.is_empty():
 		snap["intro"] = intros
+	# Bauteile: neu/verändert im Sichtbereich, plus entfernte, die der Empfänger kannte
+	var built := []
+	for b: SimBuilding in world.map.buildings.values():
+		if b.center().distance_squared_to(center) > r2:
+			continue
+		if building_state.has(b.id) and is_equal_approx(float(building_state[b.id]), b.hp):
+			continue
+		building_state[b.id] = b.hp
+		built.append([b.id, b.part, b.owner_id, b.origin.x, b.origin.y, b.rotation, b.hp, b.max_hp])
+	var removed := PackedInt32Array()
+	for id: int in building_state.keys():
+		if not world.map.buildings.has(id):
+			removed.append(id)
+			building_state.erase(id)
+	if not built.is_empty():
+		snap["bld"] = built
+	if not removed.is_empty():
+		snap["bld_rm"] = removed
 	return snap
 
 
@@ -199,6 +217,25 @@ static func apply_snapshot(mirror: SimWorld, snap: Dictionary) -> void:
 		var node := mirror.map.node_at(Vector2i(nodes[i], nodes[i + 1]))
 		if node != null:
 			node.amount = nodes[i + 2]
+	for row: Array in snap.get("bld", []):
+		var id := int(row[0])
+		var part := String(row[1])
+		if not mirror.data.buildings.has(part):
+			continue
+		var b: SimBuilding = mirror.map.buildings.get(id)
+		if b == null:
+			b = SimBuilding.new()
+			b.id = id
+			b.part = part
+			b.owner_id = String(row[2])
+			b.origin = Vector2i(int(row[3]), int(row[4]))
+			b.rotation = int(row[5])
+			b.cells = SimBuilding.cells_for(mirror.data.buildings[part]["size"], b.origin, b.rotation)
+			mirror.map.add_building(b)
+		b.hp = float(row[6])
+		b.max_hp = float(row[7])
+	for id: int in snap.get("bld_rm", PackedInt32Array()):
+		mirror.map.remove_building(id)
 	var you := mirror.get_character(int(snap.get("you", -1)))
 	var me: PackedFloat32Array = snap.get("me", PackedFloat32Array())
 	if you != null and me.size() >= 2:

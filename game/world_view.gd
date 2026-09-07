@@ -10,6 +10,9 @@ var viewer_owner: String = "p1"    # Versteckte Charaktere anderer Besitzer werd
 var show_leashes: bool = true
 var preview_rules: Array = []      # Regeln aus dem offenen Ausloggen-Menü (Leinen-Vorschau); leer = keine Vorschau
 var trail_character_id: int = -1   # Chronik-Spur dieses Charakters zeichnen (Orte der Einträge, nummeriert)
+var ghost: Dictionary = {}          # Bau-Vorschau: {"cells": Array[Vector2i], "valid": bool}
+
+var _building_colors: Dictionary = {}
 
 var _tile_colors: Dictionary = {}
 var _resource_colors: Dictionary = {}
@@ -19,9 +22,11 @@ func _draw() -> void:
 	if world == null:
 		return
 	_draw_tiles()
+	_draw_buildings()
 	_draw_trail()
 	_draw_markers()
 	_draw_characters()
+	_draw_ghost()
 	_draw_projectiles()
 	_draw_events()
 
@@ -92,6 +97,37 @@ func _draw_leashes(c: SimCharacter) -> void:
 		draw_arc(center, float(params["radius"]) * TILE, 0.0, TAU, 64, Color(1.0, 0.85, 0.2, 0.35), 1.0)
 	if c.control == SimCharacter.Controller.RULES and c.leash_radius > 0.0:
 		draw_arc(c.leash_center * TILE, c.leash_radius * TILE, 0.0, TAU, 64, Color(0.4, 0.7, 1.0, 0.8), 2.0)
+
+
+func _building_color(part: String) -> Color:
+	if not _building_colors.has(part):
+		_building_colors[part] = Color.html(String(world.data.buildings.get(part, {}).get("color", "#ff00ff")))
+	return _building_colors[part]
+
+
+## Bauteile: jede Halbzelle ein Rechteck; beschädigte Teile werden dunkler und zeigen einen Balken.
+func _draw_buildings() -> void:
+	var half := TILE * 0.5
+	for b: SimBuilding in world.map.buildings.values():
+		var color := _building_color(b.part)
+		var frac := b.hp / maxf(1.0, b.max_hp)
+		color = color.darkened((1.0 - frac) * 0.5)
+		for cell: Vector2i in b.cells:
+			draw_rect(Rect2(cell.x * half, cell.y * half, half, half), color)
+			draw_rect(Rect2(cell.x * half, cell.y * half, half, half), Color(0, 0, 0, 0.35), false, 1.0)
+		if frac < 0.999:
+			var c := b.center() * TILE
+			draw_rect(Rect2(c.x - 10, c.y - 3, 20, 4), Color(0, 0, 0, 0.6))
+			draw_rect(Rect2(c.x - 10, c.y - 3, 20 * frac, 4), Color(0.9, 0.7, 0.2))
+
+
+func _draw_ghost() -> void:
+	if ghost.is_empty():
+		return
+	var half := TILE * 0.5
+	var color := Color(0.3, 1.0, 0.3, 0.45) if ghost.get("valid", false) else Color(1.0, 0.3, 0.3, 0.45)
+	for cell: Vector2i in ghost.get("cells", []):
+		draw_rect(Rect2(cell.x * half, cell.y * half, half, half), color)
 
 
 ## Chronik-Spur: nummerierte Punkte an den Orten der Einträge, verbunden in Reihenfolge.

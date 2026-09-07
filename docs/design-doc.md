@@ -77,7 +77,7 @@ Echtzeit-2D-PvPvE in einer persistenten Welt, in der dein Charakter beim Auslogg
 - Überleben als Unterhalt, nicht Minispiel: Nahrung/Wärme als Tagesverbrauch, offline stark verlangsamt. Mangel → geschwächt, nicht tot. Krankheit als Ereignis.
 
 ### Bauen
-- Freie Platzierung mit Snapping auf feines Raster (½ oder ¼ Kachel); Bauteile belegen Rasterzellen → Navmesh für NPCs und kachelbasierte Claims funktionieren.
+- Freie Platzierung mit Snapping auf feines Raster: **½ Kachel** (entschieden 2026-09-07). Bauteile belegen Halbzellen; die Wegsuche bleibt auf Kacheln und gilt eine Kachel als blockiert, sobald eine Halbzelle darin bebaut ist. Claims bleiben kachelbasiert.
 - Jedes Bauteil einzeln zerstörbar. Stufen: Holz (Nahkampfwerkzeug, verfällt schnell) < Stein (Eisenwerkzeug oder Sprengsatz) < Eisen (nur Sprengsatz).
 - Verteidigungsobjekte: Turrets, Fallen, Sensoren – alle regelgesteuert.
 
@@ -123,13 +123,13 @@ Marktorte (Kartenfeatures, keine NPC-Händler; Unterschied nur über Regeln):
 - Geschäftsmodell: Empfehlung kleiner Einmalkauf (10–20 €) als Cheater-/Alt-Account-Schutz + Kosmetik-Shop (account-gebunden, überlebt Tod). Linus' Wunsch: F2P + Kosmetik. Risiko bei F2P: wirkungslose Bans, Spionage-Alts, Serverkosten ohne Einnahme, Zerg-Sog. Falls F2P: Hürde für Gilden/Claims (Spielstunden oder Verifikation).
 
 ## 5. Offen [O]
-- Setting (Mittelalter / Postapo / abstrakt / Sci-Fi) – bewusst offen.
+- Setting: Richtung entschieden (2026-09-07): angelehnt an Rust und Dark and Darker, zunächst nur Menschen. Vorschlag [T]: **bodenständiges Low-Fantasy-Mittelalter ohne Magie** in einer verlassenen Grenzmark nach dem Zerfall eines Königreichs – erklärt, warum es keine Händler-NPCs gibt (alle Waren von Spielern), Ruinen als Bauplätze, Wölfe als Bedrohung, Marktorte als Reste alter Handelsposten. Später mögliche Nicht-Menschen passen als "was aus der Mark zurückkam". Arbeitstitel-Vorschläge: **Vigil** (dein Charakter hält Wache, während du weg bist – trifft den Twist), Hinterland, Grenzmark. Empfehlung: Vigil.
 - Konkrete Zahlen: Unterhalt, TTK, Verfallsraten, Solo-Claim-Grenze → Prototyp.
 - Ereignis-Design (Karawanen, Bosse).
 - Welche Rollen-Presets genau und mit welchen Regeln. → Phase-0-Vorschlag [T] siehe Abschnitt 8, `data/roles.json`.
 - Aggressions-Freischaltung: genaue Bedingung.
 - Kosmetik-Umfang.
-- Name.
+- Name: siehe Setting-Vorschlag (Vigil / Hinterland / Grenzmark).
 
 ## 6. Marktrecherche (Stand 2026-09-07)
 - **Exakte Kombination nirgends veröffentlicht** (Echtzeit-Live + regelgesteuerter Offline-Avatar + persistente Full-Loot-PvP-Welt). Negativbeweis mit hoher, nicht absoluter Sicherheit.
@@ -180,12 +180,15 @@ Marktorte (Kartenfeatures, keine NPC-Händler; Unterschied nur über Regeln):
 - **Spielstand:** wird automatisch geschrieben (Ausloggen, Zeitsprung, Einloggen, Versus, Beenden) und beim Start geladen; "Neues Spiel" löscht ihn. Format binär (exakter Verlauf), Inhalt ist dasselbe Dictionary, das später als Netzwerk-Snapshot dient.
 - **Nicht umgesetzt in Phase 0:** Claims/Marktorte; Hunger-Zustandseffekt beschränkt auf halbe Geschwindigkeit; Waffen-Verschleiß.
 
+**Phase 1 – Inhalt (ab 2026-09-07, Reihenfolge festgelegt: Bauen → Claims → Handelstisch → weitere Rohstoffe/Ketten → Sensoren/Turrets):**
+- **Bauen (umgesetzt):** `data/buildings.json` mit Holzwand (4 Holz, 40 LP, blockiert alle) und Holztür (6 Holz, 30 LP, nur der Besitzer und seine NPCs gehen durch). Halbkachelraster, drehbar (T), Reichweite 3 Kacheln, nur live (NPCs bauen nie). Projektile bleiben an Bauteilen hängen, ohne sie zu beschädigen; Holz wird nur mit Nahkampf (Keule) eingeschlagen, und nur von Live-Spielern – NPCs und Wölfe brechen nie Wände (nur Live kann Nehmen und Verändern). Holz verfällt 1 LP je Stunde (balance: buildings.json decay_per_hour), eigener Abriss gibt 50 % zurück. Wegsuche und Leine berücksichtigen Bauteile; ein NPC außerhalb seiner Leine folgt der Wegsuche, statt stur zur Mitte zu laufen.
+
 **Netzwerk-Spike (2026-09-07, Ergebnis; alle Zahlen vom Entwicklungsrechner, Loopback):**
 - Aufbau: `server/server_main.gd` (Godot headless, dieselbe Sim, autoritativ, 20 Hz, ENet), `game/net_client.gd` (Spiegelwelt aus Snapshots, dieselbe Darstellung), `tools/bot_clients.gd` (N Clients in einem Prozess). Trennen = Charakter wird NPC mit seinen Regeln, Übergang läuft; Wiederkommen unter demselben Namen = Einloggen in den eigenen NPC. Das Spiel selbst verbindet mit `godot --path . -- --connect host:port --name X`.
 - Server mit 200 NPC-Füllung + 50 Bots (laufen, schießen, loggen aus und wieder ein): Tick Ø 5–12 ms, max 37 ms (Budget 50 ms). Godot headless trägt die Zielgröße (200–300 Charaktere) auf einem Prozess.
 - Bandbreite: erstes Format (Dictionaries, eigene Chronik in jedem Snapshot) 24 MB/s raus für 50 Clients. Kompaktes Format (Zeile je Charakter als Array, Stammdaten einmal, eigene Details und Quellen nur bei Änderung) 4,5 MB/s, ≈ 56 Byte je Charakter und Snapshot bei 10 Hz. Auf der kleinen Karte sind ≈ 160 Charaktere in jedem Sichtbereich (22 Kacheln); auf einer großen Karte entsprechend weniger. Nächste Hebel, falls nötig: Delta-Positionen, 5 Hz für ferne Charaktere, kleinerer Sichtbereich.
 - Große Karte (Generator `sim/map_gen.gd`, 120×90, Seed 7, 25 Spieler-Spawns am Rand, Wölfe innen), 300 NPCs + 50 Bots: Tick Ø 9–12 ms, max 35 ms; Bandbreite 1,2 MB/s gesamt (≈ 25 KB/s je Client, ≈ 38 Charaktere je Snapshot). Die Karte geht mit der Beitrittsnachricht an den Client (11 KB), Clients brauchen keine passende Kartendatei.
-- **Design-Befund Vergeltungskette:** 50 zufällig schießende Bots ließen die NPC-Zahl in 100 s von 198 auf 98 fallen. Ein verirrter Treffer macht den Getroffenen "angegriffen", er kämpft gegen den Schützen zurück, dessen Treffer treffen Umstehende, die ebenfalls zurückkämpfen. "Kämpfe zurück" ist wörtlich richtig, aber Querschläger zünden Ketten. Offen [O]: Soll ein einzelner Streiftreffer (kein zweiter Treffer binnen X s) als Angriff zählen? Soll Zurückkämpfen nur gegen den ursprünglichen Angreifer gelten? Muss vor Phase 1 entschieden werden.
+- **Design-Befund Vergeltungskette:** 50 zufällig schießende Bots ließen die NPC-Zahl in 100 s von 198 auf 98 fallen. Ein verirrter Treffer macht den Getroffenen "angegriffen", er kämpft gegen den Schützen zurück, dessen Treffer treffen Umstehende, die ebenfalls zurückkämpfen. "Kämpfe zurück" ist wörtlich richtig, aber Querschläger zünden Ketten. Entschieden [E] (2026-09-07): Querschläger sind legitime Treffer; wer trifft, hat angegriffen. Vergeltungsketten sind Teil des Spiels und ein Grund, nicht in Menschenmengen zu schießen.
 - **Bewertung Godot headless (Tendenz [T] bestätigt):** ein Code für Client und Simulation funktioniert, Spielstand = Snapshot-Format, Tickzeit im Budget. Persistenz: Server speichert alle 60 s (`user://server_save.dat`); SQLite/Postgres bleibt offen.
 
 Danach: Netzwerk-Spike (Godot headless, 300 NPCs, Tickzeit messen; 50 Bot-Clients per ENet) → erst dann Setting, Name, Optik.

@@ -39,6 +39,9 @@ static func world_to_dict(world: SimWorld) -> Dictionary:
 	var nodes := []
 	for node: SimResourceNode in world.map.nodes.values():
 		nodes.append({"cell": v2i(node.cell), "amount": node.amount, "regrow_timer": node.regrow_timer})
+	var buildings := []
+	for b: SimBuilding in world.map.buildings.values():
+		buildings.append({"id": b.id, "part": b.part, "owner": b.owner_id, "origin": v2i(b.origin), "rotation": b.rotation, "hp": b.hp, "max_hp": b.max_hp, "placed_time": b.placed_time})
 	return {
 		"version": VERSION,
 		"time": world.time,
@@ -51,6 +54,8 @@ static func world_to_dict(world: SimWorld) -> Dictionary:
 		"characters": characters,
 		"projectiles": projectiles,
 		"nodes": nodes,
+		"buildings": buildings,
+		"next_building_id": world._next_building_id,
 	}
 
 
@@ -92,6 +97,22 @@ static func world_from_dict(data: SimData, dict: Dictionary) -> SimWorld:
 		if node != null:
 			node.amount = int(entry["amount"])
 			node.regrow_timer = float(entry.get("regrow_timer", 0.0))
+	world._next_building_id = int(dict.get("next_building_id", 1))
+	for entry: Dictionary in dict.get("buildings", []):
+		var part := String(entry["part"])
+		if not data.buildings.has(part):
+			continue
+		var b := SimBuilding.new()
+		b.id = int(entry["id"])
+		b.part = part
+		b.owner_id = String(entry["owner"])
+		b.origin = to_v2i(entry["origin"])
+		b.rotation = int(entry["rotation"])
+		b.hp = float(entry["hp"])
+		b.max_hp = float(entry.get("max_hp", data.buildings[part]["hp"]))
+		b.placed_time = float(entry.get("placed_time", 0.0))
+		b.cells = SimBuilding.cells_for(data.buildings[part]["size"], b.origin, b.rotation)
+		world.map.add_building(b)
 	return world
 
 

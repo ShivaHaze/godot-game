@@ -12,6 +12,7 @@ Kein Code nötig, um hier etwas zu ändern. Schlüssel, die mit `_` beginnen, si
 | `actions.json` | Aktionen des Regelsystems mit Parametern (Ort, Leine, Rohstoff) und Texten. |
 | `roles.json` | Rollen-Presets (Verstecken, Wache, Sammler, Händler) als Regellisten, plus das Default-Regelwerk. |
 | `items.json` | Ausrüstung: Waffen (Fern-/Nahkampf mit Schaden, Cooldown, Projektilwerten) und Rüstung, jeweils mit Werkbank-Kosten. |
+| `buildings.json` | Bauteile: Größe in Halbzellen, Kosten, Lebenspunkte, Durchlässigkeit (none/owner/all), Verfall je Stunde. |
 
 Regelformat (in `roles.json` und im Spielstand):
 
