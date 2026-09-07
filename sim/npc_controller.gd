@@ -101,6 +101,15 @@ static func blocked_reason(world: SimWorld, c: SimCharacter, rule: Dictionary) -
 				return "gesund"
 			if world.heal_item_of(c).is_empty():
 				return "kein Verband"
+		"deliver":
+			var rid := String(params["resource"])
+			if int(c.inventory.get(rid, 0)) <= 0:
+				return "nichts zu liefern"
+			var target := world.container_near(c.owner_id, c.place_pos(String(params["place"])), float(params["radius"]))
+			if target == null:
+				return "kein eigener Anker oder Handelstisch am Ort"
+			if target.part == "anchor" and rid != "wood":
+				return "der Anker nimmt nur Holz"
 	return ""
 
 
@@ -139,6 +148,9 @@ static func _execute(world: SimWorld, c: SimCharacter, rule: Dictionary, intent:
 			intent.hide = true
 		"heal_self":
 			intent.heal = true  # kanalisiert; greift währenddessen nicht an, darf aber laufen
+		"deliver":
+			_deliver(world, c, String(params["resource"]), c.place_pos(String(params["place"])), float(params["radius"]), intent, dt)
+			return true
 		"eat":
 			pass  # bereits bei der Auswertung ausgeführt
 	return false
@@ -163,6 +175,23 @@ static func _gather(world: SimWorld, c: SimCharacter, resource: String, center: 
 	else:
 		var stand := SimMap.cell_center(world.map.nearest_walkable_cell(node.cell))
 		intent.move = SimNav.direction_toward(world, c, stand, dt, 0.15)
+
+
+## Liefern: zum eigenen Anker/Tisch am Ort gehen und alles vom Rohstoff abgeben; Chronik mit Menge.
+static func _deliver(world: SimWorld, c: SimCharacter, rid: String, center: Vector2, radius: float, intent: SimIntent, dt: float) -> void:
+	var target := world.container_near(c.owner_id, center, radius)
+	if target == null:
+		return
+	var reach := world.data.balf("character.interact_range")
+	if c.pos.distance_to(target.center()) <= reach + 0.3:
+		var moved := world.deliver_to(c, target, rid)
+		if moved > 0:
+			var index := c.active_rule_index
+			SimChronicle.log_rule(world, c, index, c.rules[index], "%d %s" % [moved, world.data.resources[rid]["name"]])
+			c.last_logged_rule_index = -1  # nächste Lieferung wird wieder protokolliert
+		return
+	var stand := SimMap.cell_center(world.map.nearest_walkable_cell(SimMap.cell_of(target.center())))
+	intent.move = SimNav.direction_toward(world, c, stand, dt, 0.15)
 
 
 ## Nächste Quelle mit Vorrat, deren Mitte innerhalb der Leine liegt.

@@ -472,6 +472,9 @@ func place_building(c: SimCharacter, part_id: String, origin: Vector2i, rotation
 	if is_sensor(b):
 		b.label = "Sensor %d" % sensors_of(c.owner_id).size()
 		unlock(c.owner_id, "owned_sensor", c)
+	if is_container(b):
+		unlock(c.owner_id, "owned_container", c)
+	if is_sensor(b) or is_container(b):
 		refresh_places(c.owner_id)
 	return b
 
@@ -497,7 +500,7 @@ func remove_building(id: int, refund_to: SimCharacter = null) -> bool:
 				refund_to.inventory[rid] = int(refund_to.inventory.get(rid, 0)) + back
 	map.remove_building(id)
 	claims.on_building_removed(self, id)
-	if is_sensor(b):
+	if is_sensor(b) or is_container(b):
 		refresh_places(b.owner_id)
 	events.append({"type": "demolish", "building": id, "id": refund_to.id if refund_to != null else -1})
 	return true
@@ -512,7 +515,7 @@ func damage_building(b: SimBuilding, amount: float, attacker_id: int) -> void:
 			_loot_table(b, attacker_id)
 		map.remove_building(b.id)
 		claims.on_building_removed(self, b.id)
-		if is_sensor(b):
+		if is_sensor(b) or is_container(b):
 			refresh_places(b.owner_id)
 		events.append({"type": "building_destroyed", "building": b.id, "attacker": attacker_id, "pos": b.center()})
 
@@ -554,11 +557,25 @@ func sensors_of(owner_id: String) -> Array[SimBuilding]:
 	return result
 
 
-## Orte aus Bauteilen (Sensoren) an alle Charaktere des Besitzers verteilen.
+## Bauteile, in die geliefert werden kann (Anker nimmt Holz für den Unterhalt, Handelstisch alles).
+func is_container(b: SimBuilding) -> bool:
+	return b != null and (b.part == "anchor" or is_trade_table(b))
+
+
+## Orte aus Bauteilen (Sensoren, Anker, Handelstische) an alle Charaktere des Besitzers verteilen.
 func refresh_places(owner_id: String) -> void:
 	var places := {}
-	for b: SimBuilding in sensors_of(owner_id):
-		places[place_id_of(b)] = {"name": b.label, "pos": b.center()}
+	var tables := 0
+	for b: SimBuilding in map.buildings.values():
+		if b.owner_id != owner_id:
+			continue
+		if is_sensor(b):
+			places[place_id_of(b)] = {"name": b.label, "pos": b.center()}
+		elif b.part == "anchor":
+			places[place_id_of(b)] = {"name": "Anker", "pos": b.center()}
+		elif is_trade_table(b):
+			tables += 1
+			places[place_id_of(b)] = {"name": "Handelstisch %d" % tables, "pos": b.center()}
 	for c: SimCharacter in characters.values():
 		if c.owner_id == owner_id:
 			c.extra_places = places.duplicate(true)
@@ -595,6 +612,40 @@ func _update_sensors_and_traps(dt: float) -> void:
 				break
 
 
+## Liefert alles von `rid` in ein eigenes Bauteil (Anker: nur Holz; Handelstisch: alles) in Reichweite. Rückgabe: Menge.
+func deliver_to(c: SimCharacter, b: SimBuilding, rid: String) -> int:
+	if not is_container(b) or b.owner_id != c.owner_id or c.dead:
+		return 0
+	if b.center().distance_to(c.pos) > data.balf("character.interact_range") + 0.5:
+		return 0
+	var amount := int(c.inventory.get(rid, 0))
+	if amount <= 0:
+		return 0
+	if b.part == "anchor":
+		if rid != "wood":
+			return 0
+		var claim := claims.claim_of_owner(c.owner_id)
+		return claims.deposit(self, c, claim, amount)
+	var before := int(b.contents.get(rid, 0))
+	if not table_deposit(c, b, rid, amount, true).is_empty():
+		return 0
+	return int(b.contents.get(rid, 0)) - before
+
+
+## Eigenes Bauteil mit Aufnahme (Anker/Tisch) nahe einer Position, sonst null.
+func container_near(owner_id: String, pos: Vector2, radius: float) -> SimBuilding:
+	var best: SimBuilding = null
+	var best_d := radius
+	for b: SimBuilding in map.buildings.values():
+		if b.owner_id != owner_id or not is_container(b):
+			continue
+		var d := b.center().distance_to(pos)
+		if d <= best_d:
+			best_d = d
+			best = b
+	return best
+
+
 # --- Handelstisch ---------------------------------------------------------
 
 func is_trade_table(b: SimBuilding) -> bool:
@@ -615,12 +666,12 @@ func trade_table_near(c: SimCharacter) -> SimBuilding:
 	return best
 
 
-func _table_owner_reason(c: SimCharacter, b: SimBuilding) -> String:
+func _table_owner_reason(c: SimCharacter, b: SimBuilding, allow_npc: bool = false) -> String:
 	if not is_trade_table(b):
 		return "kein Handelstisch"
 	if b.owner_id != c.owner_id:
 		return "nicht dein Tisch"
-	if c.control != SimCharacter.Controller.PLAYER or c.dead:
+	if c.dead or (c.control != SimCharacter.Controller.PLAYER and not allow_npc):
 		return "nur live"
 	if b.center().distance_to(c.pos) > data.balf("character.interact_range") + 0.5:
 		return "zu weit weg"
@@ -628,8 +679,8 @@ func _table_owner_reason(c: SimCharacter, b: SimBuilding) -> String:
 
 
 ## Besitzer legt Waren hinein. Rückgabe: Grund oder leer.
-func table_deposit(c: SimCharacter, b: SimBuilding, rid: String, amount: int) -> String:
-	var reason := _table_owner_reason(c, b)
+func table_deposit(c: SimCharacter, b: SimBuilding, rid: String, amount: int, allow_npc: bool = false) -> String:
+	var reason := _table_owner_reason(c, b, allow_npc)
 	if not reason.is_empty():
 		return reason
 	if not data.resources.has(rid) or amount <= 0:
@@ -763,7 +814,7 @@ func _update_buildings(dt: float) -> void:
 		if b.hp <= 0.0:
 			map.remove_building(id)
 			claims.on_building_removed(self, id)
-			if is_sensor(b):
+			if is_sensor(b) or is_container(b):
 				refresh_places(b.owner_id)
 			events.append({"type": "building_destroyed", "building": id, "attacker": -1, "pos": b.center(), "decayed": true})
 

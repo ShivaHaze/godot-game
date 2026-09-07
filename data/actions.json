@@ -108,6 +108,34 @@
         "label": "Frei, sobald du je einen Verband hattest."
       },
       "params": []
+    },
+    {
+      "id": "deliver",
+      "label": "liefere {resource} zu {place}",
+      "log": "geliefert: {resource} zu {place}",
+      "unlock": {
+        "fact": "owned_container",
+        "label": "Frei, sobald du einen Claim-Anker oder Handelstisch gebaut hast."
+      },
+      "params": [
+        {
+          "name": "resource",
+          "type": "resource",
+          "label": "Rohstoff",
+          "default": "wood"
+        },
+        {
+          "name": "place",
+          "type": "place",
+          "label": "Ort",
+          "default": "here"
+        },
+        {
+          "name": "radius",
+          "type": "radius",
+          "label": "Leine"
+        }
+      ]
     }
   ]
 }
