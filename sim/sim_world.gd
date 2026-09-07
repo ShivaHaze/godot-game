@@ -7,7 +7,7 @@ extends RefCounted
 var data: SimData
 var map: SimMap
 var characters: Dictionary = {}          # id -> SimCharacter
-var projectiles: Array = []              # Array[SimProjectile], ab Schritt 5
+var projectiles: Array[SimProjectile] = []
 var events: Array[Dictionary] = []       # Ereignisse des letzten Ticks (für Darstellung/Chronik)
 var time: float = 0.0                    # Sim-Sekunden seit Spielstart
 var tick_count: int = 0
@@ -16,6 +16,7 @@ var rng := RandomNumberGenerator.new()
 
 var _next_id: int = 1
 var _intents: Dictionary = {}            # id -> SimIntent, gilt nur für den nächsten Tick
+var _wolf_respawn_timer: float = 0.0
 
 
 func _init(p_data: SimData, seed: int = 12345) -> void:
@@ -72,11 +73,15 @@ func spawn_wolf(pos: Vector2) -> SimCharacter:
 	c.pos = pos
 	c.prev_pos = pos
 	c.home_pos = pos
+	c.ai_target_pos = pos
 	c.max_hp = data.balf("wolf.max_hp")
 	c.hp = c.max_hp
 	c.armor = data.balf("wolf.armor")
 	c.move_speed = data.balf("wolf.move_speed")
 	c.collision_radius = data.balf("character.collision_radius")
+	c.melee_damage = data.balf("wolf.bite_damage")
+	c.melee_range = data.balf("wolf.bite_range")
+	c.melee_cooldown = data.balf("wolf.bite_cooldown")
 	c.hunger = data.balf("hunger.max")
 	characters[c.id] = c
 	return c
@@ -100,6 +105,14 @@ func alive_characters() -> Array[SimCharacter]:
 		if not c.dead:
 			result.append(c)
 	return result
+
+
+func projectile_count(owner_id: int) -> int:
+	var n := 0
+	for p: SimProjectile in projectiles:
+		if p.owner_id == owner_id:
+			n += 1
+	return n
 
 
 # --- Steuerung ------------------------------------------------------------
@@ -130,6 +143,8 @@ func step(dt: float) -> void:
 	time += dt
 	for c: SimCharacter in characters.values():
 		c.prev_pos = c.pos
+	for p: SimProjectile in projectiles:
+		p.prev_pos = p.pos
 	_run_controllers(dt)
 	for c: SimCharacter in characters.values():
 		if c.dead:
@@ -140,12 +155,19 @@ func step(dt: float) -> void:
 	_update_projectiles(dt)
 	_update_hunger(dt)
 	_update_nodes(dt)
-	_update_world(dt)
+	_update_wolves(dt)
 
 
-## Controller für nicht vom Spieler gesteuerte Charaktere (Regelmaschine, Wolf-KI). Ab Schritt 4–6.
-func _run_controllers(_dt: float) -> void:
-	pass
+## Controller für nicht vom Spieler gesteuerte Charaktere erzeugen ihre Absichten.
+func _run_controllers(dt: float) -> void:
+	for c: SimCharacter in characters.values():
+		if c.dead:
+			continue
+		match c.control:
+			SimCharacter.Controller.WOLF_AI:
+				_intents[c.id] = WolfAI.decide(self, c, dt)
+			SimCharacter.Controller.RULES:
+				_intents[c.id] = NpcController.decide(self, c, dt)
 
 
 func _apply_intent(c: SimCharacter, intent: SimIntent, dt: float) -> void:
@@ -162,15 +184,23 @@ func _apply_intent(c: SimCharacter, intent: SimIntent, dt: float) -> void:
 		if c.is_weakened():
 			speed *= data.balf("character.weakened_speed_multiplier")
 		c.pos = map.resolve_move(c.pos, move * speed * dt, c.collision_radius)
+		if c.hidden:
+			reveal(c)
 
 	if intent.interact:
-		_gather(c, dt)
+		if not _loot(c):
+			_gather(c, dt)
 	else:
 		c.gather_progress = 0.0
 		c.gather_target = Vector2i(-1, -1)
 
 	if intent.eat:
 		eat(c)
+	if intent.shoot:
+		_shoot(c)
+	if intent.melee:
+		_melee(c)
+	_update_hiding(c, intent, dt)
 
 	c.fire_cooldown = maxf(0.0, c.fire_cooldown - dt)
 	c.bite_cooldown = maxf(0.0, c.bite_cooldown - dt)
@@ -194,6 +224,32 @@ func _gather(c: SimCharacter, dt: float) -> void:
 		events.append({"type": "gather", "id": c.id, "resource": node.resource, "cell": node.cell})
 
 
+## Plündert eine Leiche in Reichweite (alles auf einmal). true, wenn etwas übernommen wurde.
+func _loot(c: SimCharacter) -> bool:
+	var range_sq := pow(data.balf("character.interact_range"), 2.0)
+	for other: SimCharacter in characters.values():
+		if other == c or not other.dead or other.inventory_count() <= 0:
+			continue
+		if other.pos.distance_squared_to(c.pos) > range_sq:
+			continue
+		var taken := {}
+		var capacity := data.bali("inventory.capacity")
+		for rid: String in data.resource_order:
+			var amount := int(other.inventory.get(rid, 0))
+			var room := capacity - c.inventory_count()
+			var moved := mini(amount, room)
+			if moved <= 0:
+				continue
+			other.inventory[rid] = amount - moved
+			c.inventory[rid] = int(c.inventory.get(rid, 0)) + moved
+			taken[rid] = moved
+		if taken.is_empty():
+			return false
+		events.append({"type": "loot", "id": c.id, "from": other.id, "items": taken})
+		return true
+	return false
+
+
 ## Isst ein essbares Stück. Gibt das Ereignis zurück (leer, wenn nichts gegessen wurde).
 func eat(c: SimCharacter) -> Dictionary:
 	var hunger_max := data.balf("hunger.max")
@@ -212,9 +268,143 @@ func eat(c: SimCharacter) -> Dictionary:
 	return {}
 
 
-func _update_projectiles(_dt: float) -> void:
-	pass  # Schritt 5
+# --- Kampf ----------------------------------------------------------------
 
+func _shoot(c: SimCharacter) -> void:
+	if c.fire_cooldown > 0.0 or projectile_count(c.id) >= data.bali("combat.max_projectiles_per_shooter"):
+		return
+	if c.facing == Vector2.ZERO:
+		return
+	var p := SimProjectile.new()
+	p.owner_id = c.id
+	p.pos = c.pos + c.facing * (c.collision_radius + 0.15)
+	p.prev_pos = p.pos
+	p.velocity = c.facing * data.balf("combat.projectile_speed")
+	p.damage = data.balf("combat.projectile_damage")
+	p.lifetime = data.balf("combat.projectile_lifetime")
+	projectiles.append(p)
+	c.fire_cooldown = data.balf("combat.fire_cooldown")
+	reveal(c)
+	events.append({"type": "shoot", "id": c.id})
+
+
+func _melee(c: SimCharacter) -> void:
+	if c.bite_cooldown > 0.0 or c.melee_damage <= 0.0:
+		return
+	var target := nearest_enemy(c, c.melee_range)
+	if target == null:
+		return
+	c.bite_cooldown = c.melee_cooldown
+	reveal(c)
+	apply_damage(target, c.melee_damage, (target.pos - c.pos).normalized(), c.id)
+
+
+## Nächster lebender, sichtbarer Charakter eines anderen Besitzers im Radius.
+func nearest_enemy(c: SimCharacter, radius: float) -> SimCharacter:
+	var best: SimCharacter = null
+	var best_d := radius * radius
+	for other: SimCharacter in characters.values():
+		if other == c or other.dead or other.hidden or other.owner_id == c.owner_id:
+			continue
+		var d := other.pos.distance_squared_to(c.pos)
+		if d <= best_d:
+			best_d = d
+			best = other
+	return best
+
+
+func _update_projectiles(dt: float) -> void:
+	var i := 0
+	while i < projectiles.size():
+		var p: SimProjectile = projectiles[i]
+		var removed := false
+		var steps := maxi(1, ceili(p.velocity.length() * dt / SimMap.MOVE_SUBSTEP))
+		var part := p.velocity * dt / float(steps)
+		for s in steps:
+			p.pos += part
+			if not map.is_walkable(SimMap.cell_of(p.pos)):
+				events.append({"type": "projectile_wall", "pos": p.pos})
+				removed = true
+				break
+			var victim := _projectile_victim(p)
+			if victim != null:
+				apply_damage(victim, p.damage, p.velocity.normalized(), p.owner_id)
+				removed = true
+				break
+		p.lifetime -= dt
+		if p.lifetime <= 0.0:
+			removed = true
+		if removed:
+			projectiles.remove_at(i)
+		else:
+			i += 1
+
+
+func _projectile_victim(p: SimProjectile) -> SimCharacter:
+	for c: SimCharacter in characters.values():
+		if c.dead or c.hidden or c.id == p.owner_id:
+			continue
+		var r := c.collision_radius + 0.1
+		if c.pos.distance_squared_to(p.pos) < r * r:
+			return c
+	return null
+
+
+## Fügt Schaden mit Richtungstreffer zu. hit_dir = Flugrichtung des Treffers (Angreifer -> Opfer).
+func apply_damage(victim: SimCharacter, base_damage: float, hit_dir: Vector2, attacker_id: int) -> Dictionary:
+	var side := SimCombat.hit_side(victim.facing, hit_dir, data.balf("combat.front_arc_degrees"), data.balf("combat.back_arc_degrees"))
+	var amount := SimCombat.damage(base_damage, victim.armor, side, data)
+	victim.hp = maxf(0.0, victim.hp - amount)
+	victim.last_damage_time = time
+	victim.last_attacker_id = attacker_id
+	reveal(victim)
+	var event := {"type": "hit", "id": victim.id, "attacker": attacker_id, "damage": amount, "side": side, "pos": victim.pos}
+	events.append(event)
+	if victim.hp <= 0.0:
+		_kill(victim, attacker_id)
+	return event
+
+
+func _kill(victim: SimCharacter, attacker_id: int) -> void:
+	victim.dead = true
+	victim.hp = 0.0
+	victim.hidden = false
+	victim.death_time = time
+	var attacker := get_character(attacker_id)
+	var attacker_name := attacker.name if attacker != null else "Unbekannt"
+	events.append({"type": "death", "id": victim.id, "attacker": attacker_id})
+	if victim.kind == SimCharacter.Kind.PLAYER:
+		SimChronicle.add(self, victim, "gestorben durch %s" % attacker_name)
+	if attacker != null and attacker.kind == SimCharacter.Kind.PLAYER and attacker.control == SimCharacter.Controller.RULES:
+		SimChronicle.add(self, attacker, "%s getötet" % victim.name)
+
+
+# --- Verstecken -----------------------------------------------------------
+
+## Verstecken braucht hide_delay Sekunden ohne Schaden und ohne Bewegung; Entdeckte müssen warten.
+func _update_hiding(c: SimCharacter, intent: SimIntent, dt: float) -> void:
+	if c.hidden:
+		return
+	if not intent.hide or intent.move != Vector2.ZERO or time < c.revealed_until:
+		c.hide_progress = 0.0
+		return
+	c.hide_progress += dt
+	if c.hide_progress >= data.balf("npc.hide_delay"):
+		c.hidden = true
+		c.hide_progress = 0.0
+		events.append({"type": "hidden", "id": c.id})
+
+
+## Macht einen Versteckten sichtbar (Schaden, Bewegung, Schuss, Entdeckung).
+func reveal(c: SimCharacter) -> void:
+	c.hide_progress = 0.0
+	c.revealed_until = time + data.balf("npc.reveal_duration")
+	if c.hidden:
+		c.hidden = false
+		events.append({"type": "revealed", "id": c.id})
+
+
+# --- Unterhalt und Welt ---------------------------------------------------
 
 func _update_hunger(dt: float) -> void:
 	var live_rate := data.balf("hunger.decay_per_second_live")
@@ -238,8 +428,32 @@ func _update_nodes(dt: float) -> void:
 			node.amount += 1
 
 
-func _update_world(_dt: float) -> void:
-	pass  # Wolf-Respawn, Verstecken: Schritt 5/6
+## Wölfe: Entdeckung Versteckter, Erholung beim Streunen, Nachschub nach respawn_time.
+func _update_wolves(dt: float) -> void:
+	var reveal_radius_sq := pow(data.balf("npc.reveal_radius"), 2.0)
+	var regen := data.balf("wolf.regen_per_second")
+	for c: SimCharacter in characters.values():
+		if c.dead:
+			continue
+		if c.kind == SimCharacter.Kind.WOLF and c.ai_state == WolfAI.STATE_WANDER and c.hp < c.max_hp and not SimSensors.is_under_attack(self, c):
+			c.hp = minf(c.max_hp, c.hp + regen * dt)
+		# Wer über einen Versteckten läuft, entdeckt ihn
+		for other: SimCharacter in characters.values():
+			if other.hidden and not other.dead and other.owner_id != c.owner_id and other.pos.distance_squared_to(c.pos) <= reveal_radius_sq:
+				reveal(other)
+				events.append({"type": "discovered", "id": other.id, "by": c.id})
+	if count_alive_wolves() >= data.bali("wolf.max_alive") or data.wolf_spawns.is_empty():
+		_wolf_respawn_timer = 0.0
+		return
+	_wolf_respawn_timer += dt
+	if _wolf_respawn_timer >= data.balf("wolf.respawn_time"):
+		_wolf_respawn_timer = 0.0
+		for id: int in characters.keys():
+			var c: SimCharacter = characters[id]
+			if c.kind == SimCharacter.Kind.WOLF and c.dead:
+				characters.erase(id)
+		var cell: Vector2i = data.wolf_spawns[rng.randi_range(0, data.wolf_spawns.size() - 1)]
+		spawn_wolf(SimMap.cell_center(cell))
 
 
 # --- Abfragen -------------------------------------------------------------

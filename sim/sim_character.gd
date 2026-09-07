@@ -22,6 +22,10 @@ var hp: float = 30.0
 var max_hp: float = 30.0
 var armor: float = 0.0
 var dead: bool = false
+var death_time: float = -1e9
+var melee_damage: float = 0.0        # 0 = kein Nahkampf (Spielercharaktere schießen nur)
+var melee_range: float = 0.9
+var melee_cooldown: float = 1.0
 
 var hunger: float = 100.0
 var inventory: Dictionary = {}       # Rohstoff-Kennung -> Anzahl

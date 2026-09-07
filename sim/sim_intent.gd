@@ -9,3 +9,4 @@ var shoot: bool = false               # Projektil abfeuern (wenn Cooldown und Li
 var interact: bool = false            # An nächster Quelle sammeln (gedrückt halten)
 var eat: bool = false                 # Ein essbares Stück aus dem Inventar essen
 var hide: bool = false                # Verstecken beginnen / beibehalten
+var melee: bool = false               # Nahkampfangriff auf den nächsten Feind in melee_range (Wolf: Biss)
