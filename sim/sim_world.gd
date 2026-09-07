@@ -477,7 +477,22 @@ func _craft_consumable(c: SimCharacter, rid: String) -> String:
 	c.inventory[rid] = int(c.inventory.get(rid, 0)) + 1
 	if def.has("heal"):
 		unlock(c.owner_id, "owned_bandage", c)
+	if c.control == SimCharacter.Controller.PLAYER:
+		unlock(c.owner_id, "crafted_consumable", c)
 	events.append({"type": "craft", "id": c.id, "item": rid})
+	return ""
+
+
+## Warum ein Verbrauchsgut gerade nicht herstellbar ist (für NPC-Regeln); leer = möglich.
+func craft_reason(c: SimCharacter, rid: String) -> String:
+	if not data.resources.has(rid) or not data.resources[rid].has("cost"):
+		return "kein herstellbares Verbrauchsgut"
+	var cost: Dictionary = data.resources[rid]["cost"]
+	for need: String in cost:
+		if int(c.inventory.get(need, 0)) < int(cost[need]):
+			return "zu wenig %s (%d nötig)" % [data.resources[need]["name"], int(cost[need])]
+	if c.inventory_count() - _cost_total(cost) + 1 > data.bali("inventory.capacity"):
+		return "Inventar voll"
 	return ""
 
 

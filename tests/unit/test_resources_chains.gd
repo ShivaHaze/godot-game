@@ -29,10 +29,10 @@ func _heal_intent() -> SimIntent:
 
 func test_data_has_new_resources_tiles_and_nodes() -> void:
 	assert_true(data.is_valid(), "Fehler: %s" % data.errors)
-	assert_eq(data.resource_order, ["wood", "berries", "stone", "fibers", "bandage"] as Array[String])
+	assert_eq(data.resource_order, ["wood", "berries", "stone", "fibers", "cloth", "bandage"] as Array[String])
 	assert_true(data.tiles.has("stone_deposit"))
 	assert_true(data.tiles.has("fiber_plant"))
-	assert_eq(data.craftable_resources(), ["bandage"] as Array[String])
+	assert_eq(data.craftable_resources(), ["cloth", "bandage"] as Array[String])
 	var stone := 0
 	var fibers := 0
 	for node: SimResourceNode in world.map.nodes.values():
@@ -60,11 +60,15 @@ func test_gather_fibers_and_craft_bandage() -> void:
 		world.tick()
 	assert_gte(int(player.inventory["fibers"]), 3, "Fasern gesammelt (auf der Pflanze stehend)")
 	assert_false(world.can_use(player, data.action_def("heal_self")), "Aktion vorher gesperrt")
+	assert_eq(world.craft(player, "bandage"), "zu wenig Stoff (1 nötig)", "Verband braucht die Zwischenstufe Stoff")
+	assert_eq(world.craft(player, "cloth"), "")
 	assert_eq(world.craft(player, "bandage"), "")
 	assert_eq(int(player.inventory["bandage"]), 1)
 	assert_true(world.can_use(player, data.action_def("heal_self")), "Verband schaltet 'verbinde dich' frei")
 	player.inventory["fibers"] = 0
-	assert_eq(world.craft(player, "bandage"), "zu wenig Fasern (3 nötig)")
+	player.inventory["cloth"] = 0
+	assert_eq(world.craft(player, "bandage"), "zu wenig Stoff (1 nötig)")
+	assert_eq(world.craft(player, "cloth"), "zu wenig Fasern (2 nötig)")
 
 
 func test_heal_is_channeled_and_cancelled_by_attack() -> void:

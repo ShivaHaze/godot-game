@@ -49,6 +49,17 @@
       "durability": 50
     },
     {
+      "id": "cloth_armor",
+      "name": "Stoffrüstung",
+      "kind": "armor",
+      "armor": 2,
+      "starting": false,
+      "cost": {
+        "cloth": 4
+      },
+      "durability": 60
+    },
+    {
       "id": "wood_armor",
       "name": "Holzpanzer",
       "kind": "armor",

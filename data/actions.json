@@ -110,6 +110,23 @@
       "params": []
     },
     {
+      "id": "craft",
+      "label": "stelle {product} her",
+      "log": "hergestellt: {product}",
+      "unlock": {
+        "fact": "crafted_consumable",
+        "label": "Frei, sobald du selbst einmal etwas hergestellt hast (Werkbank, C)."
+      },
+      "params": [
+        {
+          "name": "product",
+          "type": "product",
+          "label": "Erzeugnis",
+          "default": "cloth"
+        }
+      ]
+    },
+    {
       "id": "deliver",
       "label": "liefere {resource} zu {place}",
       "log": "geliefert: {resource} zu {place}",

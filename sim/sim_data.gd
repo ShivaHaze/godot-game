@@ -17,7 +17,7 @@ const FILE_NAMES: Dictionary = {
 }
 
 const ALLOWED_OPS: Array[String] = ["<", "<=", ">", ">=", "==", "!=", "has"]
-const PARAM_TYPES: Array[String] = ["int", "float", "choice", "place", "resource", "radius", "sensor"]
+const PARAM_TYPES: Array[String] = ["int", "float", "choice", "place", "resource", "radius", "sensor", "product"]
 const PLACE_HERE: String = "here"
 
 ## Pflichtschlüssel in balance.json als Punktpfade. Tippfehler fallen so beim Laden auf.
@@ -192,6 +192,9 @@ func param_default(param_def: Dictionary) -> Variant:
 			return ""
 		"resource":
 			return resource_order[0] if not resource_order.is_empty() else ""
+		"product":
+			var products := craftable_resources()
+			return products[0] if not products.is_empty() else ""
 		"int", "float":
 			return param_def.get("min", 0)
 		"choice":
@@ -265,7 +268,7 @@ func display_value(param_def: Dictionary, value: Variant, place_names: Dictionar
 			if value == PLACE_HERE:
 				return "Hier"
 			return String(place_names.get(value, value if not String(value).is_empty() else "(keiner)"))
-		"resource":
+		"resource", "product":
 			return String(resources.get(value, {}).get("name", value))
 		"choice":
 			for option: Dictionary in param_def.get("options", []):
@@ -623,6 +626,10 @@ func _validate_params(params: Array, context: String) -> bool:
 				if param.has("default") and not resources.has(param["default"]):
 					errors.append("%s: unbekannter Rohstoff '%s'" % [pcontext, param["default"]])
 					return false
+			"product":
+				if param.has("default") and not craftable_resources().has(param["default"]):
+					errors.append("%s: '%s' ist kein herstellbares Verbrauchsgut" % [pcontext, param["default"]])
+					return false
 	return true
 
 
@@ -654,6 +661,10 @@ func _normalize_params(param_defs: Array, given: Variant, context: String) -> Di
 			"resource":
 				if not resources.has(value):
 					errors.append("%s: Parameter '%s' nennt unbekannten Rohstoff '%s'" % [context, name, value])
+					value = param_default(param_def)
+			"product":
+				if not craftable_resources().has(value):
+					errors.append("%s: Parameter '%s' nennt kein herstellbares Verbrauchsgut ('%s')" % [context, name, value])
 					value = param_default(param_def)
 			"place":
 				if not (value is String) or String(value).is_empty():

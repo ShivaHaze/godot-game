@@ -428,7 +428,21 @@ func _param_widget(param_def: Dictionary, params: Dictionary) -> Control:
 				params[name] = values[item]
 				_mark_custom())
 			box.add_child(button)
+		"product":
+			var values: Array[String] = data.craftable_resources()
+			var button := _option_button(values, func(v: String) -> String: return "%s (%s)" % [data.resources[v]["name"], _cost_text(data.resources[v]["cost"])], String(params.get(name, values[0])))
+			button.item_selected.connect(func(item: int) -> void:
+				params[name] = values[item]
+				_mark_custom())
+			box.add_child(button)
 	return box
+
+
+func _cost_text(cost: Dictionary) -> String:
+	var parts: PackedStringArray = []
+	for rid: String in cost:
+		parts.append("%d %s" % [int(cost[rid]), data.resources[rid]["name"]])
+	return ", ".join(parts)
 
 
 func _on_confirm() -> void:

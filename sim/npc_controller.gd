@@ -101,6 +101,10 @@ static func blocked_reason(world: SimWorld, c: SimCharacter, rule: Dictionary) -
 				return "gesund"
 			if world.heal_item_of(c).is_empty():
 				return "kein Verband"
+		"craft":
+			var reason := world.craft_reason(c, String(params["product"]))
+			if not reason.is_empty():
+				return reason
 		"deliver":
 			var rid := String(params["resource"])
 			if int(c.inventory.get(rid, 0)) <= 0:
@@ -151,6 +155,12 @@ static func _execute(world: SimWorld, c: SimCharacter, rule: Dictionary, intent:
 		"deliver":
 			_deliver(world, c, String(params["resource"]), c.place_pos(String(params["place"])), float(params["radius"]), intent, dt)
 			return true
+		"craft":
+			var rid := String(params["product"])
+			if world.craft(c, rid).is_empty():
+				var index := c.active_rule_index
+				SimChronicle.log_rule(world, c, index, c.rules[index], "jetzt %d" % int(c.inventory.get(rid, 0)))
+				c.last_logged_rule_index = -1  # jedes Stück wird protokolliert
 		"eat":
 			pass  # bereits bei der Auswertung ausgeführt
 	return false
