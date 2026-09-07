@@ -11,6 +11,7 @@ Kein Code nötig, um hier etwas zu ändern. Schlüssel, die mit `_` beginnen, si
 | `conditions.json` | Bedingungen des Regelsystems: welcher Sensorwert wie verglichen wird, welche Parameter der Spieler setzt, Texte für UI und Chronik. |
 | `actions.json` | Aktionen des Regelsystems mit Parametern (Ort, Leine, Rohstoff) und Texten. |
 | `roles.json` | Rollen-Presets (Verstecken, Wache, Sammler, Händler) als Regellisten, plus das Default-Regelwerk. |
+| `items.json` | Ausrüstung: Waffen (Fern-/Nahkampf mit Schaden, Cooldown, Projektilwerten) und Rüstung, jeweils mit Werkbank-Kosten. |
 
 Regelformat (in `roles.json` und im Spielstand):
 

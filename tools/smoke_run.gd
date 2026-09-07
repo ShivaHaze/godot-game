@@ -11,6 +11,7 @@ func _init() -> void:
 func _run() -> void:
 	await process_frame
 	var main: Node2D = load("res://game/main.tscn").instantiate()
+	main.save_path = ""  # echten Spielstand nicht anfassen
 	root.add_child(main)
 	await _frames(20)
 	main._open_menu()

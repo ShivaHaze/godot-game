@@ -28,11 +28,12 @@ static func decide(world: SimWorld, c: SimCharacter, dt: float) -> SimIntent:
 ## Regelauswertung: erste zutreffende UND ausführbare Regel gewinnt. Eine zutreffende, aber nicht
 ## ausführbare Regel (z. B. "iss" ohne Essbares) wird übersprungen und einmal in der Chronik vermerkt.
 ## Protokolliert wird ein Regelwechsel; nimmt der NPC nach einer Pause dieselbe Regel wieder auf, nicht erneut.
+## Derselbe Übersprung-Grund wird frühestens nach npc.skip_relog_minutes erneut vermerkt.
 static func _evaluate(world: SimWorld, c: SimCharacter) -> void:
 	var data := world.data
 	var facts := SimSensors.facts_for(world, c)
 	var chosen := RuleEngine.NO_MATCH
-	var still_skipped := {}
+	var relog_after := data.balf("npc.skip_relog_minutes") * 60.0
 	var start := 0
 	while start < c.rules.size():
 		var result := RuleEngine.evaluate(c.rules.slice(start), facts, data)
@@ -43,11 +44,11 @@ static func _evaluate(world: SimWorld, c: SimCharacter) -> void:
 		if reason.is_empty():
 			chosen = index
 			break
-		still_skipped[index] = true
-		if not c.skipped_rules.has(index):
+		var previous: Dictionary = c.skipped_rules.get(index, {})
+		if previous.get("reason", "") != reason or world.time - float(previous.get("time", -1e9)) >= relog_after:
+			c.skipped_rules[index] = {"reason": reason, "time": world.time}
 			SimChronicle.log_rule(world, c, index, c.rules[index], "nicht möglich: %s, übersprungen" % reason)
 		start = index + 1
-	c.skipped_rules = still_skipped
 	if chosen != c.active_rule_index:
 		c.active_rule_index = chosen
 		c.action_state = {}
@@ -168,12 +169,31 @@ static func _fight_back(world: SimWorld, c: SimCharacter, intent: SimIntent, _dt
 	var to_target := target.pos - c.pos
 	var distance := to_target.length()
 	intent.aim = to_target  # zielt auf die aktuelle Position, kein Vorhalten
+	# Waffenwahl: Nahkampf nur, wenn der Feind schon in Reichweite steht; sonst vorsichtig auf Abstand schießen
+	var melee_id := ""
+	var ranged_id := ""
+	for item_id: String in world.owned_weapons(c):
+		if data.items[item_id]["attack"] == "melee" and melee_id.is_empty():
+			melee_id = item_id
+		elif data.items[item_id]["attack"] == "ranged" and ranged_id.is_empty():
+			ranged_id = item_id
+	if not melee_id.is_empty() and distance <= float(data.items[melee_id]["range"]) * 1.1:
+		world.set_active_weapon(c, melee_id)
+		intent.shoot = true
+		return
+	if ranged_id.is_empty():
+		if not melee_id.is_empty():
+			world.set_active_weapon(c, melee_id)
+			intent.move = to_target.normalized()  # nur Nahkampf: hingehen
+		return
+	world.set_active_weapon(c, ranged_id)
 	var preferred := data.balf("npc.preferred_combat_range")
 	if distance < preferred * 0.7:
 		intent.move = -to_target.normalized()
 	elif distance > preferred * 1.3:
 		intent.move = to_target.normalized()
-	var reach := data.balf("combat.projectile_speed") * data.balf("combat.projectile_lifetime")
+	var weapon: Dictionary = data.items[ranged_id]
+	var reach := float(weapon["projectile_speed"]) * float(weapon["projectile_lifetime"])
 	if distance <= reach and SimNav.line_clear(world.map, c.pos, target.pos, 0.1):
 		intent.shoot = true
 

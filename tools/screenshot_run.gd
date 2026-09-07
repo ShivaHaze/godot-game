@@ -16,6 +16,7 @@ func _init() -> void:
 func _run() -> void:
 	await process_frame
 	var main: Node2D = load("res://game/main.tscn").instantiate()
+	main.save_path = ""  # echten Spielstand nicht anfassen
 	root.add_child(main)
 	await _frames(30)
 	await _shot("1_live")
@@ -30,6 +31,10 @@ func _run() -> void:
 	Input.action_release("move_down")
 	await _frames(5)
 	await _shot("2_live_marker")
+	main.craft_panel.open(main.data, main.world.get_character(main.player_id))
+	await _frames(5)
+	await _shot("2b_werkbank")
+	main.craft_panel.close()
 	main._open_menu()
 	await _frames(5)
 	await _shot("3_menu_roles")

@@ -9,11 +9,12 @@ enum Mode { LIVE, MENU, OFFLINE, SKIPPING, VERSUS }
 const WorldViewScript := preload("res://game/world_view.gd")
 const HudScript := preload("res://game/hud.gd")
 const LogoutMenuScript := preload("res://game/logout_menu.gd")
+const CraftPanelScript := preload("res://game/craft_panel.gd")
 
 const MAX_TICKS_PER_FRAME: int = 5      # Schutz gegen Aufholspiralen bei Rucklern
 const SKIP_BUDGET_MSEC: int = 14        # Echtzeit pro Frame für den Zeitsprung (Fortschritt bleibt sichtbar)
 const SAVE_PATH: String = "user://save.dat"
-const HINT_LIVE: String = "WASD bewegen · Maus zielen · Linksklick schießen · E halten: sammeln/plündern · F essen · M Marker · Esc Ausloggen"
+const HINT_LIVE: String = "WASD · Maus zielen · Linksklick angreifen · E halten: sammeln/plündern · F essen · Q Waffe · C Werkbank · M Marker · Esc Ausloggen"
 const HINT_DEAD: String = "Du bist tot. R = neuer Charakter am Spawn."
 const HINT_OFFLINE: String = "Dein Charakter handelt jetzt nach seinen Regeln. Du schaust nur zu."
 const HINT_SKIPPING: String = "Zeitsprung läuft …"
@@ -24,10 +25,12 @@ var world: SimWorld
 var player_id: int = -1
 var mode: Mode = Mode.LIVE
 var skip_hours: float = 8.0
+var save_path: String = SAVE_PATH   # leer = nicht speichern/laden (Tests, Werkzeuge)
 
 var view: Node2D
 var hud: CanvasLayer
 var menu: CanvasLayer
+var craft_panel: CanvasLayer
 var camera: Camera2D
 
 var _accumulator: float = 0.0
@@ -50,7 +53,7 @@ func _ready() -> void:
 		hud.set_hint("Datenfehler, siehe Konsole: " + data.errors[0])
 		return
 	skip_hours = data.balf("time_skip_hours")
-	var saved := SimSave.load_from_file(data, SAVE_PATH)
+	var saved := SimSave.load_from_file(data, save_path) if not save_path.is_empty() else {}
 	var saved_game: Dictionary = saved.get("game", {})
 	if saved.is_empty():
 		world = SimWorld.new(data, 12345)
@@ -75,7 +78,14 @@ func _ready() -> void:
 	menu.confirmed.connect(_on_logout_confirmed)
 	menu.cancelled.connect(_close_menu)
 	menu.rules_changed.connect(func(rules: Array) -> void: view.preview_rules = rules)
+	menu.marker_renamed.connect(func(marker_id: String, new_name: String) -> void: world.rename_marker(player_id, marker_id, new_name))
+	menu.marker_removed.connect(_on_marker_removed)
 	add_child(menu)
+
+	craft_panel = CraftPanelScript.new()
+	craft_panel.craft_requested.connect(_on_craft_requested)
+	craft_panel.closed.connect(func() -> void: craft_panel.close())
+	add_child(craft_panel)
 
 	hud.world = world
 	hud.player_id = player_id
@@ -101,9 +111,9 @@ func _restore_mode(saved_game: Dictionary) -> void:
 
 
 func _save() -> void:
-	if world == null:
+	if world == null or save_path.is_empty():
 		return
-	var err := SimSave.save_to_file(world, SAVE_PATH, {
+	var err := SimSave.save_to_file(world, save_path, {
 		"mode": mode, "player_id": player_id, "yesterday_id": _yesterday_id, "viewer_owner": view.viewer_owner,
 	})
 	if err != OK:
@@ -116,8 +126,8 @@ func _new_game() -> void:
 		_new_game_armed_until = now + 3.0
 		hud.show_message("Wirklich neu anfangen? Nochmal klicken.", 3.0)
 		return
-	if FileAccess.file_exists(SAVE_PATH):
-		DirAccess.remove_absolute(SAVE_PATH)
+	if not save_path.is_empty() and FileAccess.file_exists(save_path):
+		DirAccess.remove_absolute(save_path)
 	world = null
 	get_tree().reload_current_scene()
 
@@ -165,11 +175,14 @@ func _refresh_view(player: SimCharacter) -> void:
 	view.alpha = clampf(_accumulator / world.tick_dt, 0.0, 1.0)
 	if player != null:
 		camera.position = WorldViewScript.to_pixels(player.render_pos(view.alpha))
+	view.trail_character_id = _chronicle_id
 	view.queue_redraw()
 	var chronicle_owner := world.get_character(_chronicle_id)
 	if chronicle_owner != null:
-		hud.set_chronicle(SimChronicle.format_all(chronicle_owner))
+		hud.set_chronicle(SimChronicle.format_numbered(chronicle_owner))
 	hud.refresh()
+	if craft_panel.visible:
+		craft_panel.refresh()
 
 
 func _process_live_input(player: SimCharacter) -> void:
@@ -182,7 +195,15 @@ func _process_live_input(player: SimCharacter) -> void:
 		hud.show_message("%s gesetzt" % marker["name"])
 	if Input.is_action_just_pressed("respawn") and player.dead:
 		_respawn_player()
+	if Input.is_action_just_pressed("switch_weapon") and not player.dead:
+		_switch_weapon(player)
+	if Input.is_action_just_pressed("craft_menu") and not player.dead:
+		if craft_panel.visible:
+			craft_panel.close()
+		else:
+			craft_panel.open(data, player)
 	if Input.is_action_just_pressed("logout_menu") and not player.dead and mode == Mode.LIVE:
+		craft_panel.close()
 		_open_menu()
 
 
@@ -190,11 +211,41 @@ func _build_player_intent(player: SimCharacter) -> SimIntent:
 	var intent := SimIntent.new()
 	intent.move = Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	intent.aim = view.mouse_world_pos() - player.pos
-	intent.shoot = Input.is_action_pressed("shoot")
+	intent.shoot = Input.is_action_pressed("shoot") and not craft_panel.visible
 	intent.interact = Input.is_action_pressed("interact")
 	intent.eat = _eat_pressed
 	_eat_pressed = false
 	return intent
+
+
+## Q: nächste besessene Waffe.
+func _switch_weapon(player: SimCharacter) -> void:
+	var weapons := world.owned_weapons(player)
+	if weapons.size() < 2:
+		hud.show_message("Nur eine Waffe. Keule gibt es an der Werkbank (C).", 2.0)
+		return
+	var index := weapons.find(player.active_weapon)
+	var next_id: String = weapons[(index + 1) % weapons.size()]
+	world.set_active_weapon(player, next_id)
+	hud.show_message("Waffe: %s" % data.items[next_id]["name"], 1.5)
+
+
+func _on_craft_requested(item_id: String) -> void:
+	var player := world.get_character(player_id)
+	if player == null:
+		return
+	var reason := world.craft(player, item_id)
+	if reason.is_empty():
+		craft_panel.show_status("%s gebaut." % data.items[item_id]["name"])
+		hud.show_message("%s gebaut." % data.items[item_id]["name"], 2.0)
+	else:
+		craft_panel.show_status("Geht nicht: %s" % reason)
+	craft_panel.refresh()
+
+
+func _on_marker_removed(marker_id: String) -> void:
+	world.remove_marker(player_id, marker_id)
+	menu.on_marker_removed(marker_id)
 
 
 # --- Modi -----------------------------------------------------------------
@@ -208,7 +259,8 @@ func _enter_live(keep_chronicle: bool = false) -> void:
 	if keep_chronicle:
 		hud.add_button("Chronik schließen", _hide_chronicle)
 	else:
-		_hide_chronicle()
+		_chronicle_id = -1
+		hud.show_chronicle(false)
 	hud.add_button("Neues Spiel", _new_game)
 
 
@@ -223,6 +275,7 @@ func _hide_chronicle() -> void:
 func _open_menu() -> void:
 	var player := world.get_character(player_id)
 	mode = Mode.MENU
+	craft_panel.close()
 	menu.open(data, player, player.rules, player.role_id)
 
 

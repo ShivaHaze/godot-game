@@ -17,9 +17,9 @@ const CHARACTER_FLOATS: Array[String] = [
 	"decision_timer", "leash_radius", "ai_timer", "bite_cooldown", "logout_time",
 ]
 const CHARACTER_INTS: Array[String] = [
-	"id", "kind", "control", "last_attacker_id", "active_rule_index", "last_logged_rule_index",
+	"id", "kind", "control", "last_attacker_id", "active_rule_index", "last_logged_rule_index", "marker_counter",
 ]
-const CHARACTER_STRINGS: Array[String] = ["name", "owner_id", "role_id", "ai_state"]
+const CHARACTER_STRINGS: Array[String] = ["name", "owner_id", "role_id", "ai_state", "active_weapon"]
 const CHARACTER_BOOLS: Array[String] = ["dead", "hidden", "transition_logged"]
 const CHARACTER_VECTORS: Array[String] = ["pos", "prev_pos", "facing", "logout_pos", "leash_center", "ai_target_pos", "home_pos"]
 
@@ -99,7 +99,11 @@ static func character_to_dict(c: SimCharacter) -> Dictionary:
 		dict[key] = v2(c.get(key))
 	dict["gather_target"] = v2i(c.gather_target)
 	dict["inventory"] = c.inventory.duplicate()
-	dict["skipped_rules"] = c.skipped_rules.keys()
+	var skipped := []
+	for index: int in c.skipped_rules:
+		skipped.append({"index": index, "reason": c.skipped_rules[index]["reason"], "time": c.skipped_rules[index]["time"]})
+	dict["skipped_rules"] = skipped
+	dict["items"] = c.items.duplicate()
 	dict["rules"] = c.rules.duplicate(true)
 	var markers := []
 	for marker: Dictionary in c.markers:
@@ -129,8 +133,12 @@ static func character_from_dict(data: SimData, dict: Dictionary) -> SimCharacter
 		c.set(key, to_v2(dict.get(key, [0, 0])))
 	c.gather_target = to_v2i(dict.get("gather_target", [-1, -1]))
 	c.skipped_rules = {}
-	for index: Variant in dict.get("skipped_rules", []):
-		c.skipped_rules[int(index)] = true
+	for entry: Variant in dict.get("skipped_rules", []):
+		if entry is Dictionary:
+			c.skipped_rules[int(entry["index"])] = {"reason": String(entry["reason"]), "time": float(entry["time"])}
+	c.items = []
+	for item_id: Variant in dict.get("items", []):
+		c.items.append(String(item_id))
 	c.inventory = {}
 	for rid: Variant in dict.get("inventory", {}):
 		c.inventory[String(rid)] = int(dict["inventory"][rid])

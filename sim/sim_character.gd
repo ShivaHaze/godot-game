@@ -29,6 +29,8 @@ var melee_cooldown: float = 1.0
 
 var hunger: float = 100.0
 var inventory: Dictionary = {}       # Rohstoff-Kennung -> Anzahl
+var items: Array[String] = []        # Besessene Ausrüstung (Kennungen aus items.json)
+var active_weapon: String = ""       # Aktive Waffe (Kennung) oder leer
 
 var fire_cooldown: float = 0.0
 var last_damage_time: float = -1e9   # Sim-Zeit des letzten erlittenen Treffers
@@ -44,12 +46,13 @@ var revealed_until: float = -1e9     # Bis zu dieser Sim-Zeit kann man sich nich
 # Regelwerk und Orte (nur für Spielercharaktere relevant)
 var rules: Array = []                # normalisierte Regeln, siehe data/README.md
 var markers: Array[Dictionary] = []  # {id, name, pos}
+var marker_counter: int = 0          # Zähler für Marker-Kennungen (werden nicht wiederverwendet)
 var logout_pos: Vector2 = Vector2.ZERO  # "Hier"
 var logout_time: float = -1e9        # Sim-Zeit des Ausloggens (Logout-Übergang)
 var transition_logged: bool = false  # Ende des Übergangs schon in der Chronik vermerkt
 var chronicle: Array[Dictionary] = []   # {time, text}
 var active_rule_index: int = -1
-var skipped_rules: Dictionary = {}   # Regelindizes, die gerade als 'nicht möglich' vermerkt sind (einmal pro Serie, gegen Chronik-Spam)
+var skipped_rules: Dictionary = {}   # Regelindex -> {reason, time}: zuletzt vermerkte Übersprünge (gegen Chronik-Spam)
 var last_logged_rule_index: int = -1 # zuletzt protokollierte Regel; dieselbe Regel nach einer Pause wird nicht erneut protokolliert
 var action_state: Dictionary = {}    # Zwischenzustand der aktiven Aktion (z. B. Sammelziel)
 var role_id: String = ""             # Zuletzt gewählte Rolle (nur Anzeige)

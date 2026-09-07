@@ -30,10 +30,10 @@
     {
       "id": "gatherer",
       "name": "Sammler",
-      "tip": "Sammelt Beeren im Umkreis und flieht bei Gefahr zum Ausgangsort. Sichtbar: Risiko hoch, Ertrag hoch.",
+      "tip": "Sammelt Beeren im Umkreis, wehrt Angriffe ab und zieht sich bei wenig Leben zum Ausgangsort zurück. Sichtbar: Risiko hoch, Ertrag hoch.",
       "rules": [
         { "if": { "condition": "health_below", "params": { "percent": 40 } }, "then": { "action": "flee_to", "params": { "place": "here", "radius": 2 } } },
-        { "if": { "condition": "under_attack" }, "then": { "action": "flee_to", "params": { "place": "here", "radius": 2 } } },
+        { "if": { "condition": "under_attack" }, "then": { "action": "fight_back" } },
         { "if": { "condition": "hungry" }, "then": { "action": "eat" } },
         { "if": { "condition": "inventory_state", "params": { "state": "full" } }, "then": { "action": "stay_at", "params": { "place": "here", "radius": 2 } } },
         { "if": { "condition": "else" }, "then": { "action": "gather", "params": { "resource": "berries", "place": "here", "radius": 8 } } }

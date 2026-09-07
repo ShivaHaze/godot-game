@@ -2,7 +2,7 @@ class_name SimWorld
 extends RefCounted
 ## Der komplette Weltzustand und der feste Tick. Keine Nodes, kein Rendering, kein Zugriff auf Input.
 ## Darstellung liest nur; Steuerung kommt als SimIntent pro Charakter herein.
-## Zeitsprung = step() oft aufrufen, ohne zu zeichnen.
+## Zeitsprung = advance(): step() oft aufrufen, ohne zu zeichnen.
 
 var data: SimData
 var map: SimMap
@@ -51,13 +51,18 @@ func spawn_player(pos: Vector2, owner_id: String, display_name: String) -> SimCh
 	c.logout_pos = pos
 	c.max_hp = data.balf("character.max_hp")
 	c.hp = c.max_hp
-	c.armor = data.balf("character.armor")
 	c.move_speed = data.balf("character.move_speed")
 	c.collision_radius = data.balf("character.collision_radius")
 	c.hunger = data.balf("hunger.start")
 	for rid: String in data.resource_order:
 		c.inventory[rid] = 0
 	c.rules = data.default_rules.duplicate(true)
+	for item_id: String in data.item_order:
+		if data.items[item_id].get("starting", false):
+			c.items.append(item_id)
+			if c.active_weapon.is_empty() and data.items[item_id]["kind"] == "weapon":
+				c.active_weapon = item_id
+	refresh_equipment(c)
 	characters[c.id] = c
 	return c
 
@@ -124,10 +129,40 @@ func set_intent(id: int, intent: SimIntent) -> void:
 ## Setzt einen Marker an der aktuellen Position des Charakters. Nur Marker sind als Ort in Regeln wählbar.
 func add_marker(id: int) -> Dictionary:
 	var c := get_character(id)
-	var marker := {"id": "m%d" % (c.markers.size() + 1), "name": "Marker %d" % (c.markers.size() + 1), "pos": c.pos}
+	c.marker_counter += 1
+	var marker := {"id": "m%d" % c.marker_counter, "name": "Marker %d" % c.marker_counter, "pos": c.pos}
 	c.markers.append(marker)
 	events.append({"type": "marker", "id": id, "marker": marker})
 	return marker
+
+
+func rename_marker(id: int, marker_id: String, new_name: String) -> bool:
+	var c := get_character(id)
+	var trimmed := new_name.strip_edges()
+	if c == null or trimmed.is_empty():
+		return false
+	for marker: Dictionary in c.markers:
+		if marker["id"] == marker_id:
+			marker["name"] = trimmed
+			return true
+	return false
+
+
+## Entfernt einen Marker; Regeln, die ihn als Ort nutzen, fallen auf "Hier" zurück.
+func remove_marker(id: int, marker_id: String) -> bool:
+	var c := get_character(id)
+	if c == null:
+		return false
+	for i in c.markers.size():
+		if c.markers[i]["id"] == marker_id:
+			c.markers.remove_at(i)
+			for rule: Dictionary in c.rules:
+				var params: Dictionary = rule["then"]["params"]
+				if params.get("place", "") == marker_id:
+					params["place"] = SimData.PLACE_HERE
+			events.append({"type": "marker_removed", "id": id, "marker_id": marker_id})
+			return true
+	return false
 
 
 ## Ausloggen: der Charakter wird zum NPC und führt ab jetzt die Regelliste aus. "Hier" = aktuelle Position.
@@ -176,6 +211,71 @@ func in_transition(c: SimCharacter) -> bool:
 
 static func _pos_text(pos: Vector2) -> String:
 	return "(%d, %d)" % [int(pos.x), int(pos.y)]
+
+
+# --- Ausrüstung -----------------------------------------------------------
+
+## Leitet Rüstung und Nahkampfwerte aus den besessenen Gegenständen ab (nur Spielercharaktere).
+func refresh_equipment(c: SimCharacter) -> void:
+	if c.kind != SimCharacter.Kind.PLAYER:
+		return
+	var best_armor := 0.0
+	for item_id: String in c.items:
+		var def: Dictionary = data.items.get(item_id, {})
+		if def.get("kind", "") == "armor":
+			best_armor = maxf(best_armor, float(def["armor"]))
+	c.armor = data.balf("character.armor") + best_armor
+	if not c.items.has(c.active_weapon):
+		c.active_weapon = ""
+		for item_id: String in c.items:
+			if data.items[item_id]["kind"] == "weapon":
+				c.active_weapon = item_id
+				break
+	var weapon: Dictionary = data.items.get(c.active_weapon, {})
+	if weapon.get("attack", "") == "melee":
+		c.melee_damage = float(weapon["damage"])
+		c.melee_range = float(weapon["range"])
+		c.melee_cooldown = float(weapon["cooldown"])
+	else:
+		c.melee_damage = 0.0
+
+
+## Werkbank: baut einen Gegenstand aus dem Inventar. Rückgabe: leer = gebaut, sonst der Grund.
+func craft(c: SimCharacter, item_id: String) -> String:
+	var def: Dictionary = data.items.get(item_id, {})
+	if def.is_empty():
+		return "unbekannter Gegenstand"
+	if c.items.has(item_id):
+		return "schon vorhanden"
+	var cost: Dictionary = def.get("cost", {})
+	if cost.is_empty():
+		return "nicht baubar"
+	for rid: String in cost:
+		var needed := int(cost[rid])
+		if int(c.inventory.get(rid, 0)) < needed:
+			return "zu wenig %s (%d nötig)" % [data.resources[rid]["name"], needed]
+	for rid: String in cost:
+		c.inventory[rid] = int(c.inventory[rid]) - int(cost[rid])
+	c.items.append(item_id)
+	refresh_equipment(c)
+	events.append({"type": "craft", "id": c.id, "item": item_id})
+	return ""
+
+
+func set_active_weapon(c: SimCharacter, item_id: String) -> bool:
+	if not c.items.has(item_id) or data.items.get(item_id, {}).get("kind", "") != "weapon":
+		return false
+	c.active_weapon = item_id
+	refresh_equipment(c)
+	return true
+
+
+func owned_weapons(c: SimCharacter) -> Array[String]:
+	var result: Array[String] = []
+	for item_id: String in c.items:
+		if data.items.get(item_id, {}).get("kind", "") == "weapon":
+			result.append(item_id)
+	return result
 
 
 # --- Tick -----------------------------------------------------------------
@@ -245,7 +345,7 @@ func _apply_intent(c: SimCharacter, intent: SimIntent, dt: float) -> void:
 	if intent.eat:
 		eat(c)
 	if intent.shoot:
-		_shoot(c)
+		_attack(c)
 	if intent.melee:
 		_melee(c)
 	_update_hiding(c, intent, dt)
@@ -272,11 +372,11 @@ func _gather(c: SimCharacter, dt: float) -> void:
 		events.append({"type": "gather", "id": c.id, "resource": node.resource, "cell": node.cell})
 
 
-## Plündert eine Leiche in Reichweite (alles auf einmal). true, wenn etwas übernommen wurde.
+## Plündert eine Leiche in Reichweite: Rohstoffe (so viel Platz ist) und Ausrüstung, die man noch nicht hat.
 func _loot(c: SimCharacter) -> bool:
 	var range_sq := pow(data.balf("character.interact_range"), 2.0)
 	for other: SimCharacter in characters.values():
-		if other == c or not other.dead or other.inventory_count() <= 0:
+		if other == c or not other.dead:
 			continue
 		if other.pos.distance_squared_to(c.pos) > range_sq:
 			continue
@@ -291,9 +391,18 @@ func _loot(c: SimCharacter) -> bool:
 			other.inventory[rid] = amount - moved
 			c.inventory[rid] = int(c.inventory.get(rid, 0)) + moved
 			taken[rid] = moved
-		if taken.is_empty():
-			return false
-		events.append({"type": "loot", "id": c.id, "from": other.id, "items": taken})
+		var items_taken: Array[String] = []
+		if c.kind == SimCharacter.Kind.PLAYER:
+			for item_id: String in other.items.duplicate():
+				if not c.items.has(item_id):
+					other.items.erase(item_id)
+					c.items.append(item_id)
+					items_taken.append(item_id)
+		if taken.is_empty() and items_taken.is_empty():
+			continue
+		refresh_equipment(c)
+		refresh_equipment(other)
+		events.append({"type": "loot", "id": c.id, "from": other.id, "items": taken, "equipment": items_taken})
 		return true
 	return false
 
@@ -318,8 +427,19 @@ func eat(c: SimCharacter) -> Dictionary:
 
 # --- Kampf ----------------------------------------------------------------
 
-func _shoot(c: SimCharacter) -> void:
-	if c.fire_cooldown > 0.0 or projectile_count(c.id) >= data.bali("combat.max_projectiles_per_shooter"):
+## Angriff mit der aktiven Waffe: Fernkampf schießt ein Projektil, Nahkampf schlägt zu.
+func _attack(c: SimCharacter) -> void:
+	var weapon: Dictionary = data.items.get(c.active_weapon, {})
+	if weapon.is_empty():
+		return
+	if weapon.get("attack", "") == "ranged":
+		_shoot(c, weapon)
+	else:
+		_melee(c)
+
+
+func _shoot(c: SimCharacter, weapon: Dictionary) -> void:
+	if c.fire_cooldown > 0.0 or projectile_count(c.id) >= int(weapon["max_projectiles"]):
 		return
 	if c.facing == Vector2.ZERO:
 		return
@@ -327,11 +447,11 @@ func _shoot(c: SimCharacter) -> void:
 	p.owner_id = c.id
 	p.pos = c.pos + c.facing * (c.collision_radius + 0.15)
 	p.prev_pos = p.pos
-	p.velocity = c.facing * data.balf("combat.projectile_speed")
-	p.damage = data.balf("combat.projectile_damage")
-	p.lifetime = data.balf("combat.projectile_lifetime")
+	p.velocity = c.facing * float(weapon["projectile_speed"])
+	p.damage = float(weapon["damage"])
+	p.lifetime = float(weapon["projectile_lifetime"])
 	projectiles.append(p)
-	c.fire_cooldown = data.balf("combat.fire_cooldown")
+	c.fire_cooldown = float(weapon["cooldown"])
 	reveal(c)
 	events.append({"type": "shoot", "id": c.id})
 

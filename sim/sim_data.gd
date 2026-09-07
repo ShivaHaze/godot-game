@@ -12,6 +12,7 @@ const FILE_NAMES: Dictionary = {
 	"conditions": "conditions.json",
 	"actions": "actions.json",
 	"roles": "roles.json",
+	"items": "items.json",
 }
 
 const ALLOWED_OPS: Array[String] = ["<", "<=", ">", ">=", "==", "!="]
@@ -27,8 +28,6 @@ const REQUIRED_BALANCE: Array[String] = [
 	"hunger.decay_per_second_live", "hunger.decay_per_second_offline",
 	"inventory.capacity",
 	"gathering.gather_time", "gathering.node_regrow_time",
-	"combat.projectile_speed", "combat.projectile_damage", "combat.projectile_lifetime",
-	"combat.max_projectiles_per_shooter", "combat.fire_cooldown",
 	"combat.front_arc_degrees", "combat.back_arc_degrees",
 	"combat.side_damage_multiplier", "combat.back_damage_multiplier", "combat.back_armor_ignore",
 	"combat.min_damage", "combat.under_attack_window",
@@ -37,7 +36,7 @@ const REQUIRED_BALANCE: Array[String] = [
 	"wolf.wander_radius", "wolf.respawn_time", "wolf.max_alive", "wolf.give_up_radius", "wolf.regen_per_second",
 	"logout.transition_seconds", "logout.combat_window",
 	"npc.default_leash_radius", "npc.preferred_combat_range", "npc.hide_delay",
-	"npc.reveal_radius", "npc.reveal_duration", "npc.decision_interval",
+	"npc.reveal_radius", "npc.reveal_duration", "npc.decision_interval", "npc.skip_relog_minutes",
 	"offline.coarse_tick_dt", "offline.hot_radius",
 ]
 
@@ -60,6 +59,8 @@ var action_order: Array[String] = []
 var roles: Dictionary = {}              # id -> Definition (rules bereits normalisiert)
 var role_order: Array[String] = []
 var default_rules: Array = []
+var items: Dictionary = {}              # id -> Definition (Waffen, Rüstung)
+var item_order: Array[String] = []
 var errors: PackedStringArray = []
 
 
@@ -245,6 +246,7 @@ func _parse_all(raw: Dictionary) -> void:
 	_parse_conditions(raw["conditions"])
 	_parse_actions(raw["actions"])
 	_parse_roles(raw["roles"])
+	_parse_items(raw["items"])
 
 
 func _parse_balance(raw: Dictionary) -> void:
@@ -430,6 +432,48 @@ func _parse_roles(raw: Dictionary) -> void:
 		role_order.append(id)
 	if roles.is_empty():
 		errors.append("roles.json: mindestens eine Rolle nötig")
+
+
+func _parse_items(raw: Dictionary) -> void:
+	var list: Variant = raw.get("items")
+	if not (list is Array):
+		errors.append("items.json: 'items' muss ein Array sein")
+		return
+	for entry: Variant in list:
+		if not _require_fields(entry, {"id": TYPE_STRING, "name": TYPE_STRING, "kind": TYPE_STRING, "starting": TYPE_BOOL, "cost": TYPE_DICTIONARY}, "items.json"):
+			continue
+		var id := String(entry["id"])
+		var context := "items.json Gegenstand '%s'" % id
+		if items.has(id):
+			errors.append("%s: doppelte Kennung" % context)
+			continue
+		var ok := true
+		match String(entry["kind"]):
+			"weapon":
+				match String(entry.get("attack", "")):
+					"ranged":
+						ok = _require_fields(entry, {"damage": TYPE_FLOAT, "projectile_speed": TYPE_FLOAT, "projectile_lifetime": TYPE_FLOAT, "cooldown": TYPE_FLOAT, "max_projectiles": TYPE_FLOAT}, context)
+					"melee":
+						ok = _require_fields(entry, {"damage": TYPE_FLOAT, "range": TYPE_FLOAT, "cooldown": TYPE_FLOAT}, context)
+					_:
+						errors.append("%s: 'attack' muss ranged oder melee sein" % context)
+						ok = false
+			"armor":
+				ok = _require_fields(entry, {"armor": TYPE_FLOAT}, context)
+			_:
+				errors.append("%s: 'kind' muss weapon oder armor sein" % context)
+				ok = false
+		for rid: Variant in entry["cost"]:
+			if not resources.has(rid):
+				errors.append("%s: unbekannter Rohstoff '%s' in cost" % [context, rid])
+				ok = false
+			elif not _is_number(entry["cost"][rid]) or float(entry["cost"][rid]) <= 0.0:
+				errors.append("%s: cost.%s muss eine Zahl > 0 sein" % [context, rid])
+				ok = false
+		if not ok:
+			continue
+		items[id] = entry
+		item_order.append(id)
 
 
 # --- Hilfsfunktionen ------------------------------------------------------

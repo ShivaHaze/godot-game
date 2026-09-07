@@ -8,23 +8,26 @@ Der Twist: Beim "Ausloggen" wird der Spielercharakter zum NPC, der nach vom Spie
 Designfragen, die das Dokument nicht beantwortet: **nicht raten, fragen.** Eigene Entscheidungen, die das Design berühren, dort als [T]/[O] eintragen und Bescheid sagen.
 
 ## Stand (2026-09-07)
-Schritte 1–8 sind gebaut und committet: Gerüst, Daten, Sim-Kern, Regelmaschine + Chronik, Kampf + Wolf, NPC-Modus, Ausloggen-Menü, Zeitsprung + Gegen-sich-selbst. 90 Tests laufen headless grün. Nächster Schritt laut Design: Abnahmetest durch den Spieler (Gefühl), danach Balancing über `data/balance.json`.
+Schritte 1–8 (Phase 0) plus 9–10 sind gebaut und committet: Gerüst, Daten, Sim-Kern, Regelmaschine + Chronik, Kampf + Wolf, NPC-Modus, Ausloggen-Menü, Zeitsprung + Gegen-sich-selbst, Spielstand, Logout-Übergang, Chronik-Spur, Marker verwalten, Werkbank/Ausrüstung, Balancing-Bericht. 109 Tests laufen headless grün. Nächster Schritt laut Design: Netzwerk-Spike (Godot headless als Server, 300 NPCs, Tickzeit; 50 Bot-Clients per ENet).
 
 ## Scope Phase 0 (nichts darüber hinaus ohne Rückfrage)
 - Karte aus Datendatei (Kacheln: Boden, Hindernis, Holzquelle, Beerenbusch). Rechtecke, keine Grafik.
 - Spieler: WASD, Twin-Stick-Schuss (Maus), 1–3 langsame sichtbare Projektile, Richtungstreffer (hinten/seitlich = mehr Schaden), HP, flacher Rüstungsabzug als Parameter.
-- Inventar: Holz, Beeren. Sammeln per Interaktion. Leichen sind plünderbar.
+- Inventar: Holz, Beeren. Sammeln per Interaktion. Leichen sind plünderbar (Rohstoffe und Ausrüstung).
+- Ausrüstung aus `data/items.json`: Schleuder (Start), Keule und Holzpanzer an der Werkbank (C) aus Holz; Q wechselt die Waffe.
 - Hunger als Unterhalt: sinkt langsam, bei 0 geschwächt (halbe Geschwindigkeit), nicht tot.
 - Wolf-KI: nähert sich, beißt, flieht bei niedrigem HP, kommt nach.
 - Ausloggen-Menü: 4 Rollen-Presets (Verstecken, Wache, Sammler, Händler-Platzhalter), jede Rolle = vorausgefüllte, aufklappbare, editierbare Regelliste.
 - Regelsystem: Prioritätenliste, erste zutreffende (und ausführbare) Regel gewinnt, letzte Zeile immer "Sonst". Startvokabular exakt wie im Design: Bedingungen *Leben < X %, hungrig, wird angegriffen, Fremder in Nähe [Radius], Inventar voll/leer*; Aktionen *fliehe zu [Ort], bleib bei [Ort], sammle [Rohstoff] um [Ort], iss, kämpfe zurück, verstecken*. Kein "greife an".
-- Marker + Leine: Marker live per Taste (M); nur Marker plus "Hier" sind als [Ort] wählbar; jede Ortsregel hat einen Radius, sichtbar als Kreis (auch als Vorschau im Menü); der NPC verlässt die Leine nie.
+- Marker + Leine: Marker live per Taste (M), im Menü umbenennen/löschen; nur Marker plus "Hier" sind als [Ort] wählbar; jede Ortsregel hat einen Radius, sichtbar als Kreis (auch als Vorschau im Menü); der NPC verlässt die Leine nie.
 - NPC-Modus: gleiches Kampfsystem wie der Spieler, aber schlechter (zielt auf aktuelle statt zukünftige Position, dreht sich zur Bedrohung, handelt vorsichtig).
-- Chronik: jede gefeuerte Regel mit Zeitstempel, beim Zurückkommen lesbar.
+- Chronik: jede gefeuerte Regel mit Zeitstempel und Ort, beim Zurückkommen lesbar, als nummerierte Spur auf der Karte.
+- Logout-Übergang (45 s, bei Kampf länger): sichtbar, verwundbar, kein Verstecken.
+- Spielstand `user://save.dat` automatisch; `main.save_path = ""` schaltet ihn für Tests und Werkzeuge ab.
 - Zeitsprung "8 Stunden überspringen" = Sim ticken ohne zu zeichnen (grob ohne Gefahr, fein bei Kampf).
 - Gegen-sich-selbst-Modus: frischer Charakter (Besitzer p2) gegen den eigenen NPC von "gestern".
 
-**Nicht im Scope:** Netzwerk, Bauen, Claims, Gilden, Handel, weitere Rohstoffe, Zustandseffekte, Grafik, Sound, Setting, Logout-Übergang. Keine Assets, keine Addons außer GUT. Alles sind ColorRects, Linien und Labels.
+**Nicht im Scope:** Netzwerk (kommt als Spike), Bauen, Claims, Gilden, Handel, weitere Rohstoffe, Zustandseffekte, Grafik, Sound, Setting. Keine Assets, keine Addons außer GUT. Alles sind ColorRects, Linien und Labels.
 
 ## Architektur-Vorgaben (nicht verhandelbar)
 1. **Simulation getrennt von Darstellung.** Alles, was den Weltzustand verändert (Bewegung, Kampf, Hunger, Regeln, Sammeln), lebt in `sim/` und läuft mit festem Tick (20 Hz). `sim/` verwendet keine Nodes, keine Szenen, keine Autoloads, kein `get_tree()`, kein `Input` – nur `RefCounted`-Klassen und reine Daten. `game/` liest den Sim-Zustand nur aus, zeichnet und schreibt ausschließlich `SimIntent`s hinein. Grund: Die Sim läuft später unverändert auf einem Godot-headless-Server. Zeitsprung = `SimWorld.advance()`.
@@ -41,11 +44,12 @@ Schritte 1–8 sind gebaut und committet: Gerüst, Daten, Sim-Kern, Regelmaschin
 project.godot        Godot-Projekt (Input-Map: move_*, shoot, interact, eat, place_marker, logout_menu, respawn)
 CLAUDE.md            diese Datei
 docs/design-doc.md   Design-Dokument (Wahrheit für alle Designfragen)
-data/                JSON: balance, resources, tiles, map, conditions, actions, roles (+ README.md)
+data/                JSON: balance, resources, tiles, map, conditions, actions, roles, items (+ README.md)
 sim/                 Simulation ohne Nodes:
   sim_data.gd          Loader + Validierung + Regel-Normalisierung + Textvorlagen
-  sim_world.gd         Weltzustand, Tick/step(dt), Intents, Kampf, Hunger, Sammeln, Plündern, Verstecken,
-                       Wölfe, logout()/login(), advance()/advance_until() (Zeitsprung), is_hot()
+  sim_world.gd         Weltzustand, Tick/step(dt), Intents, Kampf (Waffen), Hunger, Sammeln, Plündern, Verstecken,
+                       Wölfe, Marker, Werkbank (craft), logout()/login(), Übergang, advance()/advance_until(), is_hot()
+  sim_save.gd          Weltzustand <-> Dictionary (JSON-fähig) und exakte Spielstand-Datei
   sim_map.gd           Karte, Kollision (Kreis vs. Kacheln, Gleiten, Substeps), Quellen, A*
   sim_character.gd     Charakterdaten (Spieler live / NPC / Wolf)
   sim_intent.gd        Steuerabsicht pro Tick (move, aim, shoot, interact, eat, hide, melee)
@@ -61,9 +65,11 @@ game/                Darstellung und Eingabe (liest sim/, schreibt nur Intents):
   main.gd/.tscn        Modi Live / Menü / Offline / Zeitsprung / Versus, Tick-Akkumulator, Kamera
   world_view.gd        Zeichnet Karte, Quellen, Charaktere, Projektile, Marker, Leinen (interpoliert)
   hud.gd               Status, Hinweise, Meldungen, Chronik-Tafel, Knopfleiste
-  logout_menu.gd       Rollen + Regel-Editor, aus den Daten gebaut
+  logout_menu.gd       Rollen + Regel-Editor + Marker verwalten, aus den Daten gebaut
+  craft_panel.gd       Werkbank aus items.json
 tests/unit/          GUT-Tests (test_*.gd)
-tools/               run_tests.ps1 / run_tests.sh (headless), smoke_run.gd (Rauchtest mit Fenster), screenshot_run.gd (Bildschirmfotos aller Ansichten)
+tools/               run_tests.ps1 / run_tests.sh (headless), smoke_run.gd (Rauchtest mit Fenster), screenshot_run.gd (Bildschirmfotos),
+                     balance_report.gd (Rollen × Seeds × 8 h headless, druckt Überleben/Vorräte)
 addons/gut/          Test-Framework GUT 9.6.1 (einziges Addon)
 ```
 
@@ -80,9 +86,10 @@ godot --headless --path . -s addons/gut/gut_cmdln.gd
 `--import` baut den Cache in `.godot/` auf; ohne ihn sind `class_name`-Klassen headless nicht auflösbar. Exit-Code 0 = alle Tests grün. GUT liest `res://.gutconfig.json` automatisch (kein `-gconfig`-Argument: der `godot.cmd`-Wrapper zerlegt Argumente mit `=`).
 Zeichen- und UI-Code läuft headless nicht; dafür: `godot --path . -s tools/smoke_run.gd` (öffnet kurz ein Fenster, meldet `SMOKE OK`).
 Bildschirmfotos aller Ansichten: `godot --path . -s tools/screenshot_run.gd -- <Ordner>`.
+Balancing-Bericht: `godot --headless --path . -s tools/balance_report.gd -- 5 8` (Seeds, Stunden).
 
 ## Spielen
-`godot --path .` oder Projekt im Editor öffnen. WASD bewegen, Maus zielen, Linksklick schießen, E halten sammeln/plündern, F essen, M Marker, Esc Ausloggen-Menü, R neuer Charakter nach dem Tod. Im Offline-Modus Knöpfe unten rechts: Zeitsprung, einloggen, gegen sich selbst antreten.
+`godot --path .` oder Projekt im Editor öffnen. WASD bewegen, Maus zielen, Linksklick angreifen, E halten sammeln/plündern, F essen, Q Waffe wechseln, C Werkbank, M Marker, Esc Ausloggen-Menü, R neuer Charakter nach dem Tod. Im Offline-Modus Knöpfe unten rechts: Zeitsprung, einloggen, gegen sich selbst antreten. Spielstand wird automatisch geführt; 'Neues Spiel' (zweimal klicken) löscht ihn.
 
 ## Konventionen
 - **Code und Identifier Englisch** (Dateien, Klassen, Variablen, JSON-Schlüssel). **UI-Texte und Chronik Deutsch. Kommentare Deutsch.**

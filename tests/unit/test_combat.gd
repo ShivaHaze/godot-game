@@ -78,7 +78,7 @@ func test_shot_hits_wolf_from_front() -> void:
 	var hits := _tick(40, _shoot_intent(Vector2.RIGHT), "hit")
 	assert_gt(hits.size(), 0, "getroffen")
 	assert_eq(hits[0]["side"], SimCombat.HitSide.FRONT)
-	assert_eq(hits[0]["damage"], data.balf("combat.projectile_damage"))
+	assert_eq(hits[0]["damage"], float(data.items["sling"]["damage"]))
 	assert_eq(hits[0]["attacker"], player.id)
 	assert_lt(wolf.hp, wolf.max_hp)
 	assert_eq(wolf.last_attacker_id, player.id)
@@ -93,7 +93,7 @@ func test_back_hit_doubles_damage() -> void:
 	var hits := _tick(12, _shoot_intent(Vector2.RIGHT), "hit")
 	assert_eq(hits.size(), 1)
 	assert_eq(hits[0]["side"], SimCombat.HitSide.BACK)
-	assert_eq(wolf.hp, wolf.max_hp - data.balf("combat.projectile_damage") * data.balf("combat.back_damage_multiplier"))
+	assert_eq(wolf.hp, wolf.max_hp - float(data.items["sling"]["damage"]) * data.balf("combat.back_damage_multiplier"))
 
 
 func test_projectile_limit_and_cooldown() -> void:
@@ -103,7 +103,7 @@ func test_projectile_limit_and_cooldown() -> void:
 		world.set_intent(player.id, intent)
 		world.tick()
 		max_seen = maxi(max_seen, world.projectiles.size())
-	assert_eq(max_seen, data.bali("combat.max_projectiles_per_shooter"), "nie mehr als das Limit in der Luft")
+	assert_eq(max_seen, int(data.items["sling"]["max_projectiles"]), "nie mehr als das Limit in der Luft")
 	var shots := _tick(1, intent, "shoot")
 	world.projectiles.clear()
 	shots = _tick(3, intent, "shoot")
@@ -119,7 +119,7 @@ func test_projectile_stops_at_wall_and_after_lifetime() -> void:
 	player.fire_cooldown = 0.0
 	_tick(1, _shoot_intent(Vector2.RIGHT))
 	assert_eq(world.projectiles.size(), 1)
-	_tick(ceili(data.balf("combat.projectile_lifetime") / world.tick_dt) + 2)
+	_tick(ceili(float(data.items["sling"]["projectile_lifetime"]) / world.tick_dt) + 2)
 	assert_eq(world.projectiles.size(), 0, "Lebensdauer abgelaufen")
 
 

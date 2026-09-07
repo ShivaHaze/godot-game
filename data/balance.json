@@ -48,13 +48,7 @@
   },
 
   "combat": {
-    "_doc": "Twin-Stick-Schuss mit wenigen langsamen Projektilen. TTK nackt ca. 3 Treffer.",
-    "projectile_speed": 7.0,
-    "projectile_damage": 10,
-    "projectile_lifetime": 1.6,
-    "_projectile_lifetime": "Sekunden, danach verschwindet das Projektil (Reichweite = speed * lifetime).",
-    "max_projectiles_per_shooter": 3,
-    "fire_cooldown": 0.5,
+    "_doc": "Richtungstreffer und Rüstung. Waffenwerte (Schaden, Projektile, Cooldown) stehen in items.json. TTK nackt mit der Schleuder ca. 3 Treffer.",
     "front_arc_degrees": 120,
     "_front_arc_degrees": "Winkelbereich vor dem Getroffenen, der als Fronttreffer zählt.",
     "back_arc_degrees": 90,
@@ -114,7 +108,9 @@
     "reveal_duration": 10.0,
     "_reveal_duration": "Sekunden, die ein Entdeckter sichtbar bleibt, bevor er sich wieder verstecken kann.",
     "decision_interval": 0.25,
-    "_decision_interval": "Sekunden zwischen zwei Regelauswertungen des NPC."
+    "_decision_interval": "Sekunden zwischen zwei Regelauswertungen des NPC.",
+    "skip_relog_minutes": 30,
+    "_skip_relog_minutes": "Eine übersprungene Regel mit demselben Grund wird frühestens nach so vielen Minuten erneut in der Chronik vermerkt."
   },
 
   "offline": {

@@ -104,6 +104,7 @@ func add_button(text: String, callback: Callable) -> Button:
 
 func clear_buttons() -> void:
 	for child: Node in _buttons.get_children():
+		_buttons.remove_child(child)
 		child.queue_free()
 
 
@@ -148,11 +149,13 @@ func refresh() -> void:
 		state = "\nversteckt"
 	if not c.dead and world.in_transition(c):
 		state += "\nLogout-Übergang: noch %d s (verwundbar, kein Verstecken)" % int(ceilf(world.transition_end(c) - world.time))
-	_status.text = "Modus: %s\nUhr %s\nLeben %d/%d\nHunger %s\n%s (%d/%d)%s" % [
+	var weapon_name := String(world.data.items.get(c.active_weapon, {}).get("name", "keine"))
+	_status.text = "Modus: %s\nUhr %s\nLeben %d/%d\nHunger %s\n%s (%d/%d)\nWaffe: %s · Rüstung %d%s" % [
 		mode_text,
 		world.clock_string(),
 		int(ceilf(c.hp)), int(c.max_hp),
 		hunger_text,
 		" · ".join(inventory_parts), c.inventory_count(), world.data.bali("inventory.capacity"),
+		weapon_name, int(c.armor),
 		state,
 	]

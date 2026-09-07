@@ -119,16 +119,20 @@ func test_fight_back_never_leaves_leash_but_shoots() -> void:
 
 
 func test_flee_to_here_when_attacked() -> void:
-	world.logout(npc.id, _rules("gatherer"), "Sammler")
+	var rules := _rule_list([
+		{"if": {"condition": "under_attack"}, "then": {"action": "flee_to", "params": {"place": "here", "radius": 2}}},
+		{"if": {"condition": "else"}, "then": {"action": "stay_at", "params": {"place": "here", "radius": 8}}},
+	])
+	world.logout(npc.id, rules, "Test")
 	npc.pos = OPEN + Vector2(5, 0)
 	var wolf := _wolf()
 	wolf.pos = OPEN + Vector2(7, 0)
 	world.apply_damage(npc, 1.0, Vector2.LEFT, wolf.id)
 	_tick(40)
-	assert_eq(npc.active_rule_index, 1, "angegriffen -> fliehe zu Hier")
+	assert_eq(npc.active_rule_index, 0, "angegriffen -> fliehe zu Hier")
 	assert_lt(npc.pos.distance_to(OPEN), 2.0, "in der Fluchtleine angekommen")
 	var lines := SimChronicle.format_all(npc)
-	assert_true(lines[lines.size() - 1].ends_with("angegriffen, Regel 2: geflohen zu Hier"), lines[lines.size() - 1])
+	assert_true(lines[lines.size() - 1].ends_with("angegriffen, Regel 1: geflohen zu Hier"), lines[lines.size() - 1])
 
 
 func test_eat_when_hungry_logs_details() -> void:

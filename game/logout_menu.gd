@@ -6,6 +6,8 @@ extends CanvasLayer
 signal confirmed(rules: Array, role_id: String, role_name: String)
 signal cancelled
 signal rules_changed(rules: Array)
+signal marker_renamed(marker_id: String, new_name: String)
+signal marker_removed(marker_id: String)
 
 var data: SimData
 var character: SimCharacter
@@ -15,6 +17,7 @@ var role_id: String = ""
 var _root: PanelContainer
 var _vbox: VBoxContainer
 var _roles_row: HBoxContainer
+var _markers_row: HBoxContainer
 var _scroll: ScrollContainer
 var _role_buttons: Dictionary = {}
 var _custom_label: Label
@@ -38,10 +41,50 @@ func open(p_data: SimData, p_character: SimCharacter, current_rules: Array, curr
 	role_id = current_role
 	_build_role_buttons()
 	_update_role_highlight()
+	_rebuild_markers()
 	_rebuild_rules()
 	_error_label.text = ""
 	visible = true
 	rules_changed.emit(rules)
+
+
+## Nach dem Löschen eines Markers (durch main.gd in der Sim): Arbeitskopie der Regeln und Anzeige anpassen.
+func on_marker_removed(marker_id: String) -> void:
+	for rule: Dictionary in rules:
+		var params: Dictionary = rule["then"]["params"]
+		if params.get("place", "") == marker_id:
+			params["place"] = SimData.PLACE_HERE
+	_rebuild_markers()
+	_rebuild_rules()
+	rules_changed.emit(rules)
+
+
+func _rebuild_markers() -> void:
+	for child: Node in _markers_row.get_children():
+		_markers_row.remove_child(child)
+		child.queue_free()
+	var title := Label.new()
+	title.text = "Marker (M setzt live):" if not character.markers.is_empty() else "Marker: noch keiner gesetzt (M im Spiel). Nur Marker und Hier sind als Ort wählbar."
+	_markers_row.add_child(title)
+	for marker: Dictionary in character.markers:
+		var marker_id := String(marker["id"])
+		var edit := LineEdit.new()
+		edit.text = String(marker["name"])
+		edit.custom_minimum_size = Vector2(120, 0)
+		edit.text_submitted.connect(func(new_name: String) -> void: _rename(marker_id, new_name))
+		edit.focus_exited.connect(func() -> void: _rename(marker_id, edit.text))
+		_markers_row.add_child(edit)
+		var remove := Button.new()
+		remove.text = "löschen"
+		remove.pressed.connect(func() -> void: marker_removed.emit(marker_id))
+		_markers_row.add_child(remove)
+
+
+func _rename(marker_id: String, new_name: String) -> void:
+	if new_name.strip_edges().is_empty():
+		return
+	marker_renamed.emit(marker_id, new_name)
+	_rebuild_rules()  # Ortsnamen in den Auswahlfeldern aktualisieren
 
 
 func close() -> void:
@@ -83,6 +126,10 @@ func _build() -> void:
 	_tip.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_tip.custom_minimum_size = Vector2(1180, 40)
 	vbox.add_child(_tip)
+
+	_markers_row = HBoxContainer.new()
+	_markers_row.add_theme_constant_override("separation", 6)
+	vbox.add_child(_markers_row)
 
 	_advanced = CheckButton.new()
 	_advanced.text = "Regeln anzeigen und bearbeiten (Advanced)"

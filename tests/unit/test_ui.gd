@@ -68,6 +68,7 @@ func test_menu_confirm_emits_normalized_rules() -> void:
 
 func test_main_scene_logout_and_login_cycle() -> void:
 	var main: Node2D = MainScene.instantiate()
+	main.save_path = ""
 	add_child_autofree(main)
 	await wait_frames(2)
 	assert_not_null(main.world)
@@ -93,6 +94,7 @@ func test_main_scene_logout_and_login_cycle() -> void:
 
 func test_main_scene_skip_and_versus() -> void:
 	var main: Node2D = MainScene.instantiate()
+	main.save_path = ""
 	add_child_autofree(main)
 	await wait_frames(2)
 	main._open_menu()
