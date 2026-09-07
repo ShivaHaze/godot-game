@@ -357,7 +357,8 @@ func _build_hint() -> String:
 		for rid: String in def["cost"]:
 			cost.append("%d %s" % [int(def["cost"][rid]), data.resources[rid]["name"]])
 		parts.append("%d %s (%s)%s" % [i + 1, def["name"], ", ".join(cost), " ◄" if data.building_order[i] == _build_part else ""])
-	return "Bauen: " + " · ".join(parts) + " · T drehen · Linksklick setzen · X eigenes Teil abreißen · B beenden"
+	parts.append("%d Kachel beanspruchen (%d Holz)%s" % [data.building_order.size() + 1, data.bali("claim.tile_cost_wood"), " ◄" if _build_part == CLAIM_TOOL else ""])
+	return "Bauen: " + " · ".join(parts) + " · T drehen · Linksklick setzen · X abreißen/freigeben · B beenden"
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -367,11 +368,17 @@ func _unhandled_input(event: InputEvent) -> void:
 	if index >= 0 and index < data.building_order.size():
 		_build_part = data.building_order[index]
 		hud.set_hint(_build_hint())
+	elif index == data.building_order.size():
+		_build_part = CLAIM_TOOL
+		hud.set_hint(_build_hint())
 
 
 func _update_build_mode(player: SimCharacter) -> void:
 	if Input.is_action_just_pressed("rotate_build"):
 		_build_rot = (_build_rot + 1) % 2
+	if _build_part == CLAIM_TOOL:
+		_update_claim_tool(player)
+		return
 	var def: Dictionary = data.buildings.get(_build_part, {})
 	if def.is_empty():
 		return
@@ -397,6 +404,30 @@ func _update_build_mode(player: SimCharacter) -> void:
 			hud.show_message("Abgerissen, %d %% der Kosten zurück." % int(data.balf("building.refund_fraction") * 100.0), 1.5)
 		else:
 			hud.show_message("Nicht dein Bauteil oder zu weit weg.", 1.5)
+
+
+const CLAIM_TOOL: String = "claim_tile"
+
+
+func _update_claim_tool(player: SimCharacter) -> void:
+	var tile := SimMap.cell_of(view.mouse_world_pos())
+	var reason := world.claims.claim_tile_reason(world, player, tile)
+	var cells: Array[Vector2i] = [Vector2i(tile.x * 2, tile.y * 2), Vector2i(tile.x * 2 + 1, tile.y * 2), Vector2i(tile.x * 2, tile.y * 2 + 1), Vector2i(tile.x * 2 + 1, tile.y * 2 + 1)]
+	view.ghost = {"cells": cells, "valid": reason.is_empty()}
+	if Input.is_action_just_pressed("shoot"):
+		if net != null:
+			net.send({"t": "claim_tile", "x": tile.x, "y": tile.y}, true)
+		elif reason.is_empty():
+			world.claims.claim_tile(world, player, tile)
+		else:
+			hud.show_message("Beanspruchen geht nicht: %s" % reason, 1.5)
+	if Input.is_action_just_pressed("demolish"):
+		if net != null:
+			net.send({"t": "release_tile", "x": tile.x, "y": tile.y}, true)
+		elif world.claims.release_tile(world, player, tile):
+			hud.show_message("Kachel freigegeben.", 1.0)
+		else:
+			hud.show_message("Keine eigene Kachel (die Ankerkachel bleibt).", 1.5)
 
 
 ## Q: nächste besessene Waffe.
@@ -605,6 +636,21 @@ func _respawn_player() -> void:
 func _handle_events() -> void:
 	for event: Dictionary in world.events:
 		var id := int(event.get("id", -1))
+		var player_owner: String = world.get_character(player_id).owner_id if world.get_character(player_id) != null else ""
+		if String(event.get("owner", "")) == player_owner and not player_owner.is_empty():
+			match String(event.get("type", "")):
+				"claim_created":
+					hud.show_message("Claim gegründet. Kacheln beanspruchen: B, dann 3. Holz am Anker abliefern: E daneben.", 5.0)
+				"claim_starving":
+					hud.show_message("Dein Claim hat keinen Vorrat mehr, er schrumpft von außen!", 4.0)
+				"claim_shrink":
+					hud.show_message("Claim geschrumpft: noch %d Kacheln." % event["tiles"], 3.0)
+				"claim_anchor_lost":
+					hud.show_message("Dein Anker ist weg! Neu verankern, bevor die Schonfrist endet.", 5.0)
+				"claim_dissolved":
+					hud.show_message("Dein Claim ist aufgelöst (%s)." % event["reason"], 5.0)
+				"claim_restored":
+					hud.show_message("Anker wiederhergestellt, Claim gerettet.", 3.0)
 		if mode == Mode.VERSUS and id == _yesterday_id and String(event.get("type", "")) == "death":
 			hud.show_message("Du hast deinen Charakter von gestern besiegt. Plündere ihn mit E.", 5.0)
 			continue
@@ -626,6 +672,10 @@ func _handle_events() -> void:
 				hud.show_message("Geplündert: " + ", ".join(parts), 2.0)
 			"unlock":
 				hud.show_message("Neuer Regel-Baustein freigeschaltet: %s" % event["label"], 5.0)
+			"deposit":
+				hud.show_message("%d Holz am Anker abgeliefert, Vorrat %d." % [event["amount"], int(event["stock"])], 2.0)
+			"theft":
+				hud.show_message("Diebstahl! Das ist der Claim von %s." % event["owner"], 2.0)
 			"building_hit":
 				pass
 			"death":

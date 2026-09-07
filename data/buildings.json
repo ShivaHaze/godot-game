@@ -5,9 +5,14 @@
       "id": "wood_wall",
       "name": "Holzwand",
       "tier": "wood",
-      "cost": { "wood": 4 },
+      "cost": {
+        "wood": 4
+      },
       "hp": 40,
-      "size": [1, 2],
+      "size": [
+        1,
+        2
+      ],
       "passable": "none",
       "decay_per_hour": 1.0,
       "color": "#8a5a2b"
@@ -16,12 +21,34 @@
       "id": "wood_door",
       "name": "Holztür",
       "tier": "wood",
-      "cost": { "wood": 6 },
+      "cost": {
+        "wood": 6
+      },
       "hp": 30,
-      "size": [1, 2],
+      "size": [
+        1,
+        2
+      ],
       "passable": "owner",
       "decay_per_hour": 1.0,
       "color": "#c48a4a"
+    },
+    {
+      "id": "anchor",
+      "name": "Claim-Anker",
+      "tier": "wood",
+      "cost": {
+        "wood": 10
+      },
+      "hp": 60,
+      "size": [
+        2,
+        2
+      ],
+      "passable": "none",
+      "decay_per_hour": 0.0,
+      "color": "#d9b44a",
+      "_doc": "Gründet einen Claim (Kachel des Ankers). Nimmt Holz als Unterhalt an (E daneben). Nur live baubar."
     }
   ]
 }

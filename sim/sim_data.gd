@@ -40,6 +40,8 @@ const REQUIRED_BALANCE: Array[String] = [
 	"npc.reveal_radius", "npc.reveal_duration", "npc.decision_interval", "npc.skip_relog_minutes",
 	"offline.coarse_tick_dt", "offline.hot_radius", "offline.lod_radius",
 	"building.reach", "building.refund_fraction", "building.melee_damage_multiplier",
+	"claim.max_tiles_solo", "claim.tile_cost_wood", "claim.upkeep_base", "claim.upkeep_growth", "claim.stock_capacity",
+	"claim.shrink_interval_hours", "claim.grace_hours", "claim.min_anchor_distance", "claim.foreign_decay_multiplier",
 ]
 
 var balance: Dictionary = {}

@@ -147,6 +147,14 @@ func refresh() -> void:
 		state = "\nTOT"
 	elif c.hidden:
 		state = "\nversteckt"
+	var here := world.claims.claim_at_pos(c.pos)
+	var mine := world.claims.claim_of_owner(c.owner_id)
+	if mine != null:
+		var hours := mine.hours_left_hint if mine.hours_left_hint >= 0.0 else world.claims.hours_left(world.data, mine)
+		var hours_text := "∞" if hours == INF else "%.1f h" % hours
+		state += "\nDein Claim: %d/%d Kacheln · Vorrat %d Holz (reicht %s)%s" % [mine.tiles.size(), world.data.bali("claim.max_tiles_solo"), int(mine.stock), hours_text, "" if mine.anchor_building_id >= 0 else " · ANKER WEG, Schonfrist läuft"]
+	if here != null and here.owner_id != c.owner_id:
+		state += "\nFremder Claim von %s – Sammeln hier ist Diebstahl" % here.owner_id
 	if not c.dead and world.in_transition(c):
 		state += "\nLogout-Übergang: noch %d s (verwundbar, kein Verstecken)" % int(ceilf(world.transition_end(c) - world.time))
 	var weapon_name := String(world.data.items.get(c.active_weapon, {}).get("name", "keine"))

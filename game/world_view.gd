@@ -22,6 +22,7 @@ func _draw() -> void:
 	if world == null:
 		return
 	_draw_tiles()
+	_draw_claims()
 	_draw_buildings()
 	_draw_trail()
 	_draw_markers()
@@ -97,6 +98,18 @@ func _draw_leashes(c: SimCharacter) -> void:
 		draw_arc(center, float(params["radius"]) * TILE, 0.0, TAU, 64, Color(1.0, 0.85, 0.2, 0.35), 1.0)
 	if c.control == SimCharacter.Controller.RULES and c.leash_radius > 0.0:
 		draw_arc(c.leash_center * TILE, c.leash_radius * TILE, 0.0, TAU, 64, Color(0.4, 0.7, 1.0, 0.8), 2.0)
+
+
+## Claims: eigene Kacheln grünlich, fremde rötlich; Ankerkachel mit Rahmen.
+func _draw_claims() -> void:
+	for claim: SimClaim in world.claims.claims.values():
+		var own := claim.owner_id == viewer_owner
+		var color := Color(0.3, 0.9, 0.4, 0.16) if own else Color(0.95, 0.35, 0.3, 0.16)
+		if claim.anchor_building_id < 0:
+			color.a = 0.08  # Schonfrist: verblasst
+		for tile: Vector2i in claim.tiles:
+			draw_rect(Rect2(tile.x * TILE, tile.y * TILE, TILE, TILE), color)
+		draw_rect(Rect2(claim.anchor_tile.x * TILE, claim.anchor_tile.y * TILE, TILE, TILE), Color(color.r, color.g, color.b, 0.8), false, 2.0)
 
 
 func _building_color(part: String) -> Color:

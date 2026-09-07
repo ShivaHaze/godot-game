@@ -79,7 +79,7 @@ static func character_dynamic(c: SimCharacter) -> Array:
 ## Snapshot für einen Empfänger. `known` (id -> true) sind die Charaktere, die der Empfänger schon kennt;
 ## `node_state` (Vector2i -> Vorrat) ist sein letzter Stand der Quellen. Beides wird hier fortgeschrieben,
 ## Quellen gehen nur als Änderung mit.
-static func snapshot(world: SimWorld, viewer_id: int, known: Dictionary, node_state: Dictionary, building_state: Dictionary = {}) -> Dictionary:
+static func snapshot(world: SimWorld, viewer_id: int, known: Dictionary, node_state: Dictionary, building_state: Dictionary = {}, claim_state: Dictionary = {}) -> Dictionary:
 	var viewer := world.get_character(viewer_id)
 	if viewer == null:
 		return {}
@@ -136,6 +136,26 @@ static func snapshot(world: SimWorld, viewer_id: int, known: Dictionary, node_st
 		snap["bld"] = built
 	if not removed.is_empty():
 		snap["bld_rm"] = removed
+	# Claims: ganze Claims, wenn sich etwas geändert hat (Kacheln, Anker, Vorrat grob)
+	var claim_rows := []
+	for claim: SimClaim in world.claims.claims.values():
+		var tiles := PackedInt32Array()
+		for tile: Vector2i in claim.tiles:
+			tiles.append_array(PackedInt32Array([tile.x, tile.y]))
+		var signature := [claim.owner_id, claim.anchor_building_id, tiles.size(), int(claim.stock), claim.anchor_tile.x, claim.anchor_tile.y].hash()
+		if int(claim_state.get(claim.id, 0)) == signature:
+			continue
+		claim_state[claim.id] = signature
+		claim_rows.append([claim.id, claim.owner_id, claim.anchor_building_id, claim.anchor_tile.x, claim.anchor_tile.y, tiles, claim.stock, world.claims.hours_left(world.data, claim)])
+	var claims_removed := PackedInt32Array()
+	for id: int in claim_state.keys():
+		if not world.claims.claims.has(id):
+			claims_removed.append(id)
+			claim_state.erase(id)
+	if not claim_rows.is_empty():
+		snap["clm"] = claim_rows
+	if not claims_removed.is_empty():
+		snap["clm_rm"] = claims_removed
 	return snap
 
 
@@ -236,6 +256,31 @@ static func apply_snapshot(mirror: SimWorld, snap: Dictionary) -> void:
 		b.max_hp = float(row[7])
 	for id: int in snap.get("bld_rm", PackedInt32Array()):
 		mirror.map.remove_building(id)
+	for row: Array in snap.get("clm", []):
+		var claim: SimClaim = mirror.claims.claims.get(int(row[0]))
+		if claim == null:
+			claim = SimClaim.new()
+			claim.id = int(row[0])
+			mirror.claims.claims[claim.id] = claim
+		for tile: Vector2i in claim.tiles.keys():
+			mirror.claims.tile_owner.erase(tile)
+		claim.owner_id = String(row[1])
+		claim.anchor_building_id = int(row[2])
+		claim.anchor_tile = Vector2i(int(row[3]), int(row[4]))
+		claim.tiles = {}
+		var tiles: PackedInt32Array = row[5]
+		for i in range(0, tiles.size() - 1, 2):
+			var tile := Vector2i(tiles[i], tiles[i + 1])
+			claim.tiles[tile] = true
+			mirror.claims.tile_owner[tile] = claim.id
+		claim.stock = float(row[6])
+		claim.hours_left_hint = float(row[7])
+	for id: int in snap.get("clm_rm", PackedInt32Array()):
+		var claim: SimClaim = mirror.claims.claims.get(id)
+		if claim != null:
+			for tile: Vector2i in claim.tiles.keys():
+				mirror.claims.tile_owner.erase(tile)
+			mirror.claims.claims.erase(id)
 	var you := mirror.get_character(int(snap.get("you", -1)))
 	var me: PackedFloat32Array = snap.get("me", PackedFloat32Array())
 	if you != null and me.size() >= 2:

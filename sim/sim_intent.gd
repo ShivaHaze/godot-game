@@ -10,3 +10,4 @@ var interact: bool = false            # An nächster Quelle sammeln (gedrückt h
 var eat: bool = false                 # Ein essbares Stück aus dem Inventar essen
 var hide: bool = false                # Verstecken beginnen / beibehalten
 var melee: bool = false               # Nahkampfangriff auf den nächsten Feind in melee_range (Wolf: Biss)
+var gather_cell: Vector2i = Vector2i(-1, -1)  # Gezielte Quelle beim Sammeln; (-1, -1) = nächste in Reichweite

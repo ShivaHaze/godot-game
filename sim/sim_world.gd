@@ -18,6 +18,7 @@ var tick_dt: float = 0.05
 var rng := RandomNumberGenerator.new()
 
 var unlocks_by_owner: Dictionary = {}    # Besitzer -> {fact: true}: freigeschaltete Regel-Bausteine (todesfest)
+var claims := SimClaims.new()            # Land: Anker, Kacheln, Unterhalt
 
 var _next_id: int = 1
 var _next_building_id: int = 1
@@ -180,6 +181,7 @@ func remove_marker(id: int, marker_id: String) -> bool:
 ## Ausloggen: der Charakter wird zum NPC und führt ab jetzt die Regelliste aus. "Hier" = aktuelle Position.
 func logout(id: int, rules: Array, role_name: String = "") -> void:
 	var c := get_character(id)
+	var pushed := _push_out_of_foreign_claim(c)
 	c.control = SimCharacter.Controller.RULES
 	c.rules = rules.duplicate(true)
 	c.logout_pos = c.pos
@@ -194,8 +196,33 @@ func logout(id: int, rules: Array, role_name: String = "") -> void:
 	c.decision_timer = 0.0
 	c.path.clear()
 	c.chronicle.clear()
-	SimChronicle.add(self, c, "ausgeloggt" + (" als %s" % role_name if not role_name.is_empty() else "") + " bei %s" % _pos_text(c.pos))
+	SimChronicle.add(self, c, "ausgeloggt" + (" als %s" % role_name if not role_name.is_empty() else "") + " bei %s" % _pos_text(c.pos) + (" (aus fremdem Claim geschoben)" if pushed else ""))
 	events.append({"type": "logout", "id": id})
+
+
+## In fremdem Claim kann kein Offline-Charakter aktiviert werden: zur nächsten freien Kachel schieben.
+func _push_out_of_foreign_claim(c: SimCharacter) -> bool:
+	var start := SimMap.cell_of(c.pos)
+	if not claims.is_foreign(start, c.owner_id):
+		return false
+	for ring in range(1, 30):
+		var best := Vector2i(-1, -1)
+		var best_d := 1e9
+		for dy in range(-ring, ring + 1):
+			for dx in range(-ring, ring + 1):
+				if maxi(absi(dx), absi(dy)) != ring:
+					continue
+				var tile := start + Vector2i(dx, dy)
+				if map.is_walkable_for(tile, c.owner_id, data) and not claims.is_foreign(tile, c.owner_id):
+					var d := Vector2(dx, dy).length_squared()
+					if d < best_d:
+						best_d = d
+						best = tile
+		if best.x >= 0:
+			c.pos = SimMap.cell_center(best)
+			c.prev_pos = c.pos
+			return true
+	return false
 
 
 ## Einloggen: der Spieler übernimmt seinen Charakter dort, wo er gerade ist.
@@ -353,6 +380,16 @@ func can_place(c: SimCharacter, part_id: String, origin: Vector2i, rotation: int
 	for rid: String in def["cost"]:
 		if int(c.inventory.get(rid, 0)) < int(def["cost"][rid]):
 			return "zu wenig %s (%d nötig)" % [data.resources[rid]["name"], int(def["cost"][rid])]
+	# Land: nur Eigentümer bauen auf einem Claim; Anker haben eigene Regeln
+	var anchor_tile := SimMap.cell_of(center)
+	if part_id == "anchor":
+		var reason := claims.anchor_reason(data, c, anchor_tile)
+		if not reason.is_empty():
+			return reason
+	for half: Vector2i in cells:
+		var tile := Vector2i(floori(half.x / 2.0), floori(half.y / 2.0))
+		if claims.is_foreign(tile, c.owner_id):
+			return "fremder Claim"
 	return ""
 
 
@@ -376,6 +413,8 @@ func place_building(c: SimCharacter, part_id: String, origin: Vector2i, rotation
 	b.cells = SimBuilding.cells_for(def["size"], origin, b.rotation)
 	map.add_building(b)
 	events.append({"type": "build", "id": c.id, "building": b.id, "part": part_id})
+	if part_id == "anchor":
+		claims.on_anchor_placed(self, b)
 	return b
 
 
@@ -399,6 +438,7 @@ func remove_building(id: int, refund_to: SimCharacter = null) -> bool:
 			if back > 0:
 				refund_to.inventory[rid] = int(refund_to.inventory.get(rid, 0)) + back
 	map.remove_building(id)
+	claims.on_building_removed(self, id)
 	events.append({"type": "demolish", "building": id, "id": refund_to.id if refund_to != null else -1})
 	return true
 
@@ -409,6 +449,7 @@ func damage_building(b: SimBuilding, amount: float, attacker_id: int) -> void:
 	events.append({"type": "building_hit", "building": b.id, "attacker": attacker_id, "damage": amount, "pos": b.center()})
 	if b.hp <= 0.0:
 		map.remove_building(b.id)
+		claims.on_building_removed(self, b.id)
 		events.append({"type": "building_destroyed", "building": b.id, "attacker": attacker_id, "pos": b.center()})
 
 
@@ -425,14 +466,20 @@ func building_in_reach(c: SimCharacter, reach: float) -> SimBuilding:
 func _update_buildings(dt: float) -> void:
 	if map.buildings.is_empty():
 		return
+	var foreign_multiplier := data.balf("claim.foreign_decay_multiplier")
 	for id: int in map.buildings.keys():
 		var b: SimBuilding = map.buildings[id]
 		var decay := float(data.buildings[b.part]["decay_per_hour"]) / 3600.0 * dt
 		if decay <= 0.0:
 			continue
+		# Auf fremdem oder verlorenem Land verfällt es schneller (Claim geschrumpft, Anker weg)
+		var claim := claims.claim_at(SimMap.cell_of(b.center()))
+		if claim != null and claim.owner_id != b.owner_id:
+			decay *= foreign_multiplier
 		b.hp -= decay
 		if b.hp <= 0.0:
 			map.remove_building(id)
+			claims.on_building_removed(self, id)
 			events.append({"type": "building_destroyed", "building": id, "attacker": -1, "pos": b.center(), "decayed": true})
 
 
@@ -483,6 +530,7 @@ func step(dt: float) -> void:
 	_update_hunger(dt)
 	_update_nodes(dt)
 	_update_buildings(dt)
+	claims.update(self, dt)
 	_update_wolves(dt)
 
 
@@ -526,8 +574,8 @@ func _apply_intent(c: SimCharacter, intent: SimIntent, dt: float) -> void:
 			reveal(c)
 
 	if intent.interact:
-		if not _loot(c):
-			_gather(c, dt)
+		if not _loot(c) and not _deposit_at_anchor(c):
+			_gather(c, dt, intent.gather_cell)
 	else:
 		c.gather_progress = 0.0
 		c.gather_target = Vector2i(-1, -1)
@@ -544,8 +592,18 @@ func _apply_intent(c: SimCharacter, intent: SimIntent, dt: float) -> void:
 	c.bite_cooldown = maxf(0.0, c.bite_cooldown - dt)
 
 
-func _gather(c: SimCharacter, dt: float) -> void:
-	var node := map.nearest_node(c.pos, data.balf("character.interact_range"), "", true)
+func _gather(c: SimCharacter, dt: float, wanted_cell: Vector2i = Vector2i(-1, -1)) -> void:
+	var reach := data.balf("character.interact_range")
+	var node: SimResourceNode = null
+	if wanted_cell.x >= 0:
+		node = map.node_at(wanted_cell)
+		if node != null and (node.amount <= 0 or node.center().distance_to(c.pos) > reach):
+			node = null
+	if node == null:
+		node = map.nearest_node(c.pos, reach, "", true)
+	# Offline-Charaktere sammeln nie auf fremdem Land (Rohstoffknoten nur für Eigentümer-NPCs)
+	if node != null and c.control == SimCharacter.Controller.RULES and claims.is_foreign(node.cell, c.owner_id):
+		node = null
 	if node == null or c.inventory_count() >= data.bali("inventory.capacity"):
 		c.gather_progress = 0.0
 		c.gather_target = Vector2i(-1, -1)
@@ -560,6 +618,22 @@ func _gather(c: SimCharacter, dt: float) -> void:
 		node.amount -= 1
 		c.inventory[node.resource] = int(c.inventory.get(node.resource, 0)) + 1
 		events.append({"type": "gather", "id": c.id, "resource": node.resource, "cell": node.cell})
+		var claim := claims.claim_at(node.cell)
+		if claim != null and claim.owner_id != c.owner_id:
+			events.append({"type": "theft", "id": c.id, "claim": claim.id, "owner": claim.owner_id, "resource": node.resource})
+
+
+## Holz am eigenen Anker abliefern (E daneben). true, wenn etwas abgeliefert wurde.
+func _deposit_at_anchor(c: SimCharacter) -> bool:
+	if c.control != SimCharacter.Controller.PLAYER or int(c.inventory.get("wood", 0)) <= 0:
+		return false
+	var claim := claims.claim_of_owner(c.owner_id)
+	if claim == null or claim.anchor_building_id < 0:
+		return false
+	var anchor: SimBuilding = map.buildings.get(claim.anchor_building_id)
+	if anchor == null or anchor.center().distance_to(c.pos) > data.balf("character.interact_range") + 0.5:
+		return false
+	return claims.deposit(self, c, claim, int(c.inventory["wood"])) > 0
 
 
 ## Plündert eine Leiche in Reichweite: Rohstoffe (so viel Platz ist) und Ausrüstung, die man noch nicht hat.

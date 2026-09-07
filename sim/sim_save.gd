@@ -56,6 +56,8 @@ static func world_to_dict(world: SimWorld) -> Dictionary:
 		"nodes": nodes,
 		"buildings": buildings,
 		"next_building_id": world._next_building_id,
+		"claims": world.claims.to_list(),
+		"next_claim_id": world.claims.next_id(),
 	}
 
 
@@ -113,6 +115,7 @@ static func world_from_dict(data: SimData, dict: Dictionary) -> SimWorld:
 		b.placed_time = float(entry.get("placed_time", 0.0))
 		b.cells = SimBuilding.cells_for(data.buildings[part]["size"], b.origin, b.rotation)
 		world.map.add_building(b)
+	world.claims.load_list(dict.get("claims", []), int(dict.get("next_claim_id", 1)))
 	return world
 
 

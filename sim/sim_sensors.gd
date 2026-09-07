@@ -17,6 +17,7 @@ static func facts_for(world: SimWorld, c: SimCharacter) -> Dictionary:
 		"is_under_attack": is_under_attack(world, c),
 		"nearest_stranger_distance": nearest_stranger_distance(world, c),
 		"inventory_state": inventory_state(c, data.bali("inventory.capacity")),
+		"stranger_in_claim": stranger_in_claim(world, c),
 	}
 
 
@@ -45,6 +46,19 @@ static func nearest_stranger(world: SimWorld, c: SimCharacter) -> SimCharacter:
 			best_d = d
 			best = other
 	return best
+
+
+## Steht ein sichtbarer Fremder auf einer Kachel des eigenen Claims?
+static func stranger_in_claim(world: SimWorld, c: SimCharacter) -> bool:
+	var claim := world.claims.claim_of_owner(c.owner_id)
+	if claim == null:
+		return false
+	for other: SimCharacter in world.characters.values():
+		if other == c or other.dead or other.hidden or other.owner_id == c.owner_id:
+			continue
+		if claim.tiles.has(SimMap.cell_of(other.pos)):
+			return true
+	return false
 
 
 static func nearest_stranger_distance(world: SimWorld, c: SimCharacter) -> float:

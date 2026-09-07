@@ -121,6 +121,22 @@
     "_melee_damage_multiplier": "Faktor auf den Nahkampfschaden gegen Bauteile der Stufe Holz."
   },
 
+  "claim": {
+    "_doc": "Land: Anker + zusammenhängende Kacheln. Unterhalt je Stunde in Holz = upkeep_base * Kacheln * (1 + Kacheln / upkeep_growth), abgeliefert am Anker (E daneben). Ohne Vorrat schrumpft der Claim alle shrink_interval_hours um die äußerste Kachel.",
+    "max_tiles_solo": 40,
+    "tile_cost_wood": 1,
+    "upkeep_base": 0.05,
+    "upkeep_growth": 10,
+    "_upkeep_growth": "10 Kacheln kosten 1 Holz/h, 40 Kacheln 10 Holz/h.",
+    "stock_capacity": 200,
+    "shrink_interval_hours": 6,
+    "grace_hours": 2,
+    "_grace_hours": "Nach Verlust des Ankers: so lange kann der Besitzer auf seinem Land neu verankern, dann wird es frei.",
+    "min_anchor_distance": 8,
+    "foreign_decay_multiplier": 3.0,
+    "_foreign_decay_multiplier": "Bauteile auf fremdem oder verlorenem Land verfallen so viel schneller."
+  },
+
   "offline": {
     "_doc": "Zeitsprung: die Sim tickt ohne Darstellung. Ohne Gefahr in der Nähe grob (Simulationsstufen), bei Kampf fein.",
     "coarse_tick_dt": 1.0,

@@ -6,7 +6,8 @@
     "is_under_attack": "true, wenn in den letzten combat.under_attack_window Sekunden Schaden kam",
     "nearest_stranger_distance": "Distanz in Kacheln zum nächsten sichtbaren Fremden (anderer Besitzer, auch Tiere); sehr groß, wenn keiner",
     "inventory_state": "'full', 'empty' oder 'partial'",
-    "always": "immer true (für 'Sonst')"
+    "always": "immer true (für 'Sonst')",
+    "stranger_in_claim": "true, wenn ein sichtbarer Fremder auf einer Kachel des eigenen Claims steht"
   },
   "conditions": [
     {
@@ -14,32 +15,64 @@
       "label": "Leben < {percent} %",
       "log": "Leben unter {percent} %",
       "params": [
-        { "name": "percent", "type": "int", "label": "%", "default": 50, "min": 5, "max": 95, "step": 5 }
+        {
+          "name": "percent",
+          "type": "int",
+          "label": "%",
+          "default": 50,
+          "min": 5,
+          "max": 95,
+          "step": 5
+        }
       ],
-      "check": { "fact": "health_percent", "op": "<", "param": "percent" }
+      "check": {
+        "fact": "health_percent",
+        "op": "<",
+        "param": "percent"
+      }
     },
     {
       "id": "hungry",
       "label": "hungrig",
       "log": "hungrig",
       "params": [],
-      "check": { "fact": "is_hungry", "op": "==", "value": true }
+      "check": {
+        "fact": "is_hungry",
+        "op": "==",
+        "value": true
+      }
     },
     {
       "id": "under_attack",
       "label": "wird angegriffen",
       "log": "angegriffen",
       "params": [],
-      "check": { "fact": "is_under_attack", "op": "==", "value": true }
+      "check": {
+        "fact": "is_under_attack",
+        "op": "==",
+        "value": true
+      }
     },
     {
       "id": "stranger_near",
       "label": "Fremder in Nähe ({radius} Kacheln)",
       "log": "Fremder in Nähe",
       "params": [
-        { "name": "radius", "type": "float", "label": "Radius", "default": 6, "min": 1, "max": 20, "step": 1 }
+        {
+          "name": "radius",
+          "type": "float",
+          "label": "Radius",
+          "default": 6,
+          "min": 1,
+          "max": 20,
+          "step": 1
+        }
       ],
-      "check": { "fact": "nearest_stranger_distance", "op": "<=", "param": "radius" }
+      "check": {
+        "fact": "nearest_stranger_distance",
+        "op": "<=",
+        "param": "radius"
+      }
     },
     {
       "id": "inventory_state",
@@ -47,14 +80,42 @@
       "log": "Inventar {state}",
       "params": [
         {
-          "name": "state", "type": "choice", "label": "Zustand", "default": "full",
+          "name": "state",
+          "type": "choice",
+          "label": "Zustand",
+          "default": "full",
           "options": [
-            { "value": "full", "label": "voll" },
-            { "value": "empty", "label": "leer" }
+            {
+              "value": "full",
+              "label": "voll"
+            },
+            {
+              "value": "empty",
+              "label": "leer"
+            }
           ]
         }
       ],
-      "check": { "fact": "inventory_state", "op": "==", "param": "state" }
+      "check": {
+        "fact": "inventory_state",
+        "op": "==",
+        "param": "state"
+      }
+    },
+    {
+      "id": "stranger_in_claim",
+      "label": "Fremder im eigenen Claim",
+      "log": "Fremder im Claim",
+      "unlock": {
+        "fact": "owned_anchor",
+        "label": "Frei, sobald du einen Claim-Anker gesetzt hast."
+      },
+      "params": [],
+      "check": {
+        "fact": "stranger_in_claim",
+        "op": "==",
+        "value": true
+      }
     },
     {
       "id": "else",
@@ -62,7 +123,11 @@
       "log": "sonst",
       "params": [],
       "is_else": true,
-      "check": { "fact": "always", "op": "==", "value": true }
+      "check": {
+        "fact": "always",
+        "op": "==",
+        "value": true
+      }
     }
   ]
 }

@@ -146,6 +146,7 @@ static func _gather(world: SimWorld, c: SimCharacter, resource: String, center: 
 	var interact_range := world.data.balf("character.interact_range")
 	if c.pos.distance_to(node.center()) <= interact_range * 0.95:
 		intent.interact = true
+		intent.gather_cell = node.cell
 		intent.aim = node.center() - c.pos
 	else:
 		var stand := SimMap.cell_center(world.map.nearest_walkable_cell(node.cell))
@@ -161,6 +162,8 @@ static func _find_gather_node(world: SimWorld, c: SimCharacter, resource: String
 			continue
 		if node.center().distance_to(center) > radius:
 			continue
+		if world.claims.is_foreign(node.cell, c.owner_id):
+			continue  # Rohstoffknoten nur für Eigentümer-NPCs
 		var d := node.center().distance_squared_to(c.pos)
 		if d < best_d:
 			best_d = d
