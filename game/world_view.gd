@@ -1,0 +1,143 @@
+extends Node2D
+## Zeichnet den Sim-Zustand als Rechtecke, Linien und Labels. Liest nur, verändert nie.
+## Weltkoordinaten der Sim (Kacheln) × TILE = Pixel.
+
+const TILE: float = 32.0
+
+var world: SimWorld
+var alpha: float = 0.0             # Anteil zwischen letztem und aktuellem Tick (weiche Bewegung)
+var viewer_owner: String = "p1"    # Versteckte Charaktere anderer Besitzer werden nicht gezeichnet
+var show_leashes: bool = true
+
+var _tile_colors: Dictionary = {}
+var _resource_colors: Dictionary = {}
+
+
+func _draw() -> void:
+	if world == null:
+		return
+	_draw_tiles()
+	_draw_markers()
+	_draw_characters()
+	_draw_projectiles()
+	_draw_events()
+
+
+static func to_pixels(pos: Vector2) -> Vector2:
+	return pos * TILE
+
+
+func mouse_world_pos() -> Vector2:
+	return get_global_mouse_position() / TILE
+
+
+func _tile_color(tile_id: String) -> Color:
+	if not _tile_colors.has(tile_id):
+		_tile_colors[tile_id] = Color.html(String(world.data.tiles[tile_id].get("color", "#ff00ff")))
+	return _tile_colors[tile_id]
+
+
+func _resource_color(resource_id: String) -> Color:
+	if not _resource_colors.has(resource_id):
+		_resource_colors[resource_id] = Color.html(String(world.data.resources[resource_id].get("color", "#ff00ff")))
+	return _resource_colors[resource_id]
+
+
+func _draw_tiles() -> void:
+	var map := world.map
+	for y in map.height:
+		for x in map.width:
+			var cell := Vector2i(x, y)
+			draw_rect(Rect2(x * TILE, y * TILE, TILE, TILE), _tile_color(map.tile_id(cell)))
+			var node := map.node_at(cell)
+			if node != null and node.amount > 0:
+				# Vorrat als innerer Block: schrumpft mit dem Vorrat
+				var frac := float(node.amount) / float(node.max_amount)
+				var size := TILE * 0.7 * frac
+				var center := SimMap.cell_center(cell) * TILE
+				draw_rect(Rect2(center - Vector2(size, size) * 0.5, Vector2(size, size)), _resource_color(node.resource))
+
+
+func _draw_markers() -> void:
+	for c: SimCharacter in world.characters.values():
+		if c.kind != SimCharacter.Kind.PLAYER or c.owner_id != viewer_owner:
+			continue
+		for marker: Dictionary in c.markers:
+			var p: Vector2 = marker["pos"] * TILE
+			draw_circle(p, 5.0, Color(1.0, 0.85, 0.2))
+			draw_string(ThemeDB.fallback_font, p + Vector2(8, 4), String(marker["name"]), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1.0, 0.85, 0.2))
+		if c.control == SimCharacter.Controller.RULES:
+			var here: Vector2 = c.logout_pos * TILE
+			draw_circle(here, 4.0, Color(0.6, 0.8, 1.0))
+			draw_string(ThemeDB.fallback_font, here + Vector2(8, 4), "Hier", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.6, 0.8, 1.0))
+		if show_leashes:
+			_draw_leashes(c)
+
+
+## Leinen: ein Kreis pro Ortsregel um den jeweiligen Ort; die aktive Leine des NPC kräftiger.
+func _draw_leashes(c: SimCharacter) -> void:
+	for rule: Dictionary in c.rules:
+		var params: Dictionary = rule["then"]["params"]
+		if not params.has("place") or not params.has("radius"):
+			continue
+		var center: Vector2 = c.place_pos(String(params["place"])) * TILE
+		draw_arc(center, float(params["radius"]) * TILE, 0.0, TAU, 64, Color(1.0, 0.85, 0.2, 0.35), 1.0)
+	if c.control == SimCharacter.Controller.RULES and c.leash_radius > 0.0:
+		draw_arc(c.leash_center * TILE, c.leash_radius * TILE, 0.0, TAU, 64, Color(0.4, 0.7, 1.0, 0.8), 2.0)
+
+
+func _character_color(c: SimCharacter) -> Color:
+	if c.kind == SimCharacter.Kind.WOLF:
+		return Color(0.8, 0.3, 0.2)
+	match c.control:
+		SimCharacter.Controller.PLAYER:
+			return Color(0.95, 0.95, 0.95)
+		SimCharacter.Controller.RULES:
+			return Color(0.35, 0.6, 1.0)
+	return Color(0.5, 0.5, 0.5)
+
+
+func _draw_characters() -> void:
+	for c: SimCharacter in world.characters.values():
+		var p := c.render_pos(alpha) * TILE
+		var size := TILE * 0.7
+		var top_left := p - Vector2(size, size) * 0.5
+		if c.dead:
+			draw_rect(Rect2(top_left, Vector2(size, size)), Color(0.25, 0.25, 0.25))
+			draw_line(top_left, top_left + Vector2(size, size), Color(0.6, 0.1, 0.1), 2.0)
+			draw_line(top_left + Vector2(size, 0), top_left + Vector2(0, size), Color(0.6, 0.1, 0.1), 2.0)
+			draw_string(ThemeDB.fallback_font, top_left + Vector2(0, size + 12), c.name + " (tot)", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.7, 0.7, 0.7))
+			continue
+		if c.hidden and c.owner_id != viewer_owner:
+			continue
+		var color := _character_color(c)
+		if c.hidden:
+			color.a = 0.35
+		draw_rect(Rect2(top_left, Vector2(size, size)), color)
+		draw_line(p, p + c.facing * TILE * 0.6, Color(1, 1, 1, 0.9), 2.0)
+		# Lebensbalken
+		draw_rect(Rect2(top_left.x, top_left.y - 7, size, 4), Color(0, 0, 0, 0.6))
+		draw_rect(Rect2(top_left.x, top_left.y - 7, size * c.hp / c.max_hp, 4), Color(0.2, 0.9, 0.2))
+		# Sammelfortschritt
+		if c.gather_progress > 0.0:
+			var frac := c.gather_progress / world.data.balf("gathering.gather_time")
+			draw_rect(Rect2(top_left.x, top_left.y + size + 2, size * frac, 3), Color(1.0, 0.85, 0.2))
+		var label := c.name
+		if c.is_weakened():
+			label += " (geschwächt)"
+		if c.hidden:
+			label += " (versteckt)"
+		draw_string(ThemeDB.fallback_font, top_left + Vector2(0, size + 14), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color.WHITE)
+
+
+func _draw_projectiles() -> void:
+	for p: SimProjectile in world.projectiles:
+		var pos := p.prev_pos.lerp(p.pos, alpha) * TILE
+		draw_rect(Rect2(pos - Vector2(4, 4), Vector2(8, 8)), Color(1.0, 0.95, 0.5))
+
+
+func _draw_events() -> void:
+	for event: Dictionary in world.events:
+		if event.get("type") == "hit":
+			var pos: Vector2 = event["pos"] * TILE
+			draw_arc(pos, TILE * 0.5, 0.0, TAU, 16, Color(1.0, 0.3, 0.2), 3.0)
