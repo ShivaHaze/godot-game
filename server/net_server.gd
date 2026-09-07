@@ -140,6 +140,21 @@ func _on_message(peer: ENetPacketPeer, msg: Dictionary) -> void:
 				var b: SimBuilding = world.map.buildings.get(int(msg.get("id", -1)))
 				if world.can_demolish(c, b):
 					world.remove_building(b.id, c)
+		"table_deposit", "table_withdraw", "table_offers", "table_buy":
+			if c != null:
+				var b: SimBuilding = world.map.buildings.get(int(msg.get("id", -1)))
+				var reason := "kein Handelstisch"
+				match String(msg["t"]):
+					"table_deposit":
+						reason = world.table_deposit(c, b, String(msg.get("res", "")), int(msg.get("amount", 0)))
+					"table_withdraw":
+						reason = world.table_withdraw(c, b, String(msg.get("res", "")), int(msg.get("amount", 0)))
+					"table_offers":
+						reason = world.table_set_offers(c, b, msg.get("offers", []))
+					"table_buy":
+						reason = world.table_buy(c, b, int(msg.get("index", -1)))
+				if not reason.is_empty():
+					_send(peer, {"t": "info", "text": "Handel: %s" % reason}, true)
 		"claim_tile":
 			if c != null:
 				var tile := Vector2i(int(msg.get("x", 0)), int(msg.get("y", 0)))

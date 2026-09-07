@@ -448,9 +448,152 @@ func damage_building(b: SimBuilding, amount: float, attacker_id: int) -> void:
 	b.hp = maxf(0.0, b.hp - amount)
 	events.append({"type": "building_hit", "building": b.id, "attacker": attacker_id, "damage": amount, "pos": b.center()})
 	if b.hp <= 0.0:
+		if is_trade_table(b):
+			_loot_table(b, attacker_id)
 		map.remove_building(b.id)
 		claims.on_building_removed(self, b.id)
 		events.append({"type": "building_destroyed", "building": b.id, "attacker": attacker_id, "pos": b.center()})
+
+
+# --- Handelstisch ---------------------------------------------------------
+
+func is_trade_table(b: SimBuilding) -> bool:
+	return b != null and bool(data.buildings.get(b.part, {}).get("trade", false))
+
+
+## Handelstisch in Interaktionsreichweite des Charakters (nächster), sonst null.
+func trade_table_near(c: SimCharacter) -> SimBuilding:
+	var best: SimBuilding = null
+	var best_d := data.balf("character.interact_range") + 0.5
+	for b: SimBuilding in map.buildings.values():
+		if not is_trade_table(b):
+			continue
+		var d := b.center().distance_to(c.pos)
+		if d <= best_d:
+			best_d = d
+			best = b
+	return best
+
+
+func _table_owner_reason(c: SimCharacter, b: SimBuilding) -> String:
+	if not is_trade_table(b):
+		return "kein Handelstisch"
+	if b.owner_id != c.owner_id:
+		return "nicht dein Tisch"
+	if c.control != SimCharacter.Controller.PLAYER or c.dead:
+		return "nur live"
+	if b.center().distance_to(c.pos) > data.balf("character.interact_range") + 0.5:
+		return "zu weit weg"
+	return ""
+
+
+## Besitzer legt Waren hinein. Rückgabe: Grund oder leer.
+func table_deposit(c: SimCharacter, b: SimBuilding, rid: String, amount: int) -> String:
+	var reason := _table_owner_reason(c, b)
+	if not reason.is_empty():
+		return reason
+	if not data.resources.has(rid) or amount <= 0:
+		return "ungültig"
+	amount = mini(amount, int(c.inventory.get(rid, 0)))
+	amount = mini(amount, data.bali("building.table_capacity") - b.contents_count())
+	if amount <= 0:
+		return "nichts zu lagern oder Tisch voll"
+	c.inventory[rid] = int(c.inventory[rid]) - amount
+	b.contents[rid] = int(b.contents.get(rid, 0)) + amount
+	events.append({"type": "table_change", "building": b.id, "id": c.id})
+	return ""
+
+
+func table_withdraw(c: SimCharacter, b: SimBuilding, rid: String, amount: int) -> String:
+	var reason := _table_owner_reason(c, b)
+	if not reason.is_empty():
+		return reason
+	amount = mini(amount, int(b.contents.get(rid, 0)))
+	amount = mini(amount, data.bali("inventory.capacity") - c.inventory_count())
+	if amount <= 0:
+		return "nichts zu entnehmen oder Inventar voll"
+	b.contents[rid] = int(b.contents[rid]) - amount
+	if b.contents[rid] <= 0:
+		b.contents.erase(rid)
+	c.inventory[rid] = int(c.inventory.get(rid, 0)) + amount
+	events.append({"type": "table_change", "building": b.id, "id": c.id})
+	return ""
+
+
+## Angebote setzen: Liste von {sell, sell_amount, price, price_amount}.
+func table_set_offers(c: SimCharacter, b: SimBuilding, offers: Array) -> String:
+	var reason := _table_owner_reason(c, b)
+	if not reason.is_empty():
+		return reason
+	if offers.size() > data.bali("building.table_max_offers"):
+		return "höchstens %d Angebote" % data.bali("building.table_max_offers")
+	var clean := []
+	for offer: Variant in offers:
+		if not (offer is Dictionary):
+			return "ungültiges Angebot"
+		var sell := String(offer.get("sell", ""))
+		var price := String(offer.get("price", ""))
+		var sell_amount := int(offer.get("sell_amount", 0))
+		var price_amount := int(offer.get("price_amount", 0))
+		if not data.resources.has(sell) or not data.resources.has(price) or sell == price:
+			return "ungültiges Angebot"
+		if sell_amount < 1 or sell_amount > 99 or price_amount < 1 or price_amount > 99:
+			return "Mengen 1 bis 99"
+		clean.append({"sell": sell, "sell_amount": sell_amount, "price": price, "price_amount": price_amount})
+	b.offers = clean
+	events.append({"type": "table_change", "building": b.id, "id": c.id})
+	return ""
+
+
+## Kauf durch einen Live-Charakter: zahlt den Preis in den Tisch, nimmt die Ware. Rückgabe: Grund oder leer.
+func table_buy(c: SimCharacter, b: SimBuilding, index: int) -> String:
+	if not is_trade_table(b):
+		return "kein Handelstisch"
+	if c.control != SimCharacter.Controller.PLAYER or c.dead:
+		return "nur live"
+	if b.center().distance_to(c.pos) > data.balf("character.interact_range") + 0.5:
+		return "zu weit weg"
+	if index < 0 or index >= b.offers.size():
+		return "kein solches Angebot"
+	var offer: Dictionary = b.offers[index]
+	var sell := String(offer["sell"])
+	var price := String(offer["price"])
+	var sell_amount := int(offer["sell_amount"])
+	var price_amount := int(offer["price_amount"])
+	if int(b.contents.get(sell, 0)) < sell_amount:
+		return "ausverkauft"
+	if int(c.inventory.get(price, 0)) < price_amount:
+		return "zu wenig %s (%d nötig)" % [data.resources[price]["name"], price_amount]
+	if c.inventory_count() - price_amount + sell_amount > data.bali("inventory.capacity"):
+		return "Inventar zu voll"
+	if b.contents_count() - sell_amount + price_amount > data.bali("building.table_capacity"):
+		return "Tisch kann die Bezahlung nicht fassen"
+	c.inventory[price] = int(c.inventory[price]) - price_amount
+	c.inventory[sell] = int(c.inventory.get(sell, 0)) + sell_amount
+	b.contents[sell] = int(b.contents[sell]) - sell_amount
+	if b.contents[sell] <= 0:
+		b.contents.erase(sell)
+	b.contents[price] = int(b.contents.get(price, 0)) + price_amount
+	events.append({"type": "trade", "building": b.id, "id": c.id, "owner": b.owner_id, "sell": sell, "sell_amount": sell_amount, "price": price, "price_amount": price_amount})
+	return ""
+
+
+## Tisch zerstört: der Inhalt fällt dem Zerstörer zu (so weit Platz ist), sonst verfällt er.
+func _loot_table(b: SimBuilding, attacker_id: int) -> void:
+	var taker := get_character(attacker_id)
+	if taker == null or b.contents.is_empty():
+		return
+	var capacity := data.bali("inventory.capacity")
+	var taken := {}
+	for rid: String in b.contents.keys():
+		var moved := mini(int(b.contents[rid]), capacity - taker.inventory_count())
+		if moved <= 0:
+			continue
+		taker.inventory[rid] = int(taker.inventory.get(rid, 0)) + moved
+		taken[rid] = moved
+	if not taken.is_empty():
+		events.append({"type": "loot", "id": taker.id, "from": -1, "items": taken, "equipment": [], "table": b.id})
+	b.contents.clear()
 
 
 ## Bauteil vor dem Charakter in Nahkampfreichweite (entlang der Blickrichtung getastet).

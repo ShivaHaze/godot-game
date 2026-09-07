@@ -13,6 +13,7 @@ const WorldViewScript := preload("res://game/world_view.gd")
 const HudScript := preload("res://game/hud.gd")
 const LogoutMenuScript := preload("res://game/logout_menu.gd")
 const CraftPanelScript := preload("res://game/craft_panel.gd")
+const TradePanelScript := preload("res://game/trade_panel.gd")
 
 const MAX_TICKS_PER_FRAME: int = 5      # Schutz gegen Aufholspiralen bei Rucklern
 const SKIP_BUDGET_MSEC: int = 14        # Echtzeit pro Frame für den Zeitsprung (Fortschritt bleibt sichtbar)
@@ -34,6 +35,7 @@ var view: Node2D
 var hud: CanvasLayer
 var menu: CanvasLayer
 var craft_panel: CanvasLayer
+var trade_panel: CanvasLayer
 var camera: Camera2D
 var net: NetClient = null            # gesetzt im Netzwerk-Modus
 
@@ -113,6 +115,14 @@ func _ready() -> void:
 	craft_panel.closed.connect(func() -> void: craft_panel.close())
 	add_child(craft_panel)
 
+	trade_panel = TradePanelScript.new()
+	trade_panel.deposit_requested.connect(func(id: int, rid: String, amount: int) -> void: _trade_action("table_deposit", {"id": id, "res": rid, "amount": amount}))
+	trade_panel.withdraw_requested.connect(func(id: int, rid: String, amount: int) -> void: _trade_action("table_withdraw", {"id": id, "res": rid, "amount": amount}))
+	trade_panel.offers_requested.connect(func(id: int, offers: Array) -> void: _trade_action("table_offers", {"id": id, "offers": offers}))
+	trade_panel.buy_requested.connect(func(id: int, index: int) -> void: _trade_action("table_buy", {"id": id, "index": index}))
+	trade_panel.closed.connect(func() -> void: trade_panel.close())
+	add_child(trade_panel)
+
 	hud.world = world
 	hud.player_id = player_id
 	if net != null:
@@ -155,6 +165,8 @@ func _process_net(delta: float) -> void:
 			"info":
 				hud.show_message(String(msg.get("text", "")), 2.0)
 				craft_panel.show_status(String(msg.get("text", "")))
+				if trade_panel.visible:
+					trade_panel.show_status(String(msg.get("text", "")))
 	net.messages.clear()
 	if not net.connected and player_id >= 0:
 		hud.mode_text = "Verbindung verloren"
@@ -185,6 +197,14 @@ func _process_net(delta: float) -> void:
 	hud.refresh()
 	if craft_panel.visible:
 		craft_panel.refresh()
+	if trade_panel.visible:
+		var table: SimBuilding = world.map.buildings.get(trade_panel.building.id) if trade_panel.building != null else null
+		if table == null or table.center().distance_to(player.pos) > data.balf("character.interact_range") + 0.5:
+			trade_panel.close()
+		elif net != null and _trade_signature(table) != _trade_last_signature:
+			_trade_last_signature = _trade_signature(table)
+			trade_panel.building = table
+			trade_panel.rebuild()
 	if mode == Mode.OFFLINE and player != null:
 		if player.control == SimCharacter.Controller.RULES:
 			_net_saw_rules = true
@@ -316,6 +336,8 @@ func _process_live_input(player: SimCharacter) -> void:
 			craft_panel.close()
 		else:
 			craft_panel.open(data, player)
+	if Input.is_action_just_pressed("interact") and not player.dead and not _build_mode:
+		_toggle_trade_panel(player)
 	if Input.is_action_just_pressed("build_mode") and not player.dead:
 		_toggle_build_mode(player)
 	if _build_mode:
@@ -330,10 +352,61 @@ func _build_player_intent(player: SimCharacter) -> SimIntent:
 	intent.move = Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	intent.aim = view.mouse_world_pos() - player.pos
 	intent.shoot = Input.is_action_pressed("shoot") and not craft_panel.visible and not _build_mode
-	intent.interact = Input.is_action_pressed("interact")
+	intent.interact = Input.is_action_pressed("interact") and not trade_panel.visible
 	intent.eat = _eat_pressed
 	_eat_pressed = false
 	return intent
+
+
+# --- Handelstisch ---------------------------------------------------------
+
+var _trade_last_signature: int = 0
+
+
+func _trade_signature(b: SimBuilding) -> int:
+	return [b.contents, b.offers, world.get_character(player_id).inventory].hash()
+
+
+## E (tippen) neben einem Handelstisch öffnet die Tafel; sonst bleibt E das Sammeln (halten).
+func _toggle_trade_panel(player: SimCharacter) -> void:
+	if trade_panel.visible:
+		trade_panel.close()
+		return
+	var table := world.trade_table_near(player)
+	if table == null:
+		return
+	craft_panel.close()
+	_trade_last_signature = _trade_signature(table)
+	trade_panel.open(data, world, player, table)
+
+
+func _trade_action(kind: String, payload: Dictionary) -> void:
+	var player := world.get_character(player_id)
+	if player == null:
+		return
+	if net != null:
+		var msg := payload.duplicate()
+		msg["t"] = kind
+		net.send(msg, true)
+		return
+	var b: SimBuilding = world.map.buildings.get(int(payload["id"]))
+	var reason := ""
+	match kind:
+		"table_deposit":
+			reason = world.table_deposit(player, b, String(payload["res"]), int(payload["amount"]))
+		"table_withdraw":
+			reason = world.table_withdraw(player, b, String(payload["res"]), int(payload["amount"]))
+		"table_offers":
+			reason = world.table_set_offers(player, b, payload["offers"])
+			if reason.is_empty():
+				trade_panel.show_status("Angebote gespeichert.")
+		"table_buy":
+			reason = world.table_buy(player, b, int(payload["index"]))
+			if reason.is_empty():
+				trade_panel.show_status("Gekauft.")
+	if not reason.is_empty():
+		trade_panel.show_status("Geht nicht: %s" % reason)
+	trade_panel.rebuild()
 
 
 # --- Bauen ----------------------------------------------------------------
@@ -674,6 +747,8 @@ func _handle_events() -> void:
 				hud.show_message("Neuer Regel-Baustein freigeschaltet: %s" % event["label"], 5.0)
 			"deposit":
 				hud.show_message("%d Holz am Anker abgeliefert, Vorrat %d." % [event["amount"], int(event["stock"])], 2.0)
+			"trade":
+				hud.show_message("Gekauft: %d %s für %d %s." % [event["sell_amount"], data.resources[event["sell"]]["name"], event["price_amount"], data.resources[event["price"]]["name"]], 2.0)
 			"theft":
 				hud.show_message("Diebstahl! Das ist der Claim von %s." % event["owner"], 2.0)
 			"building_hit":

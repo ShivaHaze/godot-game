@@ -8,7 +8,7 @@ Der Twist: Beim "Ausloggen" wird der Spielercharakter zum NPC, der nach vom Spie
 Designfragen, die das Dokument nicht beantwortet: **nicht raten, fragen.** Eigene Entscheidungen, die das Design berühren, dort als [T]/[O] eintragen und Bescheid sagen.
 
 ## Stand (2026-09-07)
-Schritte 1–8 (Phase 0) plus 9–16 sind gebaut und committet: Gerüst, Daten, Sim-Kern, Regelmaschine + Chronik, Kampf + Wolf, NPC-Modus, Ausloggen-Menü, Zeitsprung + Gegen-sich-selbst, Spielstand, Logout-Übergang, Chronik-Spur, Marker verwalten, Werkbank/Ausrüstung, Balancing-Bericht, Simulationsstufen + Nachbarschaftsraster, Netzwerk-Spike (headless ENet-Server, Bot-Clients, Netzwerk-Client im Spiel), Freischalten von Regel-Bausteinen ('greife an'), Kartengenerator + Karte im Beitritt, Bauen (Holzwand, Holztür auf Halbkachelraster), Claims (Anker, Kacheln, Unterhalt, Schrumpfen, Rechte). 144 Tests laufen headless grün. Phase 1 läuft in der Reihenfolge Bauen → Claims → Handelstisch → Rohstoffe/Ketten → Sensoren/Turrets (Design-Dokument Abschnitt 8).
+Schritte 1–8 (Phase 0) plus 9–17 sind gebaut und committet: Gerüst, Daten, Sim-Kern, Regelmaschine + Chronik, Kampf + Wolf, NPC-Modus, Ausloggen-Menü, Zeitsprung + Gegen-sich-selbst, Spielstand, Logout-Übergang, Chronik-Spur, Marker verwalten, Werkbank/Ausrüstung, Balancing-Bericht, Simulationsstufen + Nachbarschaftsraster, Netzwerk-Spike (headless ENet-Server, Bot-Clients, Netzwerk-Client im Spiel), Freischalten von Regel-Bausteinen ('greife an'), Kartengenerator + Karte im Beitritt, Bauen (Holzwand, Holztür auf Halbkachelraster), Claims (Anker, Kacheln, Unterhalt, Schrumpfen, Rechte), Handelstisch (Lager, Angebote, Kauf, Beute). 148 Tests laufen headless grün. Phase 1 läuft in der Reihenfolge Bauen → Claims → Handelstisch → Rohstoffe/Ketten → Sensoren/Turrets (Design-Dokument Abschnitt 8).
 
 ## Scope Phase 0 (nichts darüber hinaus ohne Rückfrage)
 - Karte aus Datendatei (Kacheln: Boden, Hindernis, Holzquelle, Beerenbusch). Rechtecke, keine Grafik.
@@ -73,6 +73,7 @@ game/                Darstellung und Eingabe (liest sim/, schreibt nur Intents):
   hud.gd               Status, Hinweise, Meldungen, Chronik-Tafel, Knopfleiste
   logout_menu.gd       Rollen + Regel-Editor + Marker verwalten, aus den Daten gebaut
   craft_panel.gd       Werkbank aus items.json
+  trade_panel.gd       Handelstisch-Tafel (Besitzer: Lager und Angebote; Fremde: kaufen)
   net_client.gd        Netzwerk-Client: Spiegelwelt aus Snapshots, sendet Absichten und Menü-Aktionen
 tests/unit/          GUT-Tests (test_*.gd)
 tools/               run_tests.ps1 / run_tests.sh (headless), smoke_run.gd (Rauchtest mit Fenster), screenshot_run.gd (Bildschirmfotos),
@@ -110,7 +111,7 @@ godot --headless --path . -s tools/bot_clients.gd -- 50 127.0.0.1 7777 60   # 50
 Server speichert alle 60 s nach `user://server_save.dat`. Trennen macht den Charakter zum NPC (Übergang läuft), Wiederkommen unter demselben Namen loggt in ihn ein. Zeitsprung gibt es online nicht, die Zeit läuft für alle.
 
 ## Spielen
-`godot --path .` oder Projekt im Editor öffnen. WASD bewegen, Maus zielen, Linksklick angreifen, E halten sammeln/plündern, F essen, Q Waffe wechseln, C Werkbank, B Baumodus (1/2/3 Teil bzw. Kachel beanspruchen, T drehen, Linksklick setzen, X abreißen/freigeben), E neben dem eigenen Anker liefert Holz ab, M Marker, Esc Ausloggen-Menü, R neuer Charakter nach dem Tod. Im Offline-Modus Knöpfe unten rechts: Zeitsprung, einloggen, gegen sich selbst antreten. Spielstand wird automatisch geführt; 'Neues Spiel' (zweimal klicken) löscht ihn.
+`godot --path .` oder Projekt im Editor öffnen. WASD bewegen, Maus zielen, Linksklick angreifen, E halten sammeln/plündern, F essen, Q Waffe wechseln, C Werkbank, B Baumodus (1/2/3 Teil bzw. Kachel beanspruchen, T drehen, Linksklick setzen, X abreißen/freigeben), E neben dem eigenen Anker liefert Holz ab, E (tippen) neben einem Handelstisch öffnet die Handelstafel, M Marker, Esc Ausloggen-Menü, R neuer Charakter nach dem Tod. Im Offline-Modus Knöpfe unten rechts: Zeitsprung, einloggen, gegen sich selbst antreten. Spielstand wird automatisch geführt; 'Neues Spiel' (zweimal klicken) löscht ihn.
 
 ## Konventionen
 - **Code und Identifier Englisch** (Dateien, Klassen, Variablen, JSON-Schlüssel). **UI-Texte und Chronik Deutsch. Kommentare Deutsch.**

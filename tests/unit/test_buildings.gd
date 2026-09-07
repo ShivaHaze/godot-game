@@ -32,7 +32,7 @@ func _wall_right() -> SimBuilding:
 
 func test_data_and_cells() -> void:
 	assert_true(data.is_valid(), "Fehler: %s" % data.errors)
-	assert_eq(data.building_order, ["wood_wall", "wood_door", "anchor"] as Array[String])
+	assert_eq(data.building_order, ["wood_wall", "wood_door", "anchor", "trade_table"] as Array[String])
 	assert_eq(SimBuilding.cells_for([1, 2], Vector2i(4, 6), 0), [Vector2i(4, 6), Vector2i(4, 7)] as Array[Vector2i])
 	assert_eq(SimBuilding.cells_for([1, 2], Vector2i(4, 6), 1), [Vector2i(4, 6), Vector2i(5, 6)] as Array[Vector2i])
 	assert_eq(SimBuilding.half_cell_of(Vector2(20.5, 5.5)), Vector2i(41, 11))

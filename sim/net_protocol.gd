@@ -123,10 +123,11 @@ static func snapshot(world: SimWorld, viewer_id: int, known: Dictionary, node_st
 	for b: SimBuilding in world.map.buildings.values():
 		if b.center().distance_squared_to(center) > r2:
 			continue
-		if building_state.has(b.id) and is_equal_approx(float(building_state[b.id]), b.hp):
+		var signature := [b.hp, b.contents, b.offers].hash()
+		if building_state.has(b.id) and int(building_state[b.id]) == signature:
 			continue
-		building_state[b.id] = b.hp
-		built.append([b.id, b.part, b.owner_id, b.origin.x, b.origin.y, b.rotation, b.hp, b.max_hp])
+		building_state[b.id] = signature
+		built.append([b.id, b.part, b.owner_id, b.origin.x, b.origin.y, b.rotation, b.hp, b.max_hp, b.contents.duplicate(), b.offers.duplicate(true)])
 	var removed := PackedInt32Array()
 	for id: int in building_state.keys():
 		if not world.map.buildings.has(id):
@@ -254,6 +255,13 @@ static func apply_snapshot(mirror: SimWorld, snap: Dictionary) -> void:
 			mirror.map.add_building(b)
 		b.hp = float(row[6])
 		b.max_hp = float(row[7])
+		if row.size() > 9:
+			b.contents = {}
+			for rid: Variant in row[8]:
+				b.contents[String(rid)] = int(row[8][rid])
+			b.offers = []
+			for offer: Dictionary in row[9]:
+				b.offers.append({"sell": String(offer["sell"]), "sell_amount": int(offer["sell_amount"]), "price": String(offer["price"]), "price_amount": int(offer["price_amount"])})
 	for id: int in snap.get("bld_rm", PackedInt32Array()):
 		mirror.map.remove_building(id)
 	for row: Array in snap.get("clm", []):

@@ -12,6 +12,15 @@ var hp: float = 0.0
 var max_hp: float = 0.0
 var placed_time: float = 0.0
 var cells: Array[Vector2i] = []   # belegte Halbzellen
+var contents: Dictionary = {}     # Handelstisch: Rohstoff -> Anzahl
+var offers: Array = []            # Handelstisch: [{sell, sell_amount, price, price_amount}]
+
+
+func contents_count() -> int:
+	var total := 0
+	for amount: int in contents.values():
+		total += amount
+	return total
 
 
 ## Halbzellen für ein Teil an einem Ursprung mit Drehung.

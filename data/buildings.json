@@ -1,5 +1,5 @@
 {
-  "_doc": "Bauteile. Raster: halbe Kacheln (Design [E]); 'size' in Halbzellen [Breite, Höhe], drehbar (R). Nur live baubar, NPCs bauen und brechen nie (Design: nur Live kann Nehmen und Verändern). 'passable': none = blockiert alle, owner = nur der Besitzer (und seine NPCs) geht durch (Tür). 'tier': wood wird mit Nahkampf beschädigt und verfällt (decay_per_hour Lebenspunkte je Stunde); stone/iron kommen später (Eisenwerkzeug bzw. Sprengsatz). Projektile bleiben an Bauteilen hängen, ohne sie zu beschädigen.",
+  "_doc": "Bauteile. Raster: halbe Kacheln (Design [E]); 'size' in Halbzellen [Breite, Höhe], drehbar (R). Nur live baubar, NPCs bauen und brechen nie (Design: nur Live kann Nehmen und Verändern). 'passable': none = blockiert alle, owner = nur der Besitzer (und seine NPCs) geht durch (Tür). 'tier': wood wird mit Nahkampf beschädigt und verfällt (decay_per_hour Lebenspunkte je Stunde); stone/iron kommen später (Eisenwerkzeug bzw. Sprengsatz). Projektile bleiben an Bauteilen hängen, ohne sie zu beschädigen. 'trade': true = Handelstisch mit Inhalt und Angeboten.",
   "buildings": [
     {
       "id": "wood_wall",
@@ -49,6 +49,24 @@
       "decay_per_hour": 0.0,
       "color": "#d9b44a",
       "_doc": "Gründet einen Claim (Kachel des Ankers). Nimmt Holz als Unterhalt an (E daneben). Nur live baubar."
+    },
+    {
+      "id": "trade_table",
+      "name": "Handelstisch",
+      "tier": "wood",
+      "cost": {
+        "wood": 8
+      },
+      "hp": 30,
+      "size": [
+        2,
+        1
+      ],
+      "passable": "none",
+      "decay_per_hour": 1.0,
+      "color": "#6fa8dc",
+      "trade": true,
+      "_doc": "Eigener Shop: der Besitzer lagert Waren ein und setzt bis zu 3 Angebote (verkaufe X für Y). Fremde kaufen live per E. Wird er zerstört, fällt der Inhalt dem Zerstörer zu (Shop ist auch Ziel)."
     }
   ]
 }

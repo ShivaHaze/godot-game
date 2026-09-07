@@ -41,7 +41,7 @@ static func world_to_dict(world: SimWorld) -> Dictionary:
 		nodes.append({"cell": v2i(node.cell), "amount": node.amount, "regrow_timer": node.regrow_timer})
 	var buildings := []
 	for b: SimBuilding in world.map.buildings.values():
-		buildings.append({"id": b.id, "part": b.part, "owner": b.owner_id, "origin": v2i(b.origin), "rotation": b.rotation, "hp": b.hp, "max_hp": b.max_hp, "placed_time": b.placed_time})
+		buildings.append({"id": b.id, "part": b.part, "owner": b.owner_id, "origin": v2i(b.origin), "rotation": b.rotation, "hp": b.hp, "max_hp": b.max_hp, "placed_time": b.placed_time, "contents": b.contents.duplicate(), "offers": b.offers.duplicate(true)})
 	return {
 		"version": VERSION,
 		"time": world.time,
@@ -114,6 +114,10 @@ static func world_from_dict(data: SimData, dict: Dictionary) -> SimWorld:
 		b.max_hp = float(entry.get("max_hp", data.buildings[part]["hp"]))
 		b.placed_time = float(entry.get("placed_time", 0.0))
 		b.cells = SimBuilding.cells_for(data.buildings[part]["size"], b.origin, b.rotation)
+		for rid: Variant in entry.get("contents", {}):
+			b.contents[String(rid)] = int(entry["contents"][rid])
+		for offer: Dictionary in entry.get("offers", []):
+			b.offers.append({"sell": String(offer["sell"]), "sell_amount": int(offer["sell_amount"]), "price": String(offer["price"]), "price_amount": int(offer["price_amount"])})
 		world.map.add_building(b)
 	world.claims.load_list(dict.get("claims", []), int(dict.get("next_claim_id", 1)))
 	return world
