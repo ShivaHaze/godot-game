@@ -198,6 +198,9 @@ func refresh() -> void:
 	var weapon_name := String(world.data.items.get(c.active_weapon, {}).get("name", "keine"))
 	if not c.active_weapon.is_empty():
 		weapon_name += " %d/%d" % [int(ceilf(world.durability_left(c, c.active_weapon))), int(world.durability_max(c, c.active_weapon))]
+		var ammo := world.ammo_of(c.active_weapon)
+		if not ammo.is_empty():
+			weapon_name += " (%s %d)" % [world.data.resources[ammo]["name"], int(c.inventory.get(ammo, 0))]
 	var armor_item := world.armor_item_of(c)
 	if not armor_item.is_empty():
 		weapon_name += " · %s %d/%d" % [world.data.items[armor_item]["name"], int(ceilf(world.durability_left(c, armor_item))), int(world.durability_max(c, armor_item))]

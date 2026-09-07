@@ -112,10 +112,13 @@ func _build_rows() -> void:
 func _describe(def: Dictionary) -> String:
 	if def.has("heal"):
 		return "Verbrauchsgut: +%d Leben nach %.0f s Anlegen (H)" % [int(def["heal"]), float(def["heal_time"])]
+	if def.has("cost") and not def.has("kind"):
+		return "Verbrauchsgut, %d Stück je Herstellung" % int(def.get("yield", 1))
 	match String(def.get("kind", "")):
 		"weapon":
 			if def.get("attack", "") == "ranged":
-				return "Fernkampf: %d Schaden, %d Projektile" % [int(def["damage"]), int(def["max_projectiles"])]
+				var ammo := String(def.get("ammo", ""))
+				return "Fernkampf: %d Schaden, %d Projektile%s" % [int(def["damage"]), int(def["max_projectiles"]), (", braucht %s" % data.resources[ammo]["name"]) if not ammo.is_empty() else ""]
 			return "Nahkampf: %d Schaden, Reichweite %.1f" % [int(def["damage"]), float(def["range"])]
 		"armor":
 			return "Rüstung: −%d pro Treffer" % int(def["armor"])

@@ -1,5 +1,5 @@
 {
-  "_doc": "Rohstoffe und Verbrauchsgüter. 'nutrition' = Hunger, den ein Stück beim Essen zurückgibt (nur bei edible). 'cost' = an der Werkbank herstellbar (Verbrauchsgut, stapelbar), 'heal'/'heal_time' = Verband: Kanalisierung heal_time Sekunden ohne Angriff, dann +heal Leben. Farben nur für die Rechteck-Darstellung. Kette: Fasern → Stoff (2 Fasern) → Verband (1 Stoff) und Stoffrüstung (items.json).",
+  "_doc": "Rohstoffe und Verbrauchsgüter. 'nutrition' = Hunger, den ein Stück beim Essen zurückgibt (nur bei edible). 'cost' = an der Werkbank herstellbar (Verbrauchsgut, stapelbar), 'heal'/'heal_time' = Verband: Kanalisierung heal_time Sekunden ohne Angriff, dann +heal Leben. Farben nur für die Rechteck-Darstellung. Kette: Fasern → Stoff (2 Fasern) → Verband (1 Stoff) und Stoffrüstung (items.json). 'yield' = Stück je Herstellung (Standard 1). Pfeile sind Munition für den Bogen (items.json 'ammo').",
   "resources": [
     {
       "id": "wood",
@@ -50,6 +50,18 @@
       },
       "heal": 15,
       "heal_time": 3.0
+    },
+    {
+      "id": "arrow",
+      "name": "Pfeile",
+      "edible": false,
+      "nutrition": 0,
+      "color": "#d8c8a8",
+      "cost": {
+        "wood": 1,
+        "stone": 1
+      },
+      "yield": 4
     }
   ]
 }

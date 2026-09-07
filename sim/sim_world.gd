@@ -470,11 +470,12 @@ func _craft_consumable(c: SimCharacter, rid: String) -> String:
 	for need: String in cost:
 		if int(c.inventory.get(need, 0)) < int(cost[need]):
 			return "zu wenig %s (%d nötig)" % [data.resources[need]["name"], int(cost[need])]
-	if c.inventory_count() - _cost_total(cost) + 1 > data.bali("inventory.capacity"):
+	var produced := int(def.get("yield", 1))
+	if c.inventory_count() - _cost_total(cost) + produced > data.bali("inventory.capacity"):
 		return "Inventar voll"
 	for need: String in cost:
 		c.inventory[need] = int(c.inventory[need]) - int(cost[need])
-	c.inventory[rid] = int(c.inventory.get(rid, 0)) + 1
+	c.inventory[rid] = int(c.inventory.get(rid, 0)) + produced
 	if def.has("heal"):
 		unlock(c.owner_id, "owned_bandage", c)
 	if c.control == SimCharacter.Controller.PLAYER:
@@ -491,9 +492,20 @@ func craft_reason(c: SimCharacter, rid: String) -> String:
 	for need: String in cost:
 		if int(c.inventory.get(need, 0)) < int(cost[need]):
 			return "zu wenig %s (%d nötig)" % [data.resources[need]["name"], int(cost[need])]
-	if c.inventory_count() - _cost_total(cost) + 1 > data.bali("inventory.capacity"):
+	if c.inventory_count() - _cost_total(cost) + int(data.resources[rid].get("yield", 1)) > data.bali("inventory.capacity"):
 		return "Inventar voll"
 	return ""
+
+
+## Munition einer Waffe (Kennung des Verbrauchsguts) oder leer, wenn sie keine braucht.
+func ammo_of(weapon_id: String) -> String:
+	return String(data.items.get(weapon_id, {}).get("ammo", ""))
+
+
+## Kann mit dieser Waffe geschossen werden? (Keine Munition nötig oder Munition dabei.)
+func has_ammo(c: SimCharacter, weapon_id: String) -> bool:
+	var ammo := ammo_of(weapon_id)
+	return ammo.is_empty() or int(c.inventory.get(ammo, 0)) > 0
 
 
 static func _cost_total(cost: Dictionary) -> int:
@@ -1388,6 +1400,13 @@ func _shoot(c: SimCharacter, weapon: Dictionary) -> void:
 		return
 	if c.facing == Vector2.ZERO:
 		return
+	var ammo := String(weapon.get("ammo", ""))
+	if not ammo.is_empty():
+		if int(c.inventory.get(ammo, 0)) <= 0:
+			c.fire_cooldown = float(weapon["cooldown"])  # Klicken ohne Munition: kurze Pause statt Dauerfeuer-Ereignisse
+			events.append({"type": "no_ammo", "id": c.id, "weapon": c.active_weapon})
+			return
+		c.inventory[ammo] = int(c.inventory[ammo]) - 1
 	var p := SimProjectile.new()
 	p.owner_id = c.id
 	p.pos = c.pos + c.facing * (c.collision_radius + 0.15)

@@ -74,11 +74,13 @@ func test_npc_prefers_bow_with_arrows_and_falls_back_without() -> void:
 	player.last_damage_time = world.time  # gilt als angegriffen
 	world.tick()
 	assert_eq(player.active_weapon, "bow", "Bogen mit Pfeilen ist die stärkste Fernwaffe")
-	for i in 20 * 3:
+	for i in 20 * 15:
 		player.last_damage_time = world.time
+		wolf.hp = wolf.max_hp  # der Wolf soll den Test überleben
 		world.tick()
+		if int(player.inventory.get("arrow", 0)) == 0 and player.active_weapon != "bow":
+			break
 	assert_eq(int(player.inventory.get("arrow", 0)), 0, "Pfeile verschossen")
-	world.tick()
 	assert_eq(player.active_weapon, "sling", "ohne Pfeile zurück zur Schleuder")
 
 

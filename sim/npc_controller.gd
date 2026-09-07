@@ -253,8 +253,9 @@ static func _engage(world: SimWorld, c: SimCharacter, target: SimCharacter, inte
 	for item_id: String in world.owned_weapons(c):
 		if data.items[item_id]["attack"] == "melee" and melee_id.is_empty():
 			melee_id = item_id
-		elif data.items[item_id]["attack"] == "ranged" and ranged_id.is_empty():
-			ranged_id = item_id
+		elif data.items[item_id]["attack"] == "ranged" and world.has_ammo(c, item_id) \
+				and (ranged_id.is_empty() or float(data.items[item_id]["damage"]) > float(data.items[ranged_id]["damage"])):
+			ranged_id = item_id  # stärkste Fernwaffe mit Munition
 	if not melee_id.is_empty() and distance <= float(data.items[melee_id]["range"]) * 1.1:
 		world.set_active_weapon(c, melee_id)
 		intent.shoot = true

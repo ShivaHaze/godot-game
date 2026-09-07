@@ -1,5 +1,5 @@
 {
-  "_doc": "Ausrüstung: Waffen und Rüstung. Spieler und Offline-NPC nutzen dieselben Werte. 'cost' = Rohstoffe, die die Werkbank (Taste C) verbraucht; leer = nicht baubar. 'starting' = gehört jedem neuen Charakter. Waffen: 'attack' ranged (Projektil: damage, projectile_speed, projectile_lifetime, cooldown, max_projectiles) oder melee (damage, range, cooldown). Rüstung: 'armor' = flacher Abzug pro Treffer; die beste besessene Rüstung zählt. 'effect' = Zustandseffekt, den ein Treffer auslöst (balance.json 'effects'); ignoriert Rüstung. 'durability' = Nutzungen (Schuss/Schlag bzw. bei Rüstung erlittene Treffer), bis der Gegenstand zerbricht; Reparatur an der Werkbank, siehe balance.json 'wear'.",
+  "_doc": "Ausrüstung: Waffen und Rüstung. Spieler und Offline-NPC nutzen dieselben Werte. 'cost' = Rohstoffe, die die Werkbank (Taste C) verbraucht; leer = nicht baubar. 'starting' = gehört jedem neuen Charakter. Waffen: 'attack' ranged (Projektil: damage, projectile_speed, projectile_lifetime, cooldown, max_projectiles) oder melee (damage, range, cooldown). Rüstung: 'armor' = flacher Abzug pro Treffer; die beste besessene Rüstung zählt. 'effect' = Zustandseffekt, den ein Treffer auslöst (balance.json 'effects'); ignoriert Rüstung. 'durability' = Nutzungen (Schuss/Schlag bzw. bei Rüstung erlittene Treffer), bis der Gegenstand zerbricht; Reparatur an der Werkbank, siehe balance.json 'wear'. 'ammo' = Verbrauchsgut, das jeder Schuss verbraucht (ohne Munition kein Schuss; NPCs greifen dann zur nächsten Waffe).",
   "items": [
     {
       "id": "sling",
@@ -17,6 +17,24 @@
         "wood": 1
       },
       "durability": 120
+    },
+    {
+      "id": "bow",
+      "name": "Bogen",
+      "kind": "weapon",
+      "attack": "ranged",
+      "damage": 14,
+      "projectile_speed": 10.0,
+      "projectile_lifetime": 1.4,
+      "cooldown": 0.9,
+      "max_projectiles": 2,
+      "starting": false,
+      "cost": {
+        "wood": 4,
+        "fibers": 2
+      },
+      "durability": 80,
+      "ammo": "arrow"
     },
     {
       "id": "club",

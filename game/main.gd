@@ -905,6 +905,8 @@ func _handle_events() -> void:
 				hud.show_message("Neutraler Markt: hier gibt es keinen Kampf.", 1.5)
 			"item_broken":
 				hud.show_message("%s zerbrochen!" % data.items[event["item"]]["name"], 3.0)
+			"no_ammo":
+				hud.show_message("Keine %s mehr." % data.resources[world.ammo_of(event["weapon"])]["name"], 1.5)
 			"healed":
 				_heal_active = false
 				hud.show_message("Verband angelegt: +%d Leben (%d übrig)." % [int(event["amount"]), event["left"]], 2.0)
