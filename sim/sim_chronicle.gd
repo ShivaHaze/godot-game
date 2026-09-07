@@ -7,7 +7,7 @@ extends RefCounted
 
 ## Hängt einen Eintrag an und meldet ihn als Ereignis des Ticks.
 static func add(world: SimWorld, c: SimCharacter, text: String) -> Dictionary:
-	var entry := {"time": world.time, "clock": world.clock_string(), "text": text}
+	var entry := {"time": world.time, "clock": world.clock_string(), "text": text, "pos": c.pos}
 	c.chronicle.append(entry)
 	world.events.append({"type": "chronicle", "id": c.id, "text": text, "clock": entry["clock"]})
 	return entry
@@ -21,6 +21,14 @@ static func format_all(c: SimCharacter) -> PackedStringArray:
 	var lines: PackedStringArray = []
 	for entry: Dictionary in c.chronicle:
 		lines.append(format_entry(entry))
+	return lines
+
+
+## Nummerierte Zeilen ("3. 08:12 – …"); die Nummern stehen auch an den Orten auf der Karte.
+static func format_numbered(c: SimCharacter) -> PackedStringArray:
+	var lines: PackedStringArray = []
+	for i in c.chronicle.size():
+		lines.append("%d. %s" % [i + 1, format_entry(c.chronicle[i])])
 	return lines
 
 

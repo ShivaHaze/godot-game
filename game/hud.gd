@@ -146,6 +146,8 @@ func refresh() -> void:
 		state = "\nTOT"
 	elif c.hidden:
 		state = "\nversteckt"
+	if not c.dead and world.in_transition(c):
+		state += "\nLogout-Übergang: noch %d s (verwundbar, kein Verstecken)" % int(ceilf(world.transition_end(c) - world.time))
 	_status.text = "Modus: %s\nUhr %s\nLeben %d/%d\nHunger %s\n%s (%d/%d)%s" % [
 		mode_text,
 		world.clock_string(),

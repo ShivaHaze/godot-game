@@ -93,6 +93,14 @@
     "max_alive": 3
   },
 
+  "logout": {
+    "_doc": "Ausloggen macht nie sofort sicher (Design [E]). Während des Übergangs kann sich der Charakter nicht verstecken.",
+    "transition_seconds": 45,
+    "_transition_seconds": "Dauer des Übergangs nach dem Ausloggen.",
+    "combat_window": 60,
+    "_combat_window": "Kam in diesen Sekunden vor oder nach dem Ausloggen Schaden, beginnt der Übergang erst danach."
+  },
+
   "npc": {
     "_doc": "Verhalten des Charakters im Offline-Modus (Regelmaschine).",
     "default_leash_radius": 6.0,

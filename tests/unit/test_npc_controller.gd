@@ -151,11 +151,12 @@ func test_eat_without_food_is_skipped_once() -> void:
 		{"if": {"condition": "else"}, "then": {"action": "hide"}},
 	])
 	world.logout(npc.id, rules)
+	npc.logout_time = -1e9  # Übergang für diesen Test überspringen
 	_tick(60)
 	assert_eq(npc.active_rule_index, 1, "fällt auf 'verstecken' durch")
 	var skipped := 0
 	for line: String in SimChronicle.format_all(npc):
-		if line.contains("nicht möglich, übersprungen"):
+		if line.contains("nicht möglich: nichts Essbares, übersprungen"):
 			skipped += 1
 	assert_eq(skipped, 1, "genau einmal vermerkt")
 
@@ -163,6 +164,7 @@ func test_eat_without_food_is_skipped_once() -> void:
 func test_hide_becomes_hidden_and_is_discovered() -> void:
 	var rules := _rule_list([{"if": {"condition": "else"}, "then": {"action": "hide"}}])
 	world.logout(npc.id, rules, "Verstecken")
+	npc.logout_time = -1e9  # Übergang für diesen Test überspringen
 	_tick(ceili(data.balf("npc.hide_delay") / world.tick_dt) + 2)
 	assert_true(npc.hidden, "versteckt")
 	assert_eq(_tick(20).size(), 0)

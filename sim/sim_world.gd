@@ -136,10 +136,12 @@ func logout(id: int, rules: Array, role_name: String = "") -> void:
 	c.control = SimCharacter.Controller.RULES
 	c.rules = rules.duplicate(true)
 	c.logout_pos = c.pos
+	c.logout_time = time
+	c.transition_logged = false
 	c.leash_center = c.pos
 	c.leash_radius = data.balf("npc.default_leash_radius")
 	c.active_rule_index = -1
-	c.skipped_rule_index = -1
+	c.skipped_rules = {}
 	c.last_logged_rule_index = -1
 	c.action_state = {}
 	c.decision_timer = 0.0
@@ -159,6 +161,17 @@ func login(id: int) -> void:
 	c.leash_radius = 0.0
 	SimChronicle.add(self, c, "eingeloggt bei %s" % _pos_text(c.pos))
 	events.append({"type": "login", "id": id})
+
+
+## Ende des Logout-Übergangs: transition_seconds nach dem Ausloggen, bei Kampf erst combat_window nach dem letzten Schaden.
+func transition_end(c: SimCharacter) -> float:
+	var combat_free := c.last_damage_time + data.balf("logout.combat_window")
+	return maxf(c.logout_time, combat_free) + data.balf("logout.transition_seconds")
+
+
+## Läuft der Übergang noch? Solange ist der Charakter verwundbar und kann sich nicht verstecken.
+func in_transition(c: SimCharacter) -> bool:
+	return c.control == SimCharacter.Controller.RULES and time < transition_end(c)
 
 
 static func _pos_text(pos: Vector2) -> String:

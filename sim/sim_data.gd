@@ -35,6 +35,7 @@ const REQUIRED_BALANCE: Array[String] = [
 	"wolf.max_hp", "wolf.armor", "wolf.move_speed", "wolf.bite_damage", "wolf.bite_range",
 	"wolf.bite_cooldown", "wolf.aggro_radius", "wolf.flee_hp_percent", "wolf.flee_duration",
 	"wolf.wander_radius", "wolf.respawn_time", "wolf.max_alive", "wolf.give_up_radius", "wolf.regen_per_second",
+	"logout.transition_seconds", "logout.combat_window",
 	"npc.default_leash_radius", "npc.preferred_combat_range", "npc.hide_delay",
 	"npc.reveal_radius", "npc.reveal_duration", "npc.decision_interval",
 	"offline.coarse_tick_dt", "offline.hot_radius",

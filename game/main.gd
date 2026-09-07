@@ -12,6 +12,7 @@ const LogoutMenuScript := preload("res://game/logout_menu.gd")
 
 const MAX_TICKS_PER_FRAME: int = 5      # Schutz gegen Aufholspiralen bei Rucklern
 const SKIP_BUDGET_MSEC: int = 14        # Echtzeit pro Frame für den Zeitsprung (Fortschritt bleibt sichtbar)
+const SAVE_PATH: String = "user://save.dat"
 const HINT_LIVE: String = "WASD bewegen · Maus zielen · Linksklick schießen · E halten: sammeln/plündern · F essen · M Marker · Esc Ausloggen"
 const HINT_DEAD: String = "Du bist tot. R = neuer Charakter am Spawn."
 const HINT_OFFLINE: String = "Dein Charakter handelt jetzt nach seinen Regeln. Du schaust nur zu."
@@ -35,6 +36,7 @@ var _skip_start: float = 0.0
 var _skip_target: float = 0.0
 var _chronicle_id: int = -1          # Wessen Chronik die Tafel zeigt (-1 = keine)
 var _yesterday_id: int = -1          # Im Versus-Modus: der eigene NPC von gestern
+var _new_game_armed_until: float = 0.0  # Doppelklick-Schutz für 'Neues Spiel'
 
 
 func _ready() -> void:
@@ -48,8 +50,14 @@ func _ready() -> void:
 		hud.set_hint("Datenfehler, siehe Konsole: " + data.errors[0])
 		return
 	skip_hours = data.balf("time_skip_hours")
-	world = SimWorld.new(data, 12345)
-	player_id = world.setup_new_game()
+	var saved := SimSave.load_from_file(data, SAVE_PATH)
+	var saved_game: Dictionary = saved.get("game", {})
+	if saved.is_empty():
+		world = SimWorld.new(data, 12345)
+		player_id = world.setup_new_game()
+	else:
+		world = saved["world"]
+		player_id = int(saved_game.get("player_id", 1))
 
 	view = WorldViewScript.new()
 	view.world = world
@@ -71,7 +79,52 @@ func _ready() -> void:
 
 	hud.world = world
 	hud.player_id = player_id
-	_enter_live()
+	_restore_mode(saved_game)
+
+
+## Stellt nach dem Laden den passenden Modus wieder her.
+func _restore_mode(saved_game: Dictionary) -> void:
+	var saved_mode := int(saved_game.get("mode", Mode.LIVE))
+	_yesterday_id = int(saved_game.get("yesterday_id", -1))
+	view.viewer_owner = String(saved_game.get("viewer_owner", "p1"))
+	match saved_mode:
+		Mode.OFFLINE, Mode.SKIPPING:
+			_enter_offline()
+			hud.show_message("Spielstand geladen: dein Charakter ist noch offline.", 4.0)
+		Mode.VERSUS:
+			_enter_versus()
+			hud.show_message("Spielstand geladen: du trittst gegen dich selbst an.", 4.0)
+		_:
+			_enter_live()
+			if not saved_game.is_empty():
+				hud.show_message("Spielstand geladen.", 3.0)
+
+
+func _save() -> void:
+	if world == null:
+		return
+	var err := SimSave.save_to_file(world, SAVE_PATH, {
+		"mode": mode, "player_id": player_id, "yesterday_id": _yesterday_id, "viewer_owner": view.viewer_owner,
+	})
+	if err != OK:
+		push_error("Spielstand konnte nicht gespeichert werden: %s" % error_string(err))
+
+
+func _new_game() -> void:
+	var now := Time.get_ticks_msec() / 1000.0
+	if now > _new_game_armed_until:
+		_new_game_armed_until = now + 3.0
+		hud.show_message("Wirklich neu anfangen? Nochmal klicken.", 3.0)
+		return
+	if FileAccess.file_exists(SAVE_PATH):
+		DirAccess.remove_absolute(SAVE_PATH)
+	world = null
+	get_tree().reload_current_scene()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST and mode != Mode.MENU:
+		_save()
 
 
 func _process(delta: float) -> void:
@@ -156,6 +209,7 @@ func _enter_live(keep_chronicle: bool = false) -> void:
 		hud.add_button("Chronik schließen", _hide_chronicle)
 	else:
 		_hide_chronicle()
+	hud.add_button("Neues Spiel", _new_game)
 
 
 func _hide_chronicle() -> void:
@@ -163,6 +217,7 @@ func _hide_chronicle() -> void:
 	hud.show_chronicle(false)
 	if mode == Mode.LIVE:
 		hud.clear_buttons()
+		hud.add_button("Neues Spiel", _new_game)
 
 
 func _open_menu() -> void:
@@ -182,6 +237,7 @@ func _on_logout_confirmed(rules: Array, role_id: String, role_name: String) -> v
 	player.role_id = role_id
 	world.logout(player_id, rules, role_name)
 	_enter_offline()
+	_save()
 
 
 func _enter_offline() -> void:
@@ -229,6 +285,7 @@ func _finish_skip() -> void:
 	hud.add_button("Charakter übernehmen", _login)
 	hud.add_button("Gegen mich selbst antreten", _start_versus)
 	hud.add_button("Weitere %d Stunden" % int(skip_hours), _start_skip)
+	_save()
 
 
 func _login() -> void:
@@ -240,6 +297,7 @@ func _login() -> void:
 	hud.show_message("Du übernimmst deinen Charakter wieder.", 3.0)
 	if player.dead:
 		hud.set_hint(HINT_DEAD)
+	_save()
 
 
 ## Gegen sich selbst: der NPC von gestern bleibt in der Welt, ein frischer Charakter startet am Spawn.
@@ -251,14 +309,19 @@ func _start_versus() -> void:
 	player_id = fresh.id
 	hud.player_id = player_id
 	view.viewer_owner = fresh.owner_id
+	_enter_versus()
+	hud.show_message("Dein Charakter von gestern ist irgendwo da draußen.", 4.0)
+	_save()
+
+
+func _enter_versus() -> void:
 	mode = Mode.VERSUS
 	hud.mode_text = "Gegen dich selbst"
 	hud.set_hint(HINT_VERSUS)
 	_hide_chronicle()
 	hud.clear_buttons()
 	hud.add_button("Chronik von gestern", _toggle_yesterday_chronicle)
-	hud.add_button("Neues Spiel", func() -> void: get_tree().reload_current_scene())
-	hud.show_message("Dein Charakter von gestern ist irgendwo da draußen.", 4.0)
+	hud.add_button("Neues Spiel", _new_game)
 
 
 func _toggle_yesterday_chronicle() -> void:

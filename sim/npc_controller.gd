@@ -14,6 +14,10 @@ static func decide(world: SimWorld, c: SimCharacter, dt: float) -> SimIntent:
 	if c.decision_timer <= 0.0 or c.active_rule_index < 0:
 		c.decision_timer = world.data.balf("npc.decision_interval")
 		_evaluate(world, c)
+	if not c.transition_logged and not world.in_transition(c):
+		c.transition_logged = true
+		SimChronicle.add(world, c, "Übergang beendet, Charakter ist jetzt offline")
+		c.decision_timer = 0.0
 	if c.active_rule_index >= 0 and c.active_rule_index < c.rules.size():
 		_execute(world, c, c.rules[c.active_rule_index], intent, dt)
 	_face_threat_if_idle(world, c, intent)
@@ -28,19 +32,22 @@ static func _evaluate(world: SimWorld, c: SimCharacter) -> void:
 	var data := world.data
 	var facts := SimSensors.facts_for(world, c)
 	var chosen := RuleEngine.NO_MATCH
+	var still_skipped := {}
 	var start := 0
 	while start < c.rules.size():
 		var result := RuleEngine.evaluate(c.rules.slice(start), facts, data)
 		if result["index"] == RuleEngine.NO_MATCH:
 			break
 		var index: int = start + result["index"]
-		if _can_execute(world, c, c.rules[index]):
+		var reason := blocked_reason(world, c, c.rules[index])
+		if reason.is_empty():
 			chosen = index
 			break
-		if c.skipped_rule_index != index:
-			c.skipped_rule_index = index
-			SimChronicle.log_rule(world, c, index, c.rules[index], "nicht möglich, übersprungen")
+		still_skipped[index] = true
+		if not c.skipped_rules.has(index):
+			SimChronicle.log_rule(world, c, index, c.rules[index], "nicht möglich: %s, übersprungen" % reason)
 		start = index + 1
+	c.skipped_rules = still_skipped
 	if chosen != c.active_rule_index:
 		c.active_rule_index = chosen
 		c.action_state = {}
@@ -60,22 +67,27 @@ static func _evaluate(world: SimWorld, c: SimCharacter) -> void:
 		_eat_now(world, c, chosen, c.rules[chosen])
 
 
-static func _can_execute(world: SimWorld, c: SimCharacter, rule: Dictionary) -> bool:
+## Warum eine zutreffende Regel gerade nicht ausführbar ist; leer = ausführbar.
+static func blocked_reason(world: SimWorld, c: SimCharacter, rule: Dictionary) -> String:
 	var data := world.data
 	var params: Dictionary = rule["then"]["params"]
 	match String(rule["then"]["action"]):
 		"eat":
 			if c.hunger >= data.balf("hunger.max"):
-				return false
+				return "satt"
 			for rid: String in data.resource_order:
 				if data.resources[rid].get("edible", false) and int(c.inventory.get(rid, 0)) > 0:
-					return true
-			return false
+					return ""
+			return "nichts Essbares"
 		"gather":
 			if c.inventory_count() >= data.bali("inventory.capacity"):
-				return false
-			return _find_gather_node(world, c, String(params["resource"]), c.place_pos(String(params["place"])), float(params["radius"])) != null
-	return true
+				return "Inventar voll"
+			if _find_gather_node(world, c, String(params["resource"]), c.place_pos(String(params["place"])), float(params["radius"])) == null:
+				return "nichts zu sammeln in der Leine"
+		"hide":
+			if world.in_transition(c):
+				return "Logout-Übergang läuft"
+	return ""
 
 
 ## "iss": sofort ausführen und mit Details protokollieren ("Beeren 4→3").

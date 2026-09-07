@@ -9,6 +9,7 @@ var alpha: float = 0.0             # Anteil zwischen letztem und aktuellem Tick 
 var viewer_owner: String = "p1"    # Versteckte Charaktere anderer Besitzer werden nicht gezeichnet
 var show_leashes: bool = true
 var preview_rules: Array = []      # Regeln aus dem offenen Ausloggen-Menü (Leinen-Vorschau); leer = keine Vorschau
+var trail_character_id: int = -1   # Chronik-Spur dieses Charakters zeichnen (Orte der Einträge, nummeriert)
 
 var _tile_colors: Dictionary = {}
 var _resource_colors: Dictionary = {}
@@ -18,6 +19,7 @@ func _draw() -> void:
 	if world == null:
 		return
 	_draw_tiles()
+	_draw_trail()
 	_draw_markers()
 	_draw_characters()
 	_draw_projectiles()
@@ -90,6 +92,33 @@ func _draw_leashes(c: SimCharacter) -> void:
 		draw_arc(center, float(params["radius"]) * TILE, 0.0, TAU, 64, Color(1.0, 0.85, 0.2, 0.35), 1.0)
 	if c.control == SimCharacter.Controller.RULES and c.leash_radius > 0.0:
 		draw_arc(c.leash_center * TILE, c.leash_radius * TILE, 0.0, TAU, 64, Color(0.4, 0.7, 1.0, 0.8), 2.0)
+
+
+## Chronik-Spur: nummerierte Punkte an den Orten der Einträge, verbunden in Reihenfolge.
+func _draw_trail() -> void:
+	var c := world.get_character(trail_character_id)
+	if c == null or c.chronicle.is_empty():
+		return
+	var previous := Vector2.INF
+	for i in c.chronicle.size():
+		var entry: Dictionary = c.chronicle[i]
+		if not entry.has("pos"):
+			continue
+		var p: Vector2 = entry["pos"] * TILE
+		if previous != Vector2.INF and previous.distance_to(p) > 1.0:
+			draw_line(previous, p, Color(1.0, 0.6, 0.2, 0.5), 1.5)
+		previous = p
+	var drawn := {}
+	for i in c.chronicle.size():
+		var entry: Dictionary = c.chronicle[i]
+		if not entry.has("pos"):
+			continue
+		var cell := SimMap.cell_of(entry["pos"])
+		var stack: int = drawn.get(cell, 0)
+		drawn[cell] = stack + 1
+		var p: Vector2 = entry["pos"] * TILE + Vector2(0, -12.0 * stack)
+		draw_circle(p, 7.0, Color(1.0, 0.6, 0.2, 0.9))
+		draw_string(ThemeDB.fallback_font, p + Vector2(-4 if i < 9 else -7, 4), str(i + 1), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color.BLACK)
 
 
 func _character_color(c: SimCharacter) -> Color:
