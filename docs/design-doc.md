@@ -1,0 +1,167 @@
+# Design-Dokument (Arbeitstitel: offen)
+
+Stand: 2026-09-07 (v5) · Status-Legende: **[E]** entschieden · **[T]** Tendenz · **[O]** offen
+
+## 1. Kern in einem Satz
+Echtzeit-2D-PvPvE in einer persistenten Welt, in der dein Charakter beim Ausloggen nicht verschwindet, sondern nach den Regeln weiterhandelt, die du ihm gegeben hast.
+
+## 2. Der Twist
+- Online: du steuerst den Charakter live. Offline: er wird zum NPC und führt dein Regelwerk aus.
+- Die "neutralen NPCs" der Welt sind überwiegend Offline-Spieler.
+- **Offline kann Halten und Erhalten** (verteidigen, handeln, sammeln, produzieren, fliehen, essen, verbinden). **Nur Live kann Nehmen und Verändern** (Wände brechen, bauen, Anker setzen, Schwefel sammeln, neue Gebiete betreten, Gildenverträge).
+- Immer ein Default-Regelwerk (iss bei Hunger, flieh bei Angriff, bleib sonst). Kein Zwang, das Menü je zu öffnen.
+- **Logout-Übergang (Lehre aus Mortal Online 2):** Ausloggen macht nie sofort sicher. 30–60 s Übergang, in dem der Charakter normal verwundbar ist; im Kampf (Schaden in den letzten 60 s) startet der Übergang erst danach. In fremdem Claim kann kein Offline-Charakter aktiviert werden – er wird zur Claim-Grenze geschoben. Kein Combat-Logging, kein Ninja-Logging in fremde Basen.
+- **Simulationsstufen (Lehre aus Screeps):** Offline-Charaktere ohne Online-Spieler in Reichweite laufen grob (z. B. 1 Tick/s, vereinfachte Regeln), bei Annäherung fein (voller Tick). Architektur-Voraussetzung von Tag 1, entscheidet über Serverkosten.
+- **Chronik:** Der NPC protokolliert jede gefeuerte Regel mit Zeitstempel ("03:14 – angegriffen, geflohen zu Basis"). Lesbar beim Einloggen. Gleiches auf Gildenebene. Ist Tutorial, Debug-Werkzeug und Geschichtenquelle zugleich.
+- Vermutete Lücke: Rust (Offline-Schlafen ohne Verhalten), Screeps (Verhalten ohne Live-Ich), Loop Hero/Autonauts (Idle-Regeln ohne PvP). Schnittmenge unbelegt – vor Prototyp recherchieren.
+
+## 3. Entschieden [E]
+
+### Welt & Struktur
+- 2D top-down, Echtzeit. Keine Rundenlogik im Live-Spiel.
+- PvPvE mit neutralen/freundlichen Spielern und NPCs.
+- Eine große Karte pro Server, ~200–300 Spieler, server-autoritativ, 24/7 simuliert.
+- Karten datengetrieben (Ressourcen, Engstellen, Startpunkte, Spawn-Zonen) → seedbar/tauschbar. Karte ist das Balancing-Instrument.
+- Kein Reset. Welten haben Lebenszyklus (neue öffnen, alte zerfallen). Wipe-Vorbehalt in Early Access, explizit kommuniziert.
+- Spawn in gewichteten Spawn-Zonen (Neulinge → ruhiger, nicht garantiert). Gilden-Claims können teure Spawn-Anker haben → Mitglieder spawnen dort.
+- Nur offizielle Server.
+
+### Tod & Progression
+- Tod = Charakter weg, alles Zeug bleibt liegen. Leben offen lang.
+- Offline killbar/bestehlbar, wehrt sich per Regelwerk.
+- Account-gebunden und todesfest: Regel-Vokabular, Gildenrang, Kosmetik. Kein Charakter-Level, keine Stats.
+- Regel-Bausteine werden freigeschaltet, wenn ihre Grundbedingung je erfüllt wurde (Prädikat: "hat je Turret besessen", "ist in Gilde", "hat Vergiftung überlebt"). Kein Loot. Das Vokabular eines Spielers ist seine Biografie.
+- Gefühl Minute 1: Gier, dann Angst. Tiefe: Builds > Räumliches > Risikoabwägung > Timing.
+
+### Regelsystem
+- Wenn-Dann als Prioritätenliste (erste zutreffende gewinnt), frei kombinierbar.
+- Start ~3 Bedingungen / ~3 Aktionen; Vokabular wächst über Freischaltungen.
+- Regelwerk anderer ist komplett verborgen; Lesen durch Beobachtung ist Kern-PvP-Fähigkeit.
+- NPC nutzt dasselbe Kampfsystem, aber schlechter: zielt auf aktuelle statt zukünftige Position, dreht sich zur Bedrohung (umlaufbar), handelt vorsichtig.
+- Gilden haben dieselbe Regelmechanik für Rechte ("Mitglied < 3 Tage → kein Lagerzugriff", "beschädigt Anker → Ausschluss, NPCs feindlich"). Gildenführung ist ein Build.
+- Sensoren liefern Bedingungen über Distanz ("Sensor Nordtor ausgelöst → geh zu Nordtor").
+- **Oberfläche = Rollen, darunter = Regeln.** Neuling wählt eine Rolle (Verstecken, Wache, Sammler, Händler) mit einem Tipp; jede Rolle ist eine vorausgefüllte Regelliste, die man aufklappen und editieren kann ("Advanced"). Trennt Casual von Pro ohne zwei Systeme.
+- **Startvokabular.** Bedingungen: Leben < X %, hungrig, wird angegriffen, Fremder in Nähe (Radius), Inventar voll/leer. Aktionen: fliehe zu [Ort], bleib bei [Ort], sammle [Rohstoff] um [Ort], iss, kämpfe zurück, verstecken. "Greife an" NICHT im Start – Offline-Charakter wehrt sich, schlägt nie zuerst zu; Aggression wird freigeschaltet (z. B. nachdem man selbst von einem NPC angegriffen wurde). Handel kommt mit dem Handelstisch. Keine Zeitbedingungen im Start.
+- **Default-Regelwerk** (ohne je ins Menü zu gehen): hungrig → iss; angegriffen → fliehe zu [Hier]; sonst → bleib bei [Hier].
+- **Orte = Marker + Leine.** Nur live gesetzte Marker (Default: "Hier" = Ausloggen-Position) sind in Regeln verwendbar. Jede Ortsregel hat einen Radius, sichtbar als Kreis vor dem Ausloggen; der NPC verlässt die Leine nie. Vorhersagbarkeit vor Autonomie – Tode müssen sich fair anfühlen.
+- **Ausloggen ist die erste Risikoentscheidung:** Verstecken (unsichtbar bis jemand drüberläuft; kein Risiko, kein Ertrag) · Basis (Risiko = Basissicherheit, kein Ertrag) · Sammeln/Handeln/Liefern (sichtbar; Risiko hoch, Ertrag hoch).
+
+### Kampf
+- Twin-Stick, wenige langsame sichtbare Projektile (1–3 pro Kämpfer). Kein Bullet-Hell.
+- Nahkampf (kurz, hoher Schaden) + Fernkampf (Vorlauf). 4–6 Waffen mit klarer Rolle.
+- TTK: Basis schnell (~3 Treffer nackt). Rüstung = flacher Abzug pro Treffer → schwache Waffen prallen ab, starke bleiben gefährlich. Rüstung ist die Investition in den Offline-Schlaf.
+- Keine Trefferzonen. Stattdessen **Richtungstreffer**: von hinten/seitlich mehr Schaden bzw. Rüstung teilweise ignoriert. Zielen = Positionierung.
+- Zustandseffekte ignorieren Rüstung, je einer Quelle und einem Gegenmittel zugeordnet: Blutung (Klingen ↔ Verband), Verlangsamung (Kälte/Nässe/schwere Rüstung), Vergiftung (Sumpf/Kräutergift ↔ Gegenmittel), Brand (Schwefel), Erschöpfung (Hunger).
+- Heilung = Kanalisierung: dauert X s, kein Angreifen währenddessen, Laufen ja. Gleich im und außerhalb des Kampfs.
+
+### Wirtschaft & Überleben
+- Geschlossene Spielerwirtschaft: alle Items stammen von Spielern.
+- 9 Rohstoffe, jeder mit eigener Zone, Sammelart und exklusiver Funktion:
+
+| Rohstoff | Zone | Sammelbar | Gatet |
+|---|---|---|---|
+| Holz | überall | offline | Gebäude, Brennstoff, Kupferschmelze |
+| Stein | überall | offline | Gebäude, Werkzeuge Stufe 0 |
+| Fasern | überall | offline | Stoff → Rüstung, Verbände, Seile/Fallen |
+| Nahrung | überall, besser innen | offline | Unterhalt; gekocht = besser |
+| Kupfer | Rand | offline | Werkzeuge/Waffen Stufe 1 (weich), Elektrik/Sensoren |
+| Eisenerz | Mitte | offline nur mit Mine | Werkzeuge/Waffen Stufe 2, Turrets, Eisenbau |
+| Kohle | Mitte | offline nur mit Mine | Schmelzen von Eisen (Engpass), Brennstoff |
+| Schwefel | Zentrum | **nur live** | Pulver → Munition, Sprengsätze |
+| Kräuter | zonengebunden (Sumpf/Wald/Höhle) | offline | starke Medizin, Gifte |
+
+- Prinzip: Kohle ist der Engpass, nicht Erz (Handel + Kriegsziel). Schwefel nur live → Raidfähigkeit kann nicht idle gefarmt werden.
+- Ketten (2–3 Stufen, jede ein Regel-Baustein): Erz+Kohle→Eisen→Werkzeuge/Waffen/Turrets · Schwefel+Kohle→Pulver→Munition/Sprengsatz · Fasern→Stoff→Rüstung/Verbände · Nahrung→gekocht · Holz+Stein→Gebäude, +Eisen→verstärkt · Kräuter→Medizin/Gift · Kupfer→Draht→Sensoren.
+- Medizin: Basis aus Ketten (Verbände, Desinfektion), starke Mittel aus Kräutern.
+- Senken: Verbrauch (Munition, Essen, Medizin), Verschleiß (Reparatur nie 100 % → alles stirbt irgendwann), Unterhalt (Claims, Charaktere), Verrotten liegengelassener Items nach Tagen.
+- Überleben als Unterhalt, nicht Minispiel: Nahrung/Wärme als Tagesverbrauch, offline stark verlangsamt. Mangel → geschwächt, nicht tot. Krankheit als Ereignis.
+
+### Bauen
+- Freie Platzierung mit Snapping auf feines Raster (½ oder ¼ Kachel); Bauteile belegen Rasterzellen → Navmesh für NPCs und kachelbasierte Claims funktionieren.
+- Jedes Bauteil einzeln zerstörbar. Stufen: Holz (Nahkampfwerkzeug, verfällt schnell) < Stein (Eisenwerkzeug oder Sprengsatz) < Eisen (nur Sprengsatz).
+- Verteidigungsobjekte: Turrets, Fallen, Sensoren – alle regelgesteuert.
+
+### Land (Claims)
+1. **Anker + Fläche:** Anker nur live baubar. Kacheln nur zusammenhängend vom Anker aus, keine Inseln/Korridore. Claims überlappen nie.
+2. **Unterhalt überproportional:** Kosten pro Kachel steigen mit Fläche. Unterhalt wird *physisch* am Anker abgeliefert (NPC-lieferbar, abschneidbar).
+3. **Was ein Claim gibt:** Nur Eigentümer bauen. Eigentümer-NPCs setzen Regeln gegen Fremde durch (Zoll, Zutritt, Angriff). Rohstoffknoten nur für Eigentümer-NPCs; Fremde live = Diebstahl. Spawn-Anker als teures Upgrade.
+4. **Verlust stufenweise:** Fehlender Unterhalt → Claim schrumpft von außen über Tage, Gebäude darauf verfallen. Anker live zerstört → Kacheln nach Schonfrist (Stunden) frei, Angreifer kann eigenen Anker setzen.
+- Solo-Anker: harte Obergrenze (~30–50 Kacheln). Gilden legen Anker zusammen, Obergrenze skaliert mit Gildenlevel, Unterhalt aus Gildentopf.
+
+### Gilden
+- Unbegrenzte Größe, Gilde regelt sich selbst. Verrat möglich (stehlen, Regeln umgehen, Anker sprengen). Rechte über Gilden-Regeln, nicht über Admin-Panel.
+- Gilde = Summe der Offline-Charaktere. Gildenlevel steigt durch gemeinschaftliche Offline-Leistung.
+- Schaltet frei: Regel-Ausdruckskraft, Regeln zwischen Mitgliedern (Loot-Ketten), geteilter Alarm, mehr Land pro Kopf.
+- Königreiche emergent (viel Land, Bündnisse). Kein Verwaltungsmodus.
+- Zerg-Bremsen: überproportionaler Unterhalt, Schwefel nur live, Verrat selbst.
+
+### Handel
+Vier Formen, je anderes Risikoprofil:
+1. **Face-to-Face** – beide live, sofort.
+2. **Handelstisch** – eigener Shop im Claim, NPC verkauft nach Regel. Shop ist auch Ziel.
+3. **Depot** – Ware wird an einem Marktort hinterlegt, Käufer kauft vor Ort, Bezahlung wartet im Depot. Risiko: der Rückweg mit dem Erlös.
+4. **Marktbrett** – Information + Aufträge/Auktionen. **Lieferung immer physisch** per NPC-Aktion ("bring X zu [Ort]") → Karawanen, Eskorten, Überfälle. Kein Teleport, Geografie bleibt wertvoll.
+
+Marktorte (Kartenfeatures, keine NPC-Händler; Unterschied nur über Regeln):
+- **Neutraler Markt** (3–5 pro Karte): kampffrei, Raidwaren (Sprengsätze, Gifte, Munition) nicht handelbar, hohe Depotgebühr (Senke). Einziger Ort, an dem ein Offline-NPC garantiert sicher ist.
+- **Räuber-Outpost**: kein Kampfverbot, alles handelbar, niedrige Gebühr. Schwefelware zwingt dorthin.
+- **Gildenmarkt** (Claim-Upgrade): Regeln, Zoll und Sicherheit setzt die Gilde. Reputation ohne Reputationssystem.
+
+### Kommunikation & Sichtbarkeit
+- Nah-Chat, Gildenchat, globaler Chat, Briefe und Schilder in der Welt. Global ohne Positionsdaten aus dem Spiel (keine Koordinaten, kein Kartenteilen). Schilder sind die einzige Kommunikation eines Offline-Charakters.
+- Andere Spieler: nur Aussehen/Kosmetik sichtbar; Name + Gilde erst in unmittelbarer Nähe (Rust). Gilden-Wappen als optionale Kosmetik – tragen oder nicht ist Strategie.
+- Chronik nennt Angreifer nur, wenn sie nah genug für den Namen kamen, sonst "Unbekannter mit Kupferspeer".
+
+### PvE
+- Gefahrenzonen: Zentrum wertvoll/tödlich, Rand sicher/arm. Ereignisse (Karawanen, Bossspawns).
+
+### Sessions
+- Kurz (15 Min): NPC konfigurieren, Chronik lesen, Erträge einsammeln. Lang: Raids, Erkundung, Aufbau.
+
+## 4. Tendenz [T]
+- Server: Godot headless (ein Code für Client und Simulation), Persistenz in SQLite/Postgres. Entscheidung nach Prototyp; bei 50 Spielern messen.
+- Geschäftsmodell: Empfehlung kleiner Einmalkauf (10–20 €) als Cheater-/Alt-Account-Schutz + Kosmetik-Shop (account-gebunden, überlebt Tod). Linus' Wunsch: F2P + Kosmetik. Risiko bei F2P: wirkungslose Bans, Spionage-Alts, Serverkosten ohne Einnahme, Zerg-Sog. Falls F2P: Hürde für Gilden/Claims (Spielstunden oder Verifikation).
+
+## 5. Offen [O]
+- Setting (Mittelalter / Postapo / abstrakt / Sci-Fi) – bewusst offen.
+- Konkrete Zahlen: Unterhalt, TTK, Verfallsraten, Solo-Claim-Grenze → Prototyp.
+- Ereignis-Design (Karawanen, Bosse).
+- Welche Rollen-Presets genau und mit welchen Regeln.
+- Aggressions-Freischaltung: genaue Bedingung.
+- Kosmetik-Umfang.
+- Name.
+
+## 6. Marktrecherche (Stand 2026-09-07)
+- **Exakte Kombination nirgends veröffentlicht** (Echtzeit-Live + regelgesteuerter Offline-Avatar + persistente Full-Loot-PvP-Welt). Negativbeweis mit hoher, nicht absoluter Sicherheit.
+- **Chronicles of Elyria** (Kickstarter 2016, ~8 Mio. $): "Offline Player Characters" mit skriptbaren Behaviors – nahezu identisches Konzept, C#/JScript-Skripting statt Rollen. Studio 2020 geschlossen, OPC nie spielbar gezeigt. Scheitern war finanziell/organisatorisch (Scope), kein bewiesenes Design-Scheitern.
+- **Age of Wushu** (2012/2013, läuft noch): Offline-Charakter bleibt als angreifbarer NPC mit Preset-Beruf (Wache, Händler, Straßenkünstler), Kidnapping-System. Beweist Akzeptanz des Prinzips seit 13 Jahren. Fehlt: editierbare Regeln, Survival/Raiding, Full-Loot.
+- **Rust / Mortal Online 2 / Project-Zomboid-Mods:** Körper bleibt, aber passiv. MO2-Community empfindet wehrlosen Offline-Tod als unfair → stärkstes Argument für unsere Regel-Gegenwehr.
+- **Screeps:** spielerprogrammierte 24/7-Einheiten skalieren (CPU-Budget pro Spieler), aber Skripting bleibt Nische → Rollen-Ebene ist Pflicht.
+- **SEED** (Klang, EA seit Juli 2026): persistente autonome Avatare als Life-Sim. Zeitgeist-Beleg, kein Konkurrent.
+- **2D-Top-down-Rust-Konkurrenz:** CryoFall (etabliert, Entwicklung eingestellt), Ruins To Fortress (F2P, EA seit 12/2024). Keiner mit Offline-Twist.
+- **Patente:** US 2014/0342808 ("PCs as NPCs") und US 2012/0190443 ("Automatic Movement of Disconnected Character"). Status prüfen (Freedom-to-Operate) vor Early Access.
+
+## 7. Risiken
+- Scope. Nur Abschnitt 2 wird zuerst gebaut.
+- Regelwerk zu stark → Live überflüssig. Zu schwach → Rust-Schlafsack mit Extraschritten.
+- Geschlossene Wirtschaft ohne Wipe: Inflation, Senken, festgefahrene Macht. EVE als Referenz.
+- Zerg trotz Bremsen.
+- Serverkosten 24/7-Simulation ohne Kaufpreis.
+- Godot-Skalierung auf 200–300 Spieler unbelegt.
+- Patentlage ungeprüft.
+- Regel-Exploits (unbesiegbare Defensiv-Loops) – im Prototyp gezielt suchen.
+
+## 8. Nächster Schritt
+**Phase 0 – Rechteck-Prototyp** (Godot 4.7.x, GDScript, Single-Player, kein Netzwerk, keine Grafik):
+- Karte aus Datei, 2 Rohstoffe (Holz, Beeren), Bewegung, Twin-Stick-Schuss mit Richtungstreffer, Inventar, Hunger als Unterhalt.
+- Ausloggen-Menü: 4 Rollen-Presets (Verstecken, Wache, Sammler, Händler-Platzhalter), aufklappbar zu Regeln; 5 Bedingungen / 6 Aktionen; Marker + Leine mit sichtbarem Radius.
+- NPC-Regelmaschine, Chronik.
+- Zeitsprung-Knopf: simuliert 8 h Offline in Sekunden, danach spielt man gegen den eigenen Charakter von "gestern".
+- Datengetrieben ab Tag 1: Regeln, Rollen, Rohstoffe, Karte als Datendateien. Simulation strikt getrennt von Darstellung (später headless wiederverwendbar).
+
+**Abnahmetest:** Regeln festlegen → Zeitsprung → Charakter finden → Chronik lesen → sofort Regeln ändern wollen. Kommt das Gefühl nicht, ist der Kern nicht da.
+
+Danach: Netzwerk-Spike (Godot headless, 300 NPCs, Tickzeit messen; 50 Bot-Clients per ENet) → erst dann Setting, Name, Optik.
+
+## 9. Verworfen
+- "Rust in 2D" als reine Kopie. · 4X-/Königreichs-Verwaltungsmodus. · Gilden-Quests als Sammelliste. · Single-Shard-MMO. · Bullet-Hell, Auto-Angriff. · Charakter-Level/Stats. · Regelmäßige Wipes als Design. · Hunger/Kälte als Minispiel. · Trefferzonen (Richtungstreffer stattdessen). · Regel-Bausteine als Loot. · Community-Server. · Node/TS-Server mit duplizierter Logik (vorbehaltlich Prototyp). · Markt mit Teleport. · "Nächstes X" ohne Leine. · NPC-Händler mit Sonderware. · "Greife an" im Startvokabular.
