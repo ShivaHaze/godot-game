@@ -59,8 +59,8 @@ func _build() -> void:
 	_root.anchor_right = 0.5
 	_root.anchor_top = 0.5
 	_root.anchor_bottom = 0.5
-	_root.offset_left = -470
-	_root.offset_right = 470
+	_root.offset_left = -610
+	_root.offset_right = 610
 	_root.offset_top = -320
 	_root.offset_bottom = 320
 	add_child(_root)
@@ -81,7 +81,7 @@ func _build() -> void:
 
 	_tip = Label.new()
 	_tip.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_tip.custom_minimum_size = Vector2(900, 40)
+	_tip.custom_minimum_size = Vector2(1180, 40)
 	vbox.add_child(_tip)
 
 	_advanced = CheckButton.new()
@@ -90,7 +90,7 @@ func _build() -> void:
 	vbox.add_child(_advanced)
 
 	_scroll = ScrollContainer.new()
-	_scroll.custom_minimum_size = Vector2(900, 330)
+	_scroll.custom_minimum_size = Vector2(1180, 330)
 	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_scroll.visible = false
 	vbox.add_child(_scroll)
@@ -220,17 +220,17 @@ func _make_row(index: int, rule: Dictionary) -> HBoxContainer:
 		spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(spacer)
 		var up := Button.new()
-		up.text = "▲"
+		up.text = "hoch"
 		up.disabled = index == 0
 		up.pressed.connect(_move_rule.bind(index, -1))
 		row.add_child(up)
 		var down := Button.new()
-		down.text = "▼"
+		down.text = "runter"
 		down.disabled = index >= rules.size() - 2
 		down.pressed.connect(_move_rule.bind(index, 1))
 		row.add_child(down)
 		var remove := Button.new()
-		remove.text = "✕"
+		remove.text = "löschen"
 		remove.pressed.connect(_remove_rule.bind(index))
 		row.add_child(remove)
 	return row

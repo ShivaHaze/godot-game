@@ -140,6 +140,7 @@ func logout(id: int, rules: Array, role_name: String = "") -> void:
 	c.leash_radius = data.balf("npc.default_leash_radius")
 	c.active_rule_index = -1
 	c.skipped_rule_index = -1
+	c.last_logged_rule_index = -1
 	c.action_state = {}
 	c.decision_timer = 0.0
 	c.path.clear()

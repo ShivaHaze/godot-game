@@ -48,6 +48,7 @@ var logout_pos: Vector2 = Vector2.ZERO  # "Hier"
 var chronicle: Array[Dictionary] = []   # {time, text}
 var active_rule_index: int = -1
 var skipped_rule_index: int = -1     # zuletzt als 'nicht möglich' übersprungene Regel (gegen Chronik-Spam)
+var last_logged_rule_index: int = -1 # zuletzt protokollierte Regel; dieselbe Regel nach einer Pause wird nicht erneut protokolliert
 var action_state: Dictionary = {}    # Zwischenzustand der aktiven Aktion (z. B. Sammelziel)
 var role_id: String = ""             # Zuletzt gewählte Rolle (nur Anzeige)
 var decision_timer: float = 0.0

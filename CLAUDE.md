@@ -63,7 +63,7 @@ game/                Darstellung und Eingabe (liest sim/, schreibt nur Intents):
   hud.gd               Status, Hinweise, Meldungen, Chronik-Tafel, Knopfleiste
   logout_menu.gd       Rollen + Regel-Editor, aus den Daten gebaut
 tests/unit/          GUT-Tests (test_*.gd)
-tools/               run_tests.ps1 / run_tests.sh (headless), smoke_run.gd (Rauchtest mit Fenster)
+tools/               run_tests.ps1 / run_tests.sh (headless), smoke_run.gd (Rauchtest mit Fenster), screenshot_run.gd (Bildschirmfotos aller Ansichten)
 addons/gut/          Test-Framework GUT 9.6.1 (einziges Addon)
 ```
 
@@ -79,6 +79,7 @@ godot --headless --path . -s addons/gut/gut_cmdln.gd
 ```
 `--import` baut den Cache in `.godot/` auf; ohne ihn sind `class_name`-Klassen headless nicht auflösbar. Exit-Code 0 = alle Tests grün. GUT liest `res://.gutconfig.json` automatisch (kein `-gconfig`-Argument: der `godot.cmd`-Wrapper zerlegt Argumente mit `=`).
 Zeichen- und UI-Code läuft headless nicht; dafür: `godot --path . -s tools/smoke_run.gd` (öffnet kurz ein Fenster, meldet `SMOKE OK`).
+Bildschirmfotos aller Ansichten: `godot --path . -s tools/screenshot_run.gd -- <Ordner>`.
 
 ## Spielen
 `godot --path .` oder Projekt im Editor öffnen. WASD bewegen, Maus zielen, Linksklick schießen, E halten sammeln/plündern, F essen, M Marker, Esc Ausloggen-Menü, R neuer Charakter nach dem Tod. Im Offline-Modus Knöpfe unten rechts: Zeitsprung, einloggen, gegen sich selbst antreten.

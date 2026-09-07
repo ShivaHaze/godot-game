@@ -71,7 +71,8 @@ func _draw_markers() -> void:
 			var here: Vector2 = c.logout_pos * TILE
 			draw_circle(here, 4.0, Color(0.6, 0.8, 1.0))
 			draw_string(ThemeDB.fallback_font, here + Vector2(8, 4), "Hier", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.6, 0.8, 1.0))
-		if show_leashes:
+		# Leinen: beim NPC immer, beim Live-Spieler nur als Vorschau, solange das Ausloggen-Menü offen ist
+		if show_leashes and (c.control == SimCharacter.Controller.RULES or not preview_rules.is_empty()):
 			_draw_leashes(c)
 
 

@@ -201,3 +201,19 @@ func test_hungry_npc_eats_offline_over_time() -> void:
 	var seconds_until_hungry := 0.3 / data.balf("hunger.decay_per_second_offline")
 	_tick(ceili(seconds_until_hungry / world.tick_dt) + 10)
 	assert_eq(npc.inventory["berries"], 1, "hat unterwegs gegessen")
+
+
+func test_resuming_same_rule_after_pause_is_not_logged_again() -> void:
+	npc.pos = Vector2(25.5, 5.5)
+	var rules := _rule_list([
+		{"if": {"condition": "else"}, "then": {"action": "gather", "params": {"resource": "berries", "place": "here", "radius": 3.5}}},
+	])
+	world.logout(npc.id, rules)
+	_tick(20 * 30)  # beide Büsche in der Leine leeren
+	assert_eq(npc.active_rule_index, RuleEngine.NO_MATCH, "nichts mehr zu sammeln")
+	var lines_before := npc.chronicle.size()
+	for node: SimResourceNode in world.map.nodes.values():
+		node.amount = node.max_amount  # nachgewachsen
+	_tick(20 * 2)
+	assert_eq(npc.active_rule_index, 0, "sammelt wieder")
+	assert_eq(npc.chronicle.size(), lines_before, "dieselbe Regel wird nicht erneut protokolliert")

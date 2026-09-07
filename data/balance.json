@@ -86,7 +86,8 @@
     "_give_up_radius": "Ab dieser Distanz verliert ein jagender Wolf sein Ziel.",
     "regen_per_second": 0.5,
     "_regen_per_second": "Lebensregeneration beim Streunen (nach einer Flucht).",
-    "wander_radius": 5.0,
+    "wander_radius": 12.0,
+    "_wander_radius": "Streunradius um den Spawn. Groß genug, dass Wölfe auch beim Zeitsprung mal vorbeikommen.",
     "respawn_time": 300.0,
     "_respawn_time": "Sekunden, bis ein toter Wolf an einem Wolf-Spawn ersetzt wird.",
     "max_alive": 3

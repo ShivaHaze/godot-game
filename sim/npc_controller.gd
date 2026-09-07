@@ -23,6 +23,7 @@ static func decide(world: SimWorld, c: SimCharacter, dt: float) -> SimIntent:
 
 ## Regelauswertung: erste zutreffende UND ausführbare Regel gewinnt. Eine zutreffende, aber nicht
 ## ausführbare Regel (z. B. "iss" ohne Essbares) wird übersprungen und einmal in der Chronik vermerkt.
+## Protokolliert wird ein Regelwechsel; nimmt der NPC nach einer Pause dieselbe Regel wieder auf, nicht erneut.
 static func _evaluate(world: SimWorld, c: SimCharacter) -> void:
 	var data := world.data
 	var facts := SimSensors.facts_for(world, c)
@@ -51,9 +52,11 @@ static func _evaluate(world: SimWorld, c: SimCharacter) -> void:
 		if not leash.is_empty():
 			c.leash_center = leash["center"]
 			c.leash_radius = leash["radius"]
-		if String(rule["then"]["action"]) != "eat":
+		if String(rule["then"]["action"]) != "eat" and chosen != c.last_logged_rule_index:
+			c.last_logged_rule_index = chosen
 			SimChronicle.log_rule(world, c, chosen, rule)
 	if chosen != RuleEngine.NO_MATCH and String(c.rules[chosen]["then"]["action"]) == "eat":
+		c.last_logged_rule_index = chosen
 		_eat_now(world, c, chosen, c.rules[chosen])
 
 
