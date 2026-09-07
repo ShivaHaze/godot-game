@@ -54,7 +54,9 @@
     "under_attack_window": 5.0,
     "_under_attack_window": "Sekunden nach dem letzten Treffer, in denen 'wird angegriffen' wahr ist.",
     "name_range": 4.0,
-    "_name_range": "Kacheln, innerhalb derer man den Namen eines fremden Menschen erkennt (Design: Name erst in unmittelbarer Nähe). Weiter weg: 'Fremder' bzw. in der Chronik 'Unbekannter mit <Waffe>'. Tiere und eigene Leute erkennt man immer."
+    "_name_range": "Kacheln, innerhalb derer man den Namen eines fremden Menschen erkennt (Design: Name erst in unmittelbarer Nähe). Weiter weg: 'Fremder' bzw. in der Chronik 'Unbekannter mit <Waffe>'. Tiere und eigene Leute erkennt man immer.",
+    "corpse_rot_hours": 24.0,
+    "_corpse_rot_hours": "Stunden, nach denen eine Leiche samt Inventar verschwindet (Design-Senke: Verrotten liegengelassener Items)."
   },
   "wolf": {
     "_doc": "Einfacher PvE-Druck: nähert sich, beißt, flieht bei niedrigem Leben.",

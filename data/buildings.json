@@ -229,6 +229,30 @@
         "coal"
       ],
       "_doc": "Muss direkt neben einer Eisenader oder einem Kohleflöz stehen. Erst damit bauen Offline-Charaktere dort ab (Design: 'offline nur mit Mine'); live geht es von Hand."
+    },
+    {
+      "id": "bomb",
+      "name": "Sprengsatz legen",
+      "tier": "wood",
+      "cost": {
+        "explosive": 1
+      },
+      "hp": 5,
+      "size": [
+        1,
+        1
+      ],
+      "passable": "all",
+      "decay_per_hour": 0,
+      "color": "#e04020",
+      "anywhere": true,
+      "bomb": {
+        "fuse": 5.0,
+        "radius": 2.0,
+        "building_damage": 150.0,
+        "character_damage": 30.0
+      },
+      "_doc": "Raidwerkzeug: darf auf fremdem Claim liegen (nicht auf dem Markt), zündet nach fuse Sekunden und trifft alle Bauteile (jede Stufe) und Charaktere im Radius. Wer es rechtzeitig einschlägt (5 LP), entschärft es."
     }
   ]
 }

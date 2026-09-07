@@ -290,6 +290,9 @@ func _process(delta: float) -> void:
 		_process_net(delta)
 		return
 	var player := world.get_character(player_id)
+	if player == null and (mode == Mode.LIVE or mode == Mode.VERSUS):
+		_respawn_player()  # die Leiche ist verrottet: frischer Charakter
+		player = world.get_character(player_id)
 	match mode:
 		Mode.LIVE, Mode.VERSUS:
 			_process_live_input(player)
@@ -895,6 +898,8 @@ func _handle_events() -> void:
 				hud.show_message("Neuer Regel-Baustein freigeschaltet: %s" % event["label"], 5.0)
 			"deposit":
 				hud.show_message("%d Holz am Anker abgeliefert, Vorrat %d." % [event["amount"], int(event["stock"])], 2.0)
+			"explosion":
+				hud.show_message("Ein Sprengsatz ist explodiert!", 2.0)
 			"turret_loaded":
 				hud.show_message("%d Kugeln ins Turret geladen (%d drin)." % [event["amount"], event["stock"]], 2.0)
 			"trap_triggered":

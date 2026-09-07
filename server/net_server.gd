@@ -189,8 +189,9 @@ func _on_message(peer: ENetPacketPeer, msg: Dictionary) -> void:
 			if c != null:
 				world.claims.release_tile(world, c, Vector2i(int(msg.get("x", 0)), int(msg.get("y", 0))))
 		"respawn":
-			if c != null and c.dead:
-				var fresh := world.spawn_player(world.spawn_point_for(c.owner_id), c.owner_id, c.name)
+			if c == null or c.dead:
+				var owner_name := String(info["name"])
+				var fresh := world.spawn_player(world.spawn_point_for(owner_name), owner_name, owner_name)
 				info["char_id"] = fresh.id
 				info["known"] = {}
 				info["nodes"] = {}

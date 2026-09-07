@@ -620,6 +620,8 @@ func can_place(c: SimCharacter, part_id: String, origin: Vector2i, rotation: int
 	if center.distance_to(c.pos) > data.balf("building.reach"):
 		return "zu weit weg"
 	for other: SimCharacter in characters.values():
+		if String(def["passable"]) == "all":
+			break  # begehbare Teile (Sensor, Falle, Sprengsatz) dürfen unter Füßen liegen
 		if other.dead or other.pos.distance_squared_to(center) > 16.0:
 			continue
 		for half: Vector2i in cells:
@@ -655,7 +657,7 @@ func can_place(c: SimCharacter, part_id: String, origin: Vector2i, rotation: int
 			return "muss neben %s stehen" % " oder ".join(names)
 	for half: Vector2i in cells:
 		var tile := Vector2i(floori(half.x / 2.0), floori(half.y / 2.0))
-		if claims.is_foreign(tile, c.owner_id):
+		if claims.is_foreign(tile, c.owner_id) and not bool(def.get("anywhere", false)):
 			return "fremder Claim"
 		if bool(def.get("claim_only", false)):
 			var own := claims.claim_at(tile)
@@ -820,6 +822,39 @@ func turret_near(c: SimCharacter) -> SimBuilding:
 		if is_turret(b) and b.owner_id == c.owner_id and b.center().distance_to(c.pos) <= data.balf("character.interact_range") + 0.5:
 			return b
 	return null
+
+
+## Sprengsätze: nach der Lunte trifft die Explosion alle Bauteile (jede Stufe) und Charaktere im Radius.
+func _update_bombs() -> void:
+	for id: int in map.buildings.keys():
+		var b: SimBuilding = map.buildings.get(id)
+		if b == null:
+			continue
+		var spec: Dictionary = data.buildings[b.part].get("bomb", {})
+		if spec.is_empty() or time < b.placed_time + float(spec["fuse"]):
+			continue
+		var center := b.center()
+		var radius := float(spec["radius"])
+		map.remove_building(id)
+		claims.on_building_removed(self, id)
+		events.append({"type": "explosion", "building": id, "owner": b.owner_id, "pos": center, "radius": radius})
+		for other_id: int in map.buildings.keys():
+			var other: SimBuilding = map.buildings.get(other_id)
+			if other != null and other.center().distance_to(center) <= radius:
+				damage_building(other, float(spec["building_damage"]), -1)
+		for c: SimCharacter in spatial.query(center, radius):
+			if not c.dead and c.pos.distance_to(center) <= radius and not in_market(c.pos):
+				apply_damage(c, float(spec["character_damage"]), (c.pos - center).normalized() if c.pos != center else Vector2.DOWN, -1, "", "einen Sprengsatz")
+
+
+## Leichen verrotten samt Inventar nach corpse_rot_hours (Senke); Wölfe räumt der Nachschub auf.
+func _update_corpses() -> void:
+	var rot_after := data.balf("combat.corpse_rot_hours") * 3600.0
+	for id: int in characters.keys():
+		var c: SimCharacter = characters[id]
+		if c.dead and c.kind == SimCharacter.Kind.PLAYER and time - c.death_time >= rot_after:
+			characters.erase(id)
+			events.append({"type": "corpse_rotted", "id": id, "owner": c.owner_id, "name": c.name})
 
 
 ## Turrets: nächster sichtbarer Fremder oder Tier im Radius mit Sichtlinie, ein Schuss je Abklingzeit, eine Kugel je Schuss.
@@ -1310,6 +1345,8 @@ func step(dt: float) -> void:
 	_update_buildings(dt)
 	_update_sensors_and_traps(dt)
 	_update_turrets(dt)
+	_update_bombs()
+	_update_corpses()
 	claims.update(self, dt)
 	_update_wolves(dt)
 

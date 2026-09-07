@@ -146,6 +146,10 @@ func _draw_buildings() -> void:
 				var top_left := b.center() * TILE + Vector2(-size.x * 0.5 - 4, -TILE * 0.5 - size.y - 6)
 				draw_rect(Rect2(top_left, size + Vector2(8, 4)), Color(0.1, 0.08, 0.05, 0.8))
 				draw_string(font, top_left + Vector2(4, size.y - 3), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1.0, 0.95, 0.7))
+		if def.has("bomb"):
+			var left := maxf(0.0, b.placed_time + float(def["bomb"]["fuse"]) - world.time)
+			draw_arc(b.center() * TILE, float(def["bomb"]["radius"]) * TILE, 0.0, TAU, 32, Color(1.0, 0.3, 0.2, 0.5), 1.5)
+			draw_string(ThemeDB.fallback_font, b.center() * TILE + Vector2(-10, -8), "%.0f" % ceilf(left), HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(1.0, 0.4, 0.3))
 		if def.has("turret"):
 			if b.owner_id == viewer_owner:
 				draw_arc(b.center() * TILE, float(def["turret"]["radius"]) * TILE, 0.0, TAU, 48, Color(1.0, 0.6, 0.2, 0.25), 1.0)
@@ -260,6 +264,8 @@ func _draw_events() -> void:
 	for event: Dictionary in world.events:
 		if event.get("type") == "turret_shot":
 			draw_line(event["from"] * TILE, event["to"] * TILE, Color(1.0, 0.7, 0.3), 2.0)
+		if event.get("type") == "explosion":
+			draw_circle(event["pos"] * TILE, float(event["radius"]) * TILE, Color(1.0, 0.5, 0.1, 0.5))
 		if event.get("type") == "hit":
 			var pos: Vector2 = event["pos"] * TILE
 			draw_arc(pos, TILE * 0.5, 0.0, TAU, 16, Color(1.0, 0.3, 0.2), 3.0)

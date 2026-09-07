@@ -28,8 +28,8 @@ func _ready() -> void:
 	_root.anchor_bottom = 0.5
 	_root.offset_left = -440
 	_root.offset_right = 440
-	_root.offset_top = -300
-	_root.offset_bottom = 300
+	_root.offset_top = -200
+	_root.offset_bottom = 340
 	add_child(_root)
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 8)
