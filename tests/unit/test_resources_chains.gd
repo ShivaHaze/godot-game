@@ -29,10 +29,10 @@ func _heal_intent() -> SimIntent:
 
 func test_data_has_new_resources_tiles_and_nodes() -> void:
 	assert_true(data.is_valid(), "Fehler: %s" % data.errors)
-	assert_eq(data.resource_order, ["wood", "berries", "stone", "fibers", "cloth", "bandage", "arrow", "copper_ore", "copper", "wire", "iron_ore", "coal", "iron", "sulfur", "powder", "shot", "explosive"] as Array[String])
+	assert_eq(data.resource_order, ["wood", "berries", "stone", "fibers", "cloth", "bandage", "arrow", "copper_ore", "copper", "wire", "iron_ore", "coal", "iron", "sulfur", "powder", "shot", "explosive", "herbs", "antidote", "medicine"] as Array[String])
 	assert_true(data.tiles.has("stone_deposit"))
 	assert_true(data.tiles.has("fiber_plant"))
-	assert_eq(data.craftable_resources(), ["cloth", "bandage", "arrow", "copper", "wire", "iron", "powder", "shot", "explosive"] as Array[String])
+	assert_eq(data.craftable_resources(), ["cloth", "bandage", "arrow", "copper", "wire", "iron", "powder", "shot", "explosive", "antidote", "medicine"] as Array[String])
 	var stone := 0
 	var fibers := 0
 	for node: SimResourceNode in world.map.nodes.values():
@@ -142,7 +142,7 @@ func test_npc_without_bandage_falls_through() -> void:
 	assert_eq(player.active_rule_index, 1)
 	var found := false
 	for line: String in SimChronicle.format_all(player):
-		if line.contains("nicht möglich: kein Verband"):
+		if line.contains("nicht möglich: kein passendes Heilmittel"):
 			found = true
 	assert_true(found)
 

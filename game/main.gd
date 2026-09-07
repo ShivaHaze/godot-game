@@ -918,7 +918,8 @@ func _handle_events() -> void:
 				hud.show_message("Keine %s mehr." % data.resources[world.ammo_of(event["weapon"])]["name"], 1.5)
 			"healed":
 				_heal_active = false
-				hud.show_message("Verband angelegt: +%d Leben (%d übrig)." % [int(event["amount"]), event["left"]], 2.0)
+				var cured: Array = event.get("cured", [])
+				hud.show_message("%s benutzt: +%d Leben%s (%d übrig)." % [data.resources[event["resource"]]["name"], int(event["amount"]), ", Vergiftung kuriert" if cured.has("poison") else (", Blutung gestoppt" if cured.has("bleeding") else ""), event["left"]], 2.0)
 			"trade":
 				hud.show_message("Gekauft: %d %s für %d %s." % [event["sell_amount"], data.resources[event["sell"]]["name"], event["price_amount"], data.resources[event["price"]]["name"]], 2.0)
 			"theft":

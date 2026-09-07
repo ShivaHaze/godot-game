@@ -142,10 +142,14 @@
     "_lod_radius": "Server: Charaktere ohne Online-Spieler in dieser Distanz laufen grob (Simulationsstufen)."
   },
   "effects": {
-    "_doc": "Zustandseffekte ignorieren Rüstung; je eine Quelle und ein Gegenmittel (Design). Blutung: Klingen (Steinbeil) verursachen sie, ein fertig angelegter Verband stoppt sie; ein neuer Klingentreffer verlängert.",
+    "_doc": "Zustandseffekte ignorieren Rüstung; je eine Quelle und ein Gegenmittel (Design). Blutung: Klingen (Steinbeil) verursachen sie, ein fertig angelegter Verband stoppt sie; ein neuer Klingentreffer verlängert. Vergiftung: Sumpf (solange man drin steht, danach duration) ↔ Gegenmittel aus Kräutern.",
     "bleeding": {
       "duration": 8.0,
       "damage_per_second": 1.0
+    },
+    "poison": {
+      "duration": 6.0,
+      "damage_per_second": 0.5
     }
   },
   "wear": {
@@ -176,6 +180,13 @@
       "build_reason": "im Räuber-Outpost wird nicht gebaut",
       "claim_reason": "Outpost-Land gehört niemandem",
       "depot_label": "Outpost-Depot"
+    },
+    "swamp": {
+      "name": "Sumpf",
+      "peace": false,
+      "effect": "poison",
+      "build_reason": "im Sumpf versinkt jedes Bauteil",
+      "claim_reason": "Sumpfland gehört niemandem"
     }
   }
 }

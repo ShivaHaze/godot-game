@@ -107,6 +107,24 @@
       "amount": 5,
       "color": "#c8b830",
       "live_only": true
+    },
+    {
+      "id": "swamp",
+      "char": "s",
+      "name": "Sumpf",
+      "walkable": true,
+      "color": "#26463c",
+      "zone": "swamp",
+      "_doc": "Wer hier steht, wird vergiftet (balance.json zones.swamp.effect). Kräuter wachsen im Sumpf."
+    },
+    {
+      "id": "herb",
+      "char": "H",
+      "name": "Kräuter",
+      "walkable": true,
+      "resource": "herbs",
+      "amount": 4,
+      "color": "#4c9a5a"
     }
   ]
 }

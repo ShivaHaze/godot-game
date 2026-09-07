@@ -40,7 +40,7 @@ const REQUIRED_BALANCE: Array[String] = [
 	"npc.reveal_radius", "npc.reveal_duration", "npc.decision_interval", "npc.skip_relog_minutes",
 	"offline.coarse_tick_dt", "offline.hot_radius", "offline.lod_radius",
 	"building.reach", "building.refund_fraction", "building.melee_damage_multiplier", "building.table_capacity", "building.table_max_offers", "building.sign_max_length", "building.sign_read_distance",
-	"effects.bleeding.duration", "effects.bleeding.damage_per_second",
+	"effects.bleeding.duration", "effects.bleeding.damage_per_second", "effects.poison.duration", "effects.poison.damage_per_second",
 	"wear.repair_cost_fraction", "wear.repair_max_loss",
 	"market.depot_capacity", "zones.market.depot_fee", "zones.outpost.depot_fee", "combat.name_range", "combat.corpse_rot_hours",
 	"claim.max_tiles_solo", "claim.tile_cost_wood", "claim.upkeep_base", "claim.upkeep_growth", "claim.stock_capacity",

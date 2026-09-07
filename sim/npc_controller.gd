@@ -100,10 +100,10 @@ static func blocked_reason(world: SimWorld, c: SimCharacter, rule: Dictionary) -
 			if world.in_transition(c):
 				return "Logout-Übergang läuft"
 		"heal_self":
-			if c.hp >= c.max_hp and not world.has_effect(c, "bleeding"):
+			if c.hp >= c.max_hp and c.effects.is_empty():
 				return "gesund"
 			if world.heal_item_of(c).is_empty():
-				return "kein Verband"
+				return "kein passendes Heilmittel"
 		"craft":
 			var reason := world.craft_reason(c, String(params["product"]))
 			if not reason.is_empty():

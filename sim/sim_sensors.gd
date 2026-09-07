@@ -20,6 +20,7 @@ static func facts_for(world: SimWorld, c: SimCharacter) -> Dictionary:
 		"stranger_in_claim": stranger_in_claim(world, c),
 		"triggered_sensors": world.triggered_sensors_of(c.owner_id),
 		"is_bleeding": world.has_effect(c, "bleeding"),
+		"is_poisoned": world.has_effect(c, "poison"),
 	}
 
 

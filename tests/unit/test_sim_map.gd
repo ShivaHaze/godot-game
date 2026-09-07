@@ -17,7 +17,7 @@ func test_walkable_and_bounds() -> void:
 	assert_false(map.is_walkable(Vector2i(3, 2)), "Holzquelle ist nicht begehbar")
 	var expected := 0
 	for row: String in data.map_rows:
-		expected += row.count("T") + row.count("B") + row.count("S") + row.count("F") + row.count("C") + row.count("I") + row.count("K") + row.count("X")
+		expected += row.count("T") + row.count("B") + row.count("S") + row.count("F") + row.count("C") + row.count("I") + row.count("K") + row.count("X") + row.count("H")
 	assert_eq(map.nodes.size(), expected, "alle Quellen-Zeichen werden Quellen")
 
 

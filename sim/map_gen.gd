@@ -15,6 +15,8 @@ const COPPER: String = "C"
 const IRON: String = "I"
 const COAL: String = "K"
 const SULFUR: String = "X"
+const SWAMP: String = "s"
+const HERB: String = "H"
 const PLAYER: String = "P"
 const WOLF: String = "W"
 const MARKET: String = "M"
@@ -53,6 +55,23 @@ static func generate(width: int, height: int, seed: int, rock_clusters_per_100: 
 		_blob(grid, rng, IRON, rng.randi_range(2, 4), width, height, 0.4, 1.0)
 	for i in maxi(1, int(inner_cells / 100.0 * 0.05)):
 		_blob(grid, rng, COAL, rng.randi_range(2, 3), width, height, 0.4, 1.0)
+	# Sümpfe (Zone: Vergiftung) mit Kräutern darin
+	for i in maxi(1, int(inner_cells / 100.0 * 0.06)):
+		var start := _random_floor(grid, rng, width, height, 0.1, 0.9)
+		if start.x < 0:
+			continue
+		var cell := start
+		var swamp_cells: Array[Vector2i] = []
+		for step in rng.randi_range(8, 16):
+			if grid[cell.y][cell.x] == FLOOR:
+				grid[cell.y][cell.x] = SWAMP
+				swamp_cells.append(cell)
+			var next: Vector2i = cell + [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)][rng.randi_range(0, 3)]
+			if next.x >= 1 and next.y >= 1 and next.x < width - 1 and next.y < height - 1:
+				cell = next
+		for k in mini(2, swamp_cells.size()):
+			var herb := swamp_cells[rng.randi_range(0, swamp_cells.size() - 1)]
+			grid[herb.y][herb.x] = HERB
 	# Schwefel nur im Zentrum (Design: nur live abbaubar, wertvoll/tödlich)
 	for i in maxi(1, int(inner_cells / 100.0 * 0.03)):
 		_blob(grid, rng, SULFUR, rng.randi_range(2, 3), width, height, 0.65, 1.0)

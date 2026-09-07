@@ -485,6 +485,8 @@ func _craft_consumable(c: SimCharacter, rid: String) -> String:
 	c.inventory[rid] = int(c.inventory.get(rid, 0)) + produced
 	if def.has("heal"):
 		unlock(c.owner_id, "owned_bandage", c)
+	if def.get("cures", []).has("poison"):
+		unlock(c.owner_id, "owned_antidote", c)
 	if c.control == SimCharacter.Controller.PLAYER:
 		unlock(c.owner_id, "crafted_consumable", c)
 	events.append({"type": "craft", "id": c.id, "item": rid})
@@ -522,17 +524,27 @@ static func _cost_total(cost: Dictionary) -> int:
 	return total
 
 
-## Verband in der Hand? Erstes heilendes Verbrauchsgut im Inventar (Kennung) oder leer.
+## Passendstes Heilmittel im Inventar: erst eines, das einen laufenden Effekt kuriert, sonst das stärkste,
+## wenn Leben fehlt. Leer, wenn nichts hilft.
 func heal_item_of(c: SimCharacter) -> String:
+	var best := ""
+	var best_heal := -1.0
 	for rid: String in data.resource_order:
-		if data.resources[rid].has("heal") and int(c.inventory.get(rid, 0)) > 0:
-			return rid
-	return ""
+		var def: Dictionary = data.resources[rid]
+		if not def.has("heal") or int(c.inventory.get(rid, 0)) <= 0:
+			continue
+		for effect: String in def.get("cures", []):
+			if has_effect(c, effect):
+				return rid
+		if c.hp < c.max_hp and float(def["heal"]) > best_heal and float(def["heal"]) > 0.0:
+			best_heal = float(def["heal"])
+			best = rid
+	return best
 
 
 ## Heilung = Kanalisierung: heal_time Sekunden ohne Angriff (Laufen erlaubt), dann +heal Leben, Verband weg.
 func _update_healing(c: SimCharacter, intent: SimIntent, dt: float) -> void:
-	if not intent.heal or intent.shoot or intent.melee or (c.hp >= c.max_hp and not has_effect(c, "bleeding")):
+	if not intent.heal or intent.shoot or intent.melee:
 		c.heal_progress = 0.0
 		return
 	var rid := heal_item_of(c)
@@ -546,8 +558,11 @@ func _update_healing(c: SimCharacter, intent: SimIntent, dt: float) -> void:
 		var before := c.hp
 		c.hp = minf(c.max_hp, c.hp + float(def["heal"]))
 		c.inventory[rid] = int(c.inventory[rid]) - 1
-		var stopped := c.effects.erase("bleeding")  # Gegenmittel der Blutung
-		events.append({"type": "healed", "id": c.id, "amount": c.hp - before, "resource": rid, "left": int(c.inventory[rid]), "stopped_bleeding": stopped})
+		var cured: Array[String] = []
+		for effect: String in def.get("cures", []):
+			if c.effects.erase(effect):
+				cured.append(effect)
+		events.append({"type": "healed", "id": c.id, "amount": c.hp - before, "resource": rid, "left": int(c.inventory[rid]), "cured": cured})
 
 
 # --- Zustandseffekte ------------------------------------------------------
@@ -556,19 +571,27 @@ func has_effect(c: SimCharacter, effect: String) -> bool:
 	return float(c.effects.get(effect, -1e9)) > time
 
 
-## Effekt anlegen oder verlängern; ignoriert Rüstung. Chronik nur beim Beginn.
+const EFFECT_NAMES: Dictionary = {"bleeding": "blutet", "poison": "vergiftet"}
+
+
+## Effekt anlegen oder verlängern; ignoriert Rüstung. Ereignis und Chronik nur beim Beginn.
 func apply_effect(c: SimCharacter, effect: String, attacker_id: int) -> void:
 	if c.dead or not data.balance.get("effects", {}).has(effect):
 		return
 	var fresh := not has_effect(c, effect)
 	c.effects[effect] = time + data.balf("effects.%s.duration" % effect)
-	events.append({"type": "effect", "id": c.id, "effect": effect, "attacker": attacker_id, "fresh": fresh})
-	if fresh and c.kind == SimCharacter.Kind.PLAYER and c.control == SimCharacter.Controller.RULES:
-		SimChronicle.add(self, c, "blutet" if effect == "bleeding" else effect)
+	if not fresh:
+		return
+	events.append({"type": "effect", "id": c.id, "effect": effect, "attacker": attacker_id})
+	if c.kind == SimCharacter.Kind.PLAYER and c.control == SimCharacter.Controller.RULES:
+		SimChronicle.add(self, c, String(EFFECT_NAMES.get(effect, effect)))
 
 
 ## Laufende Effekte: Blutung zieht Leben ohne Rüstung ab und kann töten ("verblutet").
 func _update_effects(c: SimCharacter, dt: float) -> void:
+	var zone_effect := String(zone_at(c.pos).get("effect", ""))
+	if not zone_effect.is_empty():
+		apply_effect(c, zone_effect, -1)  # Sumpf: solange man drin steht
 	if c.effects.is_empty():
 		return
 	for effect: String in c.effects.keys():
@@ -576,10 +599,11 @@ func _update_effects(c: SimCharacter, dt: float) -> void:
 			c.effects.erase(effect)
 			events.append({"type": "effect_ended", "id": c.id, "effect": effect})
 			continue
-		if effect == "bleeding":
-			c.hp = maxf(0.0, c.hp - data.balf("effects.bleeding.damage_per_second") * dt)
+		var dps := data.balf("effects.%s.damage_per_second" % effect)
+		if dps > 0.0:
+			c.hp = maxf(0.0, c.hp - dps * dt)
 			if c.hp <= 0.0:
-				_kill(c, c.last_attacker_id, "verblutet")
+				_kill(c, c.last_attacker_id, "verblutet" if effect == "bleeding" else "an Gift gestorben")
 				return
 
 

@@ -116,7 +116,13 @@ func _build_rows() -> void:
 
 func _describe(def: Dictionary) -> String:
 	if def.has("heal"):
-		return "Verbrauchsgut: +%d Leben nach %.0f s Anlegen (H)" % [int(def["heal"]), float(def["heal_time"])]
+		var cures: Array = def.get("cures", [])
+		var cure_text := ""
+		if cures.has("poison"):
+			cure_text = ", heilt Vergiftung"
+		elif cures.has("bleeding"):
+			cure_text = ", stoppt Blutung"
+		return "Verbrauchsgut: +%d Leben nach %.0f s (H)%s" % [int(def["heal"]), float(def["heal_time"]), cure_text]
 	if def.has("cost") and not def.has("kind"):
 		return "Verbrauchsgut, %d Stück je Herstellung" % int(def.get("yield", 1))
 	match String(def.get("kind", "")):

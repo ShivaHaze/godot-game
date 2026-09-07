@@ -183,6 +183,8 @@ func refresh() -> void:
 		state = "\nversteckt"
 	if not c.dead and world.has_effect(c, "bleeding"):
 		state += "\nBLUTET – Verband anlegen (H)"
+	if not c.dead and world.has_effect(c, "poison"):
+		state += "\nVERGIFTET – Gegenmittel nehmen (H), raus aus dem Sumpf"
 	var here := world.claims.claim_at_pos(c.pos)
 	var mine := world.claims.claim_of_owner(c.owner_id)
 	if mine != null:

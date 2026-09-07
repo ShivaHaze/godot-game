@@ -22,7 +22,7 @@ func before_each() -> void:
 
 
 func test_chain_fibers_cloth_bandage_and_armor() -> void:
-	assert_eq(data.craftable_resources(), ["cloth", "bandage", "arrow", "copper", "wire", "iron", "powder", "shot", "explosive"] as Array[String])
+	assert_eq(data.craftable_resources(), ["cloth", "bandage", "arrow", "copper", "wire", "iron", "powder", "shot", "explosive", "antidote", "medicine"] as Array[String])
 	player.inventory["fibers"] = 2
 	assert_eq(world.craft(player, "bandage"), "zu wenig Stoff (1 nötig)")
 	assert_eq(world.craft(player, "cloth"), "")
