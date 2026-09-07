@@ -1,7 +1,45 @@
 {
-  "_doc": "Rohstoffe des Prototyps. 'nutrition' = Hunger, den ein Stück beim Essen zurückgibt (nur bei edible). Farben nur für die Rechteck-Darstellung.",
+  "_doc": "Rohstoffe und Verbrauchsgüter. 'nutrition' = Hunger, den ein Stück beim Essen zurückgibt (nur bei edible). 'cost' = an der Werkbank herstellbar (Verbrauchsgut, stapelbar), 'heal'/'heal_time' = Verband: Kanalisierung heal_time Sekunden ohne Angriff, dann +heal Leben. Farben nur für die Rechteck-Darstellung.",
   "resources": [
-    { "id": "wood", "name": "Holz", "edible": false, "nutrition": 0, "color": "#a0703c" },
-    { "id": "berries", "name": "Beeren", "edible": true, "nutrition": 25, "color": "#b04ad8" }
+    {
+      "id": "wood",
+      "name": "Holz",
+      "edible": false,
+      "nutrition": 0,
+      "color": "#a0703c"
+    },
+    {
+      "id": "berries",
+      "name": "Beeren",
+      "edible": true,
+      "nutrition": 25,
+      "color": "#b04ad8"
+    },
+    {
+      "id": "stone",
+      "name": "Stein",
+      "edible": false,
+      "nutrition": 0,
+      "color": "#9a9a9a"
+    },
+    {
+      "id": "fibers",
+      "name": "Fasern",
+      "edible": false,
+      "nutrition": 0,
+      "color": "#c9d96b"
+    },
+    {
+      "id": "bandage",
+      "name": "Verband",
+      "edible": false,
+      "nutrition": 0,
+      "color": "#f2f2f2",
+      "cost": {
+        "fibers": 3
+      },
+      "heal": 15,
+      "heal_time": 3.0
+    }
   ]
 }

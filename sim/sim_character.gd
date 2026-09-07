@@ -38,6 +38,7 @@ var last_attacker_id: int = -1
 
 var gather_progress: float = 0.0
 var gather_target: Vector2i = Vector2i(-1, -1)
+var heal_progress: float = 0.0       # Kanalisierung eines Verbands in Sekunden
 
 var hidden: bool = false
 var hide_progress: float = 0.0       # Sekunden ohne Schaden seit Beginn des Versteckens

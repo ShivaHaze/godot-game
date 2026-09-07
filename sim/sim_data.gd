@@ -310,10 +310,29 @@ func _parse_resources(raw: Dictionary) -> void:
 		if resources.has(id):
 			errors.append("%s: doppelte Kennung '%s'" % [context, id])
 			continue
+		if entry.has("cost") and not (entry["cost"] is Dictionary):
+			errors.append("%s: 'cost' von '%s' muss ein Objekt sein" % [context, id])
+			continue
+		if entry.has("heal") and (not _is_number(entry["heal"]) or not _is_number(entry.get("heal_time"))):
+			errors.append("%s: 'heal' braucht Zahlen heal und heal_time ('%s')" % [context, id])
+			continue
 		resources[id] = entry
 		resource_order.append(id)
 	if resources.is_empty():
 		errors.append("resources.json: mindestens ein Rohstoff nötig")
+	for id: String in resource_order:
+		for rid: Variant in resources[id].get("cost", {}):
+			if not resources.has(rid):
+				errors.append("resources.json: '%s' braucht unbekannten Rohstoff '%s'" % [id, rid])
+
+
+## Herstellbare Verbrauchsgüter (Rohstoffe mit 'cost'), in Reihenfolge.
+func craftable_resources() -> Array[String]:
+	var result: Array[String] = []
+	for id: String in resource_order:
+		if resources[id].has("cost"):
+			result.append(id)
+	return result
 
 
 func _parse_tiles(raw: Dictionary) -> void:

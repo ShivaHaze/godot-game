@@ -206,6 +206,9 @@ func _draw_characters() -> void:
 		if c.gather_progress > 0.0:
 			var frac := c.gather_progress / world.data.balf("gathering.gather_time")
 			draw_rect(Rect2(top_left.x, top_left.y + size + 2, size * frac, 3), Color(1.0, 0.85, 0.2))
+		# Verband anlegen (Kanalisierung)
+		if c.heal_progress > 0.0:
+			draw_rect(Rect2(top_left.x, top_left.y + size + 6, size * minf(1.0, c.heal_progress / 3.0), 3), Color(0.9, 0.95, 1.0))
 		var label := c.name
 		if c.is_weakened():
 			label += " (geschwächt)"

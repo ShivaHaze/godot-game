@@ -21,9 +21,9 @@ func _assert_errors_contain(data: SimData, fragment: String) -> void:
 func test_real_data_is_valid() -> void:
 	var data := SimData.load_from_dir("res://data")
 	assert_true(data.is_valid(), "Fehler: %s" % data.errors)
-	assert_eq(data.resource_order, ["wood", "berries"] as Array[String])
+	assert_eq(data.resource_order, ["wood", "berries", "stone", "fibers", "bandage"] as Array[String])
 	assert_eq(data.condition_order.size(), 7, "5 Bedingungen + Sonst + gesperrtes 'Fremder im Claim'")
-	assert_eq(data.action_order.size(), 7, "6 Start-Aktionen + gesperrtes 'greife an'")
+	assert_eq(data.action_order.size(), 8, "6 Start-Aktionen + gesperrte 'greife an' und 'verbinde dich'")
 	assert_eq(data.role_order, ["hide", "guard", "gatherer", "trader"] as Array[String])
 	assert_eq(data.else_condition_id, "else")
 	assert_eq(data.map_width, 40)

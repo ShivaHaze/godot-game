@@ -23,7 +23,23 @@
       "range": 1.0,
       "cooldown": 0.8,
       "starting": false,
-      "cost": { "wood": 3 }
+      "cost": {
+        "wood": 3
+      }
+    },
+    {
+      "id": "stone_axe",
+      "name": "Steinbeil",
+      "kind": "weapon",
+      "attack": "melee",
+      "damage": 20,
+      "range": 1.0,
+      "cooldown": 0.9,
+      "starting": false,
+      "cost": {
+        "stone": 2,
+        "wood": 2
+      }
     },
     {
       "id": "wood_armor",
@@ -31,7 +47,9 @@
       "kind": "armor",
       "armor": 3,
       "starting": false,
-      "cost": { "wood": 6 }
+      "cost": {
+        "wood": 6
+      }
     }
   ]
 }

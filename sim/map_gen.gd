@@ -9,6 +9,8 @@ const FLOOR: String = "."
 const ROCK: String = "#"
 const TREE: String = "T"
 const BUSH: String = "B"
+const STONE: String = "S"
+const FIBER: String = "F"
 const PLAYER: String = "P"
 const WOLF: String = "W"
 
@@ -32,6 +34,11 @@ static func generate(width: int, height: int, seed: int, rock_clusters_per_100: 
 	# Wälder
 	for i in int(inner_cells / 100.0 * tree_clusters_per_100):
 		_blob(grid, rng, TREE, rng.randi_range(2, 7), width, height)
+	# Steinbrüche (selten) und Faserfelder
+	for i in maxi(1, int(inner_cells / 100.0 * 0.12)):
+		_blob(grid, rng, STONE, rng.randi_range(2, 5), width, height)
+	for i in maxi(1, int(inner_cells / 100.0 * 0.3)):
+		_blob(grid, rng, FIBER, rng.randi_range(2, 6), width, height)
 	# Beerenbüsche, einzeln oder als Paar
 	for i in int(inner_cells / 100.0 * bushes_per_100):
 		var cell := _random_floor(grid, rng, width, height)
@@ -125,7 +132,7 @@ static func _ensure_connected(grid: Array[PackedStringArray], start: Vector2i, w
 			if grid[y][x] == FLOOR and not reached.has(cell):
 				grid[y][x] = ROCK
 			# Quellen, die keinen begehbaren Nachbarn haben, sind unerreichbar -> Fels
-			elif grid[y][x] == TREE or grid[y][x] == BUSH:
+			elif grid[y][x] == TREE or grid[y][x] == BUSH or grid[y][x] == STONE or grid[y][x] == FIBER:
 				var accessible := false
 				for step: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
 					if reached.has(cell + step):

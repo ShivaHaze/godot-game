@@ -28,7 +28,8 @@ func test_setup_spawns_player_and_wolves() -> void:
 	assert_eq(player.control, SimCharacter.Controller.PLAYER)
 	assert_eq(world.count_alive_wolves(), mini(data.wolf_spawns.size(), data.bali("wolf.max_alive")))
 	assert_eq(player.hunger, data.balf("hunger.start"))
-	assert_eq_deep(player.inventory, {"wood": 0, "berries": 0})
+	for rid: String in data.resource_order:
+		assert_eq(int(player.inventory[rid]), 0, "leeres Inventar für %s" % rid)
 
 
 func test_movement_speed_per_second() -> void:

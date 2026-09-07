@@ -11,3 +11,4 @@ var eat: bool = false                 # Ein essbares Stück aus dem Inventar ess
 var hide: bool = false                # Verstecken beginnen / beibehalten
 var melee: bool = false               # Nahkampfangriff auf den nächsten Feind in melee_range (Wolf: Biss)
 var gather_cell: Vector2i = Vector2i(-1, -1)  # Gezielte Quelle beim Sammeln; (-1, -1) = nächste in Reichweite
+var heal: bool = false                # Verband anlegen (Kanalisierung; Angriff bricht ab)

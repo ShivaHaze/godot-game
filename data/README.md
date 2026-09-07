@@ -5,7 +5,7 @@ Kein Code nötig, um hier etwas zu ändern. Schlüssel, die mit `_` beginnen, si
 | Datei | Inhalt |
 |---|---|
 | `balance.json` | Alle Tuning-Zahlen (Geschwindigkeit, Schaden, Hungerrate, Leinenradius, Tickrate, Wolf, Zeitsprung). |
-| `resources.json` | Rohstoffe (Holz, Beeren): Name, essbar, Nährwert. |
+| `resources.json` | Rohstoffe (Holz, Beeren, Stein, Fasern) und Verbrauchsgüter (Verband: `cost`, `heal`, `heal_time`). |
 | `tiles.json` | Kacheltypen und ihr Zeichen in der Karte; Quellen mit Rohstoff und Vorrat. |
 | `map.json` | Die Karte als Zeichenraster plus Spawn-Zeichen (`P` Spieler, `W` Wolf). |
 | `conditions.json` | Bedingungen des Regelsystems: welcher Sensorwert wie verglichen wird, welche Parameter der Spieler setzt, Texte für UI und Chronik. |

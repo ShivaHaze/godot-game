@@ -91,6 +91,11 @@ static func blocked_reason(world: SimWorld, c: SimCharacter, rule: Dictionary) -
 		"hide":
 			if world.in_transition(c):
 				return "Logout-Übergang läuft"
+		"heal_self":
+			if c.hp >= c.max_hp:
+				return "gesund"
+			if world.heal_item_of(c).is_empty():
+				return "kein Verband"
 	return ""
 
 
@@ -127,6 +132,8 @@ static func _execute(world: SimWorld, c: SimCharacter, rule: Dictionary, intent:
 			_attack_nearby(world, c, float(params["radius"]), intent, dt)
 		"hide":
 			intent.hide = true
+		"heal_self":
+			intent.heal = true  # kanalisiert; greift währenddessen nicht an, darf aber laufen
 		"eat":
 			pass  # bereits bei der Auswertung ausgeführt
 	return false

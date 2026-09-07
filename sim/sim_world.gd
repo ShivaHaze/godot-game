@@ -311,8 +311,10 @@ func refresh_equipment(c: SimCharacter) -> void:
 		c.melee_damage = 0.0
 
 
-## Werkbank: baut einen Gegenstand aus dem Inventar. Rückgabe: leer = gebaut, sonst der Grund.
+## Werkbank: baut einen Gegenstand (Ausrüstung) oder ein Verbrauchsgut (Rohstoff mit 'cost'). Rückgabe: leer = gebaut, sonst der Grund.
 func craft(c: SimCharacter, item_id: String) -> String:
+	if data.resources.has(item_id) and data.resources[item_id].has("cost"):
+		return _craft_consumable(c, item_id)
 	var def: Dictionary = data.items.get(item_id, {})
 	if def.is_empty():
 		return "unbekannter Gegenstand"
@@ -331,6 +333,57 @@ func craft(c: SimCharacter, item_id: String) -> String:
 	refresh_equipment(c)
 	events.append({"type": "craft", "id": c.id, "item": item_id})
 	return ""
+
+
+func _craft_consumable(c: SimCharacter, rid: String) -> String:
+	var def: Dictionary = data.resources[rid]
+	var cost: Dictionary = def["cost"]
+	for need: String in cost:
+		if int(c.inventory.get(need, 0)) < int(cost[need]):
+			return "zu wenig %s (%d nötig)" % [data.resources[need]["name"], int(cost[need])]
+	if c.inventory_count() - _cost_total(cost) + 1 > data.bali("inventory.capacity"):
+		return "Inventar voll"
+	for need: String in cost:
+		c.inventory[need] = int(c.inventory[need]) - int(cost[need])
+	c.inventory[rid] = int(c.inventory.get(rid, 0)) + 1
+	if def.has("heal"):
+		unlock(c.owner_id, "owned_bandage", c)
+	events.append({"type": "craft", "id": c.id, "item": rid})
+	return ""
+
+
+static func _cost_total(cost: Dictionary) -> int:
+	var total := 0
+	for amount: Variant in cost.values():
+		total += int(amount)
+	return total
+
+
+## Verband in der Hand? Erstes heilendes Verbrauchsgut im Inventar (Kennung) oder leer.
+func heal_item_of(c: SimCharacter) -> String:
+	for rid: String in data.resource_order:
+		if data.resources[rid].has("heal") and int(c.inventory.get(rid, 0)) > 0:
+			return rid
+	return ""
+
+
+## Heilung = Kanalisierung: heal_time Sekunden ohne Angriff (Laufen erlaubt), dann +heal Leben, Verband weg.
+func _update_healing(c: SimCharacter, intent: SimIntent, dt: float) -> void:
+	if not intent.heal or intent.shoot or intent.melee or c.hp >= c.max_hp:
+		c.heal_progress = 0.0
+		return
+	var rid := heal_item_of(c)
+	if rid.is_empty():
+		c.heal_progress = 0.0
+		return
+	var def: Dictionary = data.resources[rid]
+	c.heal_progress += dt
+	if c.heal_progress + 0.0001 >= float(def["heal_time"]):
+		c.heal_progress = 0.0
+		var before := c.hp
+		c.hp = minf(c.max_hp, c.hp + float(def["heal"]))
+		c.inventory[rid] = int(c.inventory[rid]) - 1
+		events.append({"type": "healed", "id": c.id, "amount": c.hp - before, "resource": rid, "left": int(c.inventory[rid])})
 
 
 func set_active_weapon(c: SimCharacter, item_id: String) -> bool:
@@ -729,6 +782,7 @@ func _apply_intent(c: SimCharacter, intent: SimIntent, dt: float) -> void:
 		_attack(c)
 	if intent.melee:
 		_melee(c)
+	_update_healing(c, intent, dt)
 	_update_hiding(c, intent, dt)
 
 	c.fire_cooldown = maxf(0.0, c.fire_cooldown - dt)
@@ -807,6 +861,9 @@ func _loot(c: SimCharacter) -> bool:
 					items_taken.append(item_id)
 		if taken.is_empty() and items_taken.is_empty():
 			continue
+		for rid: String in taken:
+			if data.resources[rid].has("heal"):
+				unlock(c.owner_id, "owned_bandage", c)
 		refresh_equipment(c)
 		refresh_equipment(other)
 		events.append({"type": "loot", "id": c.id, "from": other.id, "items": taken, "equipment": items_taken})

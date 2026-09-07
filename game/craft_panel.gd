@@ -70,8 +70,11 @@ func _build_rows() -> void:
 		child.queue_free()
 	_buttons.clear()
 	_info.clear()
-	for item_id: String in data.item_order:
-		var def: Dictionary = data.items[item_id]
+	var all_ids: Array[String] = []
+	all_ids.assign(data.item_order)
+	all_ids.append_array(data.craftable_resources())
+	for item_id: String in all_ids:
+		var def: Dictionary = data.items[item_id] if data.items.has(item_id) else data.resources[item_id]
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 10)
 		var name_label := Label.new()
@@ -96,7 +99,9 @@ func _build_rows() -> void:
 
 
 func _describe(def: Dictionary) -> String:
-	match String(def["kind"]):
+	if def.has("heal"):
+		return "Verbrauchsgut: +%d Leben nach %.0f s Anlegen (H)" % [int(def["heal"]), float(def["heal_time"])]
+	match String(def.get("kind", "")):
 		"weapon":
 			if def.get("attack", "") == "ranged":
 				return "Fernkampf: %d Schaden, %d Projektile" % [int(def["damage"]), int(def["max_projectiles"])]
@@ -121,12 +126,14 @@ func refresh() -> void:
 	if character == null:
 		return
 	for item_id: String in _buttons:
-		var def: Dictionary = data.items[item_id]
+		var def: Dictionary = data.items[item_id] if data.items.has(item_id) else data.resources[item_id]
 		var button: Button = _buttons[item_id]
-		if character.items.has(item_id):
+		if data.items.has(item_id) and character.items.has(item_id):
 			button.text = "vorhanden"
 			button.disabled = true
 			continue
+		if not data.items.has(item_id):
+			_info[item_id].text = _describe(def) + " · du hast %d" % int(character.inventory.get(item_id, 0))
 		var cost: Dictionary = def.get("cost", {})
 		var affordable := not cost.is_empty()
 		for rid: String in cost:

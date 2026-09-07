@@ -18,7 +18,7 @@ const TradePanelScript := preload("res://game/trade_panel.gd")
 const MAX_TICKS_PER_FRAME: int = 5      # Schutz gegen Aufholspiralen bei Rucklern
 const SKIP_BUDGET_MSEC: int = 14        # Echtzeit pro Frame für den Zeitsprung (Fortschritt bleibt sichtbar)
 const SAVE_PATH: String = "user://save.dat"
-const HINT_LIVE: String = "WASD · Maus zielen · Linksklick angreifen · E halten: sammeln/plündern · F essen · Q Waffe · C Werkbank · B Bauen · M Marker · Esc Ausloggen"
+const HINT_LIVE: String = "WASD · Maus · Linksklick angreifen · E sammeln/plündern/handeln · F essen · H Verband · Q Waffe · C Werkbank · B Bauen · M Marker · Esc Ausloggen"
 const HINT_DEAD: String = "Du bist tot. R = neuer Charakter am Spawn."
 const HINT_OFFLINE: String = "Dein Charakter handelt jetzt nach seinen Regeln. Du schaust nur zu."
 const HINT_SKIPPING: String = "Zeitsprung läuft …"
@@ -41,6 +41,7 @@ var net: NetClient = null            # gesetzt im Netzwerk-Modus
 
 var _accumulator: float = 0.0
 var _eat_pressed: bool = false
+var _heal_active: bool = false          # H: Verband anlegen (läuft bis fertig oder Angriff)
 var _skip_start: float = 0.0
 var _skip_target: float = 0.0
 var _chronicle_id: int = -1          # Wessen Chronik die Tafel zeigt (-1 = keine)
@@ -317,6 +318,14 @@ func _process_live_input(player: SimCharacter) -> void:
 		return
 	if Input.is_action_just_pressed("eat"):
 		_eat_pressed = true
+	if Input.is_action_just_pressed("heal"):
+		if world.heal_item_of(player).is_empty():
+			hud.show_message("Kein Verband. Werkbank (C): 3 Fasern.", 2.0)
+		elif player.hp >= player.max_hp:
+			hud.show_message("Du bist gesund.", 1.5)
+		else:
+			_heal_active = not _heal_active
+			hud.show_message("Verband anlegen … (nicht angreifen)" if _heal_active else "Verband abgebrochen.", 1.5)
 	if Input.is_action_just_pressed("place_marker") and not player.dead:
 		if net != null:
 			net.send({"t": "marker"}, true)
@@ -355,6 +364,9 @@ func _build_player_intent(player: SimCharacter) -> SimIntent:
 	intent.interact = Input.is_action_pressed("interact") and not trade_panel.visible
 	intent.eat = _eat_pressed
 	_eat_pressed = false
+	if intent.shoot or player.hp >= player.max_hp:
+		_heal_active = false
+	intent.heal = _heal_active
 	return intent
 
 
@@ -527,8 +539,9 @@ func _on_craft_requested(item_id: String) -> void:
 		return
 	var reason := world.craft(player, item_id)
 	if reason.is_empty():
-		craft_panel.show_status("%s gebaut." % data.items[item_id]["name"])
-		hud.show_message("%s gebaut." % data.items[item_id]["name"], 2.0)
+		var label := String((data.items.get(item_id, data.resources.get(item_id, {})))["name"])
+		craft_panel.show_status("%s gebaut." % label)
+		hud.show_message("%s gebaut." % label, 2.0)
 	else:
 		craft_panel.show_status("Geht nicht: %s" % reason)
 	craft_panel.refresh()
@@ -747,6 +760,9 @@ func _handle_events() -> void:
 				hud.show_message("Neuer Regel-Baustein freigeschaltet: %s" % event["label"], 5.0)
 			"deposit":
 				hud.show_message("%d Holz am Anker abgeliefert, Vorrat %d." % [event["amount"], int(event["stock"])], 2.0)
+			"healed":
+				_heal_active = false
+				hud.show_message("Verband angelegt: +%d Leben (%d übrig)." % [int(event["amount"]), event["left"]], 2.0)
 			"trade":
 				hud.show_message("Gekauft: %d %s für %d %s." % [event["sell_amount"], data.resources[event["sell"]]["name"], event["price_amount"], data.resources[event["price"]]["name"]], 2.0)
 			"theft":

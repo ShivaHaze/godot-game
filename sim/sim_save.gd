@@ -13,7 +13,7 @@ const VERSION: int = 1
 const CHARACTER_FLOATS: Array[String] = [
 	"move_speed", "collision_radius", "hp", "max_hp", "armor", "death_time",
 	"melee_damage", "melee_range", "melee_cooldown", "hunger", "fire_cooldown",
-	"last_damage_time", "gather_progress", "hide_progress", "revealed_until",
+	"last_damage_time", "gather_progress", "heal_progress", "hide_progress", "revealed_until",
 	"decision_timer", "leash_radius", "ai_timer", "bite_cooldown", "logout_time", "lod_accumulator",
 ]
 const CHARACTER_INTS: Array[String] = [

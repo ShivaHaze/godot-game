@@ -36,7 +36,7 @@ static func intent_to_msg(intent: SimIntent) -> Dictionary:
 		"t": "intent",
 		"m": [intent.move.x, intent.move.y],
 		"a": [intent.aim.x, intent.aim.y],
-		"s": intent.shoot, "i": intent.interact, "e": intent.eat,
+		"s": intent.shoot, "i": intent.interact, "e": intent.eat, "h": intent.heal,
 	}
 
 
@@ -50,6 +50,7 @@ static func msg_to_intent(msg: Dictionary) -> SimIntent:
 	intent.shoot = bool(msg.get("s", false))
 	intent.interact = bool(msg.get("i", false))
 	intent.eat = bool(msg.get("e", false))
+	intent.heal = bool(msg.get("h", false))
 	return intent
 
 
@@ -73,7 +74,7 @@ static func character_intro(c: SimCharacter) -> Dictionary:
 ## Bewegliche Daten eines Charakters, kompakt.
 static func character_dynamic(c: SimCharacter) -> Array:
 	var flags := (FLAG_DEAD if c.dead else 0) | (FLAG_HIDDEN if c.hidden else 0) | (int(c.control) << CONTROL_SHIFT)
-	return [c.id, PackedFloat32Array([c.pos.x, c.pos.y, c.facing.x, c.facing.y, c.hp, c.gather_progress]), flags]
+	return [c.id, PackedFloat32Array([c.pos.x, c.pos.y, c.facing.x, c.facing.y, c.hp, c.gather_progress, c.heal_progress]), flags]
 
 
 ## Snapshot für einen Empfänger. `known` (id -> true) sind die Charaktere, die der Empfänger schon kennt;
@@ -219,6 +220,7 @@ static func apply_snapshot(mirror: SimWorld, snap: Dictionary) -> void:
 		c.facing = Vector2(values[2], values[3])
 		c.hp = values[4]
 		c.gather_progress = values[5]
+		c.heal_progress = values[6] if values.size() > 6 else 0.0
 		c.dead = (flags & FLAG_DEAD) != 0
 		c.hidden = (flags & FLAG_HIDDEN) != 0
 		c.control = (flags >> CONTROL_SHIFT) as SimCharacter.Controller

@@ -98,6 +98,16 @@
           "step": 1
         }
       ]
+    },
+    {
+      "id": "heal_self",
+      "label": "verbinde dich",
+      "log": "verbunden",
+      "unlock": {
+        "fact": "owned_bandage",
+        "label": "Frei, sobald du je einen Verband hattest."
+      },
+      "params": []
     }
   ]
 }
