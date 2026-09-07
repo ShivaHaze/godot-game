@@ -1,20 +1,27 @@
 extends Node2D
 ## Spielsteuerung: bindet die Simulation (sim/) an Darstellung und Eingabe.
 ## Liest den Sim-Zustand, zeichnet ihn und schreibt nur Absichten (SimIntent) hinein.
+## Modi: LIVE (Spieler steuert), MENU (Ausloggen-Menü, Sim pausiert), OFFLINE (Charakter ist NPC, Zuschauen).
+
+enum Mode { LIVE, MENU, OFFLINE }
 
 const WorldViewScript := preload("res://game/world_view.gd")
 const HudScript := preload("res://game/hud.gd")
+const LogoutMenuScript := preload("res://game/logout_menu.gd")
 
 const MAX_TICKS_PER_FRAME: int = 5  # Schutz gegen Aufholspiralen bei Rucklern
 const HINT_LIVE: String = "WASD bewegen · Maus zielen · Linksklick schießen · E halten: sammeln/plündern · F essen · M Marker · Esc Ausloggen"
 const HINT_DEAD: String = "Du bist tot. R = neuer Charakter am Spawn."
+const HINT_OFFLINE: String = "Dein Charakter handelt jetzt nach seinen Regeln. Du schaust nur zu."
 
 var data: SimData
 var world: SimWorld
 var player_id: int = -1
+var mode: Mode = Mode.LIVE
 
 var view: Node2D
 var hud: CanvasLayer
+var menu: CanvasLayer
 var camera: Camera2D
 
 var _accumulator: float = 0.0
@@ -46,28 +53,36 @@ func _ready() -> void:
 	add_child(camera)
 	camera.make_current()
 
+	menu = LogoutMenuScript.new()
+	menu.confirmed.connect(_on_logout_confirmed)
+	menu.cancelled.connect(_close_menu)
+	menu.rules_changed.connect(func(rules: Array) -> void: view.preview_rules = rules)
+	add_child(menu)
+
 	hud.world = world
 	hud.player_id = player_id
-	hud.set_hint(HINT_LIVE)
+	_enter_live()
 
 
 func _process(delta: float) -> void:
 	if world == null:
 		return
 	var player := world.get_character(player_id)
-	if Input.is_action_just_pressed("eat"):
-		_eat_pressed = true
-	if Input.is_action_just_pressed("place_marker") and player != null and not player.dead:
-		var marker := world.add_marker(player_id)
-		hud.show_message("%s gesetzt" % marker["name"])
-	if Input.is_action_just_pressed("respawn") and player != null and player.dead:
-		_respawn_player()
-		player = world.get_character(player_id)
+	match mode:
+		Mode.LIVE:
+			_process_live_input(player)
+		Mode.MENU:
+			if Input.is_action_just_pressed("logout_menu"):
+				_close_menu()
+			_refresh_view(player)  # Sim pausiert, Leinen-Vorschau wird trotzdem gezeichnet
+			return
+		Mode.OFFLINE:
+			pass
 
 	_accumulator += delta
 	var ticks := 0
 	while _accumulator >= world.tick_dt and ticks < MAX_TICKS_PER_FRAME:
-		if player != null and not player.dead:
+		if mode == Mode.LIVE and player != null and not player.dead:
 			world.set_intent(player_id, _build_player_intent(player))
 		world.tick()
 		_handle_events()
@@ -76,11 +91,31 @@ func _process(delta: float) -> void:
 	if ticks == MAX_TICKS_PER_FRAME:
 		_accumulator = 0.0
 
+	_refresh_view(player)
+
+
+func _refresh_view(player: SimCharacter) -> void:
 	view.alpha = _accumulator / world.tick_dt
 	if player != null:
 		camera.position = WorldViewScript.to_pixels(player.render_pos(view.alpha))
 	view.queue_redraw()
+	if mode == Mode.OFFLINE and player != null:
+		hud.set_chronicle(SimChronicle.format_all(player))
 	hud.refresh()
+
+
+func _process_live_input(player: SimCharacter) -> void:
+	if player == null:
+		return
+	if Input.is_action_just_pressed("eat"):
+		_eat_pressed = true
+	if Input.is_action_just_pressed("place_marker") and not player.dead:
+		var marker := world.add_marker(player_id)
+		hud.show_message("%s gesetzt" % marker["name"])
+	if Input.is_action_just_pressed("respawn") and player.dead:
+		_respawn_player()
+	if Input.is_action_just_pressed("logout_menu") and not player.dead:
+		_open_menu()
 
 
 func _build_player_intent(player: SimCharacter) -> SimIntent:
@@ -92,6 +127,57 @@ func _build_player_intent(player: SimCharacter) -> SimIntent:
 	intent.eat = _eat_pressed
 	_eat_pressed = false
 	return intent
+
+
+# --- Modi -----------------------------------------------------------------
+
+func _enter_live() -> void:
+	mode = Mode.LIVE
+	hud.mode_text = "Live"
+	hud.set_hint(HINT_LIVE)
+	hud.clear_buttons()
+	hud.show_chronicle(false)
+	view.preview_rules = []
+
+
+func _open_menu() -> void:
+	var player := world.get_character(player_id)
+	mode = Mode.MENU
+	menu.open(data, player, player.rules, player.role_id)
+
+
+func _close_menu() -> void:
+	menu.close()
+	_enter_live()
+
+
+func _on_logout_confirmed(rules: Array, role_id: String, role_name: String) -> void:
+	menu.close()
+	var player := world.get_character(player_id)
+	player.role_id = role_id
+	world.logout(player_id, rules, role_name)
+	_enter_offline()
+
+
+func _enter_offline() -> void:
+	mode = Mode.OFFLINE
+	view.preview_rules = []
+	hud.mode_text = "Offline – NPC handelt nach Regeln"
+	hud.set_hint(HINT_OFFLINE)
+	hud.clear_buttons()
+	hud.show_chronicle(true, "Chronik (live)")
+	hud.add_button("Wieder einloggen", _login)
+
+
+func _login() -> void:
+	var player := world.get_character(player_id)
+	if player == null:
+		return
+	world.login(player_id)
+	_enter_live()
+	hud.show_message("Du übernimmst deinen Charakter wieder.", 3.0)
+	if player.dead:
+		hud.set_hint(HINT_DEAD)
 
 
 ## Neuer, frischer Charakter am Spawn; die Leiche bleibt liegen.
@@ -110,9 +196,11 @@ func _handle_events() -> void:
 			continue
 		match String(event.get("type", "")):
 			"gather":
-				hud.show_message("%s +1" % data.resources[event["resource"]]["name"], 1.0)
+				if mode == Mode.LIVE:
+					hud.show_message("%s +1" % data.resources[event["resource"]]["name"], 1.0)
 			"eat":
-				hud.show_message("Gegessen: %s (%d→%d)" % [data.resources[event["resource"]]["name"], event["before"], event["after"]], 1.5)
+				if mode == Mode.LIVE:
+					hud.show_message("Gegessen: %s (%d→%d)" % [data.resources[event["resource"]]["name"], event["before"], event["after"]], 1.5)
 			"hit":
 				hud.show_message("Getroffen %s: −%d" % [SimCombat.side_name(event["side"]), int(ceilf(event["damage"]))], 1.0)
 			"loot":
@@ -121,6 +209,10 @@ func _handle_events() -> void:
 					parts.append("%s %d" % [data.resources[rid]["name"], event["items"][rid]])
 				hud.show_message("Geplündert: " + ", ".join(parts), 2.0)
 			"death":
-				hud.set_hint(HINT_DEAD)
 				var killer := world.get_character(int(event["attacker"]))
-				hud.show_message("Du bist gestorben (%s)." % (killer.name if killer != null else "Unbekannt"), 4.0)
+				var killer_name: String = killer.name if killer != null else "Unbekannt"
+				if mode == Mode.LIVE:
+					hud.set_hint(HINT_DEAD)
+					hud.show_message("Du bist gestorben (%s)." % killer_name, 4.0)
+				else:
+					hud.show_message("Dein Charakter ist gestorben (%s)." % killer_name, 4.0)

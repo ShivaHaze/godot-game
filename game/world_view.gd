@@ -8,6 +8,7 @@ var world: SimWorld
 var alpha: float = 0.0             # Anteil zwischen letztem und aktuellem Tick (weiche Bewegung)
 var viewer_owner: String = "p1"    # Versteckte Charaktere anderer Besitzer werden nicht gezeichnet
 var show_leashes: bool = true
+var preview_rules: Array = []      # Regeln aus dem offenen Ausloggen-Menü (Leinen-Vorschau); leer = keine Vorschau
 
 var _tile_colors: Dictionary = {}
 var _resource_colors: Dictionary = {}
@@ -75,12 +76,16 @@ func _draw_markers() -> void:
 
 
 ## Leinen: ein Kreis pro Ortsregel um den jeweiligen Ort; die aktive Leine des NPC kräftiger.
+## Live (oder im Menü) ist "Hier" die aktuelle Position, als NPC die Ausloggen-Position.
 func _draw_leashes(c: SimCharacter) -> void:
-	for rule: Dictionary in c.rules:
+	var rules: Array = preview_rules if not preview_rules.is_empty() else c.rules
+	var here := c.pos if c.control == SimCharacter.Controller.PLAYER else c.logout_pos
+	for rule: Dictionary in rules:
 		var params: Dictionary = rule["then"]["params"]
 		if not params.has("place") or not params.has("radius"):
 			continue
-		var center: Vector2 = c.place_pos(String(params["place"])) * TILE
+		var place := String(params["place"])
+		var center: Vector2 = (here if place == SimData.PLACE_HERE else c.place_pos(place)) * TILE
 		draw_arc(center, float(params["radius"]) * TILE, 0.0, TAU, 64, Color(1.0, 0.85, 0.2, 0.35), 1.0)
 	if c.control == SimCharacter.Controller.RULES and c.leash_radius > 0.0:
 		draw_arc(c.leash_center * TILE, c.leash_radius * TILE, 0.0, TAU, 64, Color(0.4, 0.7, 1.0, 0.8), 2.0)
