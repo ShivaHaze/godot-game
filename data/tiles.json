@@ -1,5 +1,5 @@
 {
-  "_doc": "Kacheltypen. 'char' ist das Zeichen in map.json. Quellen (mit 'resource') tragen 'amount' Gegenstände und wachsen nach (siehe balance.json, gathering). Farben nur für die Rechteck-Darstellung. 'offline_needs' = Bauteil, das ein Offline-Charakter direkt neben der Quelle braucht, um sie abzubauen (Eisen/Kohle: Mine); live geht es von Hand.",
+  "_doc": "Kacheltypen. 'char' ist das Zeichen in map.json. Quellen (mit 'resource') tragen 'amount' Gegenstände und wachsen nach (siehe balance.json, gathering). Farben nur für die Rechteck-Darstellung. 'offline_needs' = Bauteil, das ein Offline-Charakter direkt neben der Quelle braucht, um sie abzubauen (Eisen/Kohle: Mine); live geht es von Hand. 'live_only' = nur ein eingeloggter Spieler baut hier ab (Schwefel: Raidfähigkeit lässt sich nicht idle farmen).",
   "tiles": [
     {
       "id": "floor",
@@ -88,6 +88,16 @@
       "amount": 8,
       "color": "#1e1e1e",
       "offline_needs": "mine"
+    },
+    {
+      "id": "sulfur_deposit",
+      "char": "X",
+      "name": "Schwefelgrube",
+      "walkable": false,
+      "resource": "sulfur",
+      "amount": 5,
+      "color": "#c8b830",
+      "live_only": true
     }
   ]
 }

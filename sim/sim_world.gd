@@ -689,6 +689,12 @@ func place_building(c: SimCharacter, part_id: String, origin: Vector2i, rotation
 	if is_sensor(b):
 		b.label = "Sensor %d" % sensors_of(c.owner_id).size()
 		unlock(c.owner_id, "owned_sensor", c)
+	if is_turret(b):
+		var count := 0
+		for other: SimBuilding in map.buildings.values():
+			if is_turret(other) and other.owner_id == c.owner_id:
+				count += 1
+		b.label = "Turret %d" % count
 	if is_container(b):
 		unlock(c.owner_id, "owned_container", c)
 	if is_sensor(b) or is_container(b):
@@ -785,7 +791,65 @@ func sensors_of(owner_id: String) -> Array[SimBuilding]:
 
 ## Bauteile, in die geliefert werden kann (Anker nimmt Holz für den Unterhalt, Handelstisch alles).
 func is_container(b: SimBuilding) -> bool:
-	return b != null and (b.part == "anchor" or is_trade_table(b) or is_depot(b))
+	return b != null and (b.part == "anchor" or is_trade_table(b) or is_depot(b) or is_turret(b))
+
+
+func is_turret(b: SimBuilding) -> bool:
+	return b != null and data.buildings.get(b.part, {}).has("turret")
+
+
+## Munition ins eigene Turret laden (live per E oder NPC-Lieferung). Rückgabe: geladene Menge.
+func turret_load(c: SimCharacter, b: SimBuilding, amount: int) -> int:
+	if not is_turret(b) or b.owner_id != c.owner_id or c.dead:
+		return 0
+	var spec: Dictionary = data.buildings[b.part]["turret"]
+	var ammo := String(spec["ammo"])
+	var room := int(spec["capacity"]) - int(b.contents.get(ammo, 0))
+	amount = mini(mini(amount, int(c.inventory.get(ammo, 0))), room)
+	if amount <= 0:
+		return 0
+	c.inventory[ammo] = int(c.inventory[ammo]) - amount
+	b.contents[ammo] = int(b.contents.get(ammo, 0)) + amount
+	events.append({"type": "turret_loaded", "id": c.id, "building": b.id, "amount": amount, "stock": int(b.contents[ammo])})
+	return amount
+
+
+## Turret in Reichweite des eigenen Besitzers, sonst null.
+func turret_near(c: SimCharacter) -> SimBuilding:
+	for b: SimBuilding in map.buildings.values():
+		if is_turret(b) and b.owner_id == c.owner_id and b.center().distance_to(c.pos) <= data.balf("character.interact_range") + 0.5:
+			return b
+	return null
+
+
+## Turrets: nächster sichtbarer Fremder oder Tier im Radius mit Sichtlinie, ein Schuss je Abklingzeit, eine Kugel je Schuss.
+func _update_turrets(_dt: float) -> void:
+	for b: SimBuilding in map.buildings.values():
+		if not is_turret(b) or time < b.triggered_until:
+			continue
+		var spec: Dictionary = data.buildings[b.part]["turret"]
+		var ammo := String(spec["ammo"])
+		if int(b.contents.get(ammo, 0)) <= 0:
+			continue
+		var radius := float(spec["radius"])
+		var center := b.center()
+		var target: SimCharacter = null
+		var best := radius * radius
+		for other: SimCharacter in spatial.query(center, radius):
+			if other.dead or other.hidden or other.owner_id == b.owner_id or in_market(other.pos):
+				continue
+			var d := other.pos.distance_squared_to(center)
+			# Sichtlinie ab dem Rand des eigenen Bauteils (sonst blockiert sich das Turret selbst), Bauteile zählen
+			var muzzle := center + (other.pos - center).normalized() * 0.85
+			if d <= best and SimNav.line_clear(map, muzzle, other.pos, 0.1, b.owner_id, data):
+				best = d
+				target = other
+		if target == null:
+			continue
+		b.contents[ammo] = int(b.contents[ammo]) - 1
+		b.triggered_until = time + float(spec["cooldown"])
+		events.append({"type": "turret_shot", "building": b.id, "owner": b.owner_id, "target": target.id, "from": center, "to": target.pos})
+		apply_damage(target, float(spec["damage"]), (target.pos - center).normalized(), -1, "", "ein Turret")
 
 
 ## Orte aus Bauteilen (Sensoren, Anker, Handelstische) an alle Charaktere des Besitzers verteilen.
@@ -805,6 +869,8 @@ func refresh_places(owner_id: String) -> void:
 		elif is_trade_table(b):
 			tables += 1
 			places[place_id_of(b)] = {"name": "Handelstisch %d" % tables, "pos": b.center()}
+		elif is_turret(b):
+			places[place_id_of(b)] = {"name": b.label, "pos": b.center()}
 	for c: SimCharacter in characters.values():
 		if c.owner_id == owner_id:
 			c.extra_places = places.duplicate(true)
@@ -854,6 +920,8 @@ func deliver_to(c: SimCharacter, b: SimBuilding, rid: String) -> int:
 		if not depot_deposit(c, b, rid, amount, true).is_empty():
 			return 0
 		return amount - int(c.inventory.get(rid, 0))
+	if is_turret(b):
+		return turret_load(c, b, amount) if rid == String(data.buildings[b.part]["turret"]["ammo"]) else 0
 	if b.part == "anchor":
 		if rid != "wood":
 			return 0
@@ -938,6 +1006,8 @@ func depot_deposit(c: SimCharacter, b: SimBuilding, rid: String, amount: int, al
 		return reason
 	if not data.resources.has(rid):
 		return "unbekannter Rohstoff"
+	if bool(data.resources[rid].get("raid_good", false)):
+		return "Raidware: am neutralen Markt nicht handelbar"
 	amount = mini(amount, int(c.inventory.get(rid, 0)))
 	if amount <= 0:
 		return "nichts einzulagern"
@@ -1239,6 +1309,7 @@ func step(dt: float) -> void:
 	_update_nodes(dt)
 	_update_buildings(dt)
 	_update_sensors_and_traps(dt)
+	_update_turrets(dt)
 	claims.update(self, dt)
 	_update_wolves(dt)
 
@@ -1283,7 +1354,7 @@ func _apply_intent(c: SimCharacter, intent: SimIntent, dt: float) -> void:
 			reveal(c)
 
 	if intent.interact:
-		if not _loot(c) and not _deposit_at_anchor(c):
+		if not _loot(c) and not _deposit_at_anchor(c) and not _load_turret_near(c):
 			_gather(c, dt, intent.gather_cell)
 	else:
 		c.gather_progress = 0.0
@@ -1317,6 +1388,8 @@ func _gather(c: SimCharacter, dt: float, wanted_cell: Vector2i = Vector2i(-1, -1
 		node = null
 	if node != null and c.control == SimCharacter.Controller.RULES and not node_offline_ok(node, c.owner_id):
 		node = null
+	if node != null and c.control != SimCharacter.Controller.PLAYER and node_live_only(node):
+		node = null
 	if node == null or c.inventory_count() >= data.bali("inventory.capacity"):
 		c.gather_progress = 0.0
 		c.gather_target = Vector2i(-1, -1)
@@ -1336,6 +1409,11 @@ func _gather(c: SimCharacter, dt: float, wanted_cell: Vector2i = Vector2i(-1, -1
 			events.append({"type": "theft", "id": c.id, "claim": claim.id, "owner": claim.owner_id, "resource": node.resource})
 
 
+## Quelle nur live abbaubar (Schwefel)?
+func node_live_only(node: SimResourceNode) -> bool:
+	return bool(data.tiles.get(map.tile_id(node.cell), {}).get("live_only", false))
+
+
 ## Darf ein Offline-Charakter dieses Besitzers die Quelle abbauen? Eisen/Kohle nur mit eigener Mine direkt daneben.
 func node_offline_ok(node: SimResourceNode, owner_id: String) -> bool:
 	var needs := String(data.tiles.get(map.tile_id(node.cell), {}).get("offline_needs", ""))
@@ -1349,6 +1427,17 @@ func node_offline_ok(node: SimResourceNode, owner_id: String) -> bool:
 		if b != null and b.part == needs and b.owner_id == owner_id:
 			return true
 	return false
+
+
+## Kugeln ins eigene Turret laden (E daneben). true, wenn etwas geladen wurde.
+func _load_turret_near(c: SimCharacter) -> bool:
+	if c.control != SimCharacter.Controller.PLAYER:
+		return false
+	var b := turret_near(c)
+	if b == null:
+		return false
+	var ammo := String(data.buildings[b.part]["turret"]["ammo"])
+	return turret_load(c, b, int(c.inventory.get(ammo, 0))) > 0
 
 
 ## Holz am eigenen Anker abliefern (E daneben). true, wenn etwas abgeliefert wurde.
@@ -1536,7 +1625,7 @@ func _projectile_victim(p: SimProjectile) -> SimCharacter:
 
 
 ## Fügt Schaden mit Richtungstreffer zu. hit_dir = Flugrichtung des Treffers (Angreifer -> Opfer).
-func apply_damage(victim: SimCharacter, base_damage: float, hit_dir: Vector2, attacker_id: int, effect: String = "") -> Dictionary:
+func apply_damage(victim: SimCharacter, base_damage: float, hit_dir: Vector2, attacker_id: int, effect: String = "", attacker_label: String = "") -> Dictionary:
 	var peace_attacker := get_character(attacker_id)
 	if in_market(victim.pos) or (peace_attacker != null and in_market(peace_attacker.pos)):
 		events.append({"type": "market_peace", "id": victim.id, "attacker": attacker_id, "pos": victim.pos})
@@ -1557,20 +1646,20 @@ func apply_damage(victim: SimCharacter, base_damage: float, hit_dir: Vector2, at
 			and victim.kind == SimCharacter.Kind.PLAYER and victim.owner_id != attacker.owner_id:
 		unlock(victim.owner_id, "attacked_by_npc", victim)
 	if victim.hp <= 0.0:
-		_kill(victim, attacker_id)
+		_kill(victim, attacker_id, "", attacker_label)
 	elif not effect.is_empty():
 		apply_effect(victim, effect, attacker_id)
 	return event
 
 
-func _kill(victim: SimCharacter, attacker_id: int, cause: String = "") -> void:
+func _kill(victim: SimCharacter, attacker_id: int, cause: String = "", attacker_label: String = "") -> void:
 	victim.dead = true
 	victim.hp = 0.0
 	victim.hidden = false
 	victim.effects.clear()
 	victim.death_time = time
 	var attacker := get_character(attacker_id)
-	var attacker_name := describe(victim, attacker) if attacker != null else "Unbekannt"
+	var attacker_name := describe(victim, attacker) if attacker != null else (attacker_label if not attacker_label.is_empty() else "Unbekannt")
 	events.append({"type": "death", "id": victim.id, "attacker": attacker_id, "cause": cause})
 	if victim.kind == SimCharacter.Kind.PLAYER:
 		SimChronicle.add(self, victim, ("%s, zuletzt getroffen von %s" % [cause, attacker_name]) if not cause.is_empty() else "gestorben durch %s" % attacker_name)

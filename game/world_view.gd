@@ -146,6 +146,10 @@ func _draw_buildings() -> void:
 				var top_left := b.center() * TILE + Vector2(-size.x * 0.5 - 4, -TILE * 0.5 - size.y - 6)
 				draw_rect(Rect2(top_left, size + Vector2(8, 4)), Color(0.1, 0.08, 0.05, 0.8))
 				draw_string(font, top_left + Vector2(4, size.y - 3), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1.0, 0.95, 0.7))
+		if def.has("turret"):
+			if b.owner_id == viewer_owner:
+				draw_arc(b.center() * TILE, float(def["turret"]["radius"]) * TILE, 0.0, TAU, 48, Color(1.0, 0.6, 0.2, 0.25), 1.0)
+				draw_string(ThemeDB.fallback_font, b.center() * TILE + Vector2(8, -6), "%s (%d Kugeln)" % [b.label, int(b.contents.get(String(def["turret"]["ammo"]), 0))], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1.0, 0.8, 0.5))
 		if def.has("sensor_radius") and b.owner_id == viewer_owner:
 			var triggered := world.time < b.triggered_until
 			draw_arc(b.center() * TILE, float(def["sensor_radius"]) * TILE, 0.0, TAU, 48, Color(1.0, 0.3, 0.3, 0.6) if triggered else Color(0.3, 0.8, 1.0, 0.25), 1.0)
@@ -254,6 +258,8 @@ func _draw_projectiles() -> void:
 
 func _draw_events() -> void:
 	for event: Dictionary in world.events:
+		if event.get("type") == "turret_shot":
+			draw_line(event["from"] * TILE, event["to"] * TILE, Color(1.0, 0.7, 0.3), 2.0)
 		if event.get("type") == "hit":
 			var pos: Vector2 = event["pos"] * TILE
 			draw_arc(pos, TILE * 0.5, 0.0, TAU, 16, Color(1.0, 0.3, 0.2), 3.0)

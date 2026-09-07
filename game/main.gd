@@ -895,6 +895,8 @@ func _handle_events() -> void:
 				hud.show_message("Neuer Regel-Baustein freigeschaltet: %s" % event["label"], 5.0)
 			"deposit":
 				hud.show_message("%d Holz am Anker abgeliefert, Vorrat %d." % [event["amount"], int(event["stock"])], 2.0)
+			"turret_loaded":
+				hud.show_message("%d Kugeln ins Turret geladen (%d drin)." % [event["amount"], event["stock"]], 2.0)
 			"trap_triggered":
 				hud.show_message("In eine Falle getreten!", 2.0)
 			"depot_deposit":

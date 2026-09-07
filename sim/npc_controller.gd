@@ -92,8 +92,9 @@ static func blocked_reason(world: SimWorld, c: SimCharacter, rule: Dictionary) -
 			if c.inventory_count() >= data.bali("inventory.capacity"):
 				return "Inventar voll"
 			if _find_gather_node(world, c, String(params["resource"]), c.place_pos(String(params["place"])), float(params["radius"])) == null:
-				if _find_gather_node(world, c, String(params["resource"]), c.place_pos(String(params["place"])), float(params["radius"]), false) != null:
-					return "braucht eine Mine daneben"
+				var without := _find_gather_node(world, c, String(params["resource"]), c.place_pos(String(params["place"])), float(params["radius"]), false)
+				if without != null:
+					return "nur live abbaubar" if world.node_live_only(without) else "braucht eine Mine daneben"
 				return "nichts zu sammeln in der Leine"
 		"hide":
 			if world.in_transition(c):
@@ -116,6 +117,8 @@ static func blocked_reason(world: SimWorld, c: SimCharacter, rule: Dictionary) -
 				return "kein eigener Anker oder Handelstisch am Ort"
 			if target.part == "anchor" and rid != "wood":
 				return "der Anker nimmt nur Holz"
+			if world.is_turret(target) and rid != String(world.data.buildings[target.part]["turret"]["ammo"]):
+				return "das Turret nimmt nur Kugeln"
 	return ""
 
 
@@ -217,8 +220,8 @@ static func _find_gather_node(world: SimWorld, c: SimCharacter, resource: String
 			continue
 		if world.claims.is_foreign(node.cell, c.owner_id):
 			continue  # Rohstoffknoten nur für Eigentümer-NPCs
-		if require_mine and not world.node_offline_ok(node, c.owner_id):
-			continue  # Eisen/Kohle offline nur mit Mine daneben
+		if require_mine and (not world.node_offline_ok(node, c.owner_id) or world.node_live_only(node)):
+			continue  # Eisen/Kohle offline nur mit Mine daneben; Schwefel nie offline
 		var d := node.center().distance_squared_to(c.pos)
 		if d < best_d:
 			best_d = d

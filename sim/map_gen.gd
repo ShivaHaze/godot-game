@@ -14,6 +14,7 @@ const FIBER: String = "F"
 const COPPER: String = "C"
 const IRON: String = "I"
 const COAL: String = "K"
+const SULFUR: String = "X"
 const PLAYER: String = "P"
 const WOLF: String = "W"
 const MARKET: String = "M"
@@ -50,6 +51,9 @@ static func generate(width: int, height: int, seed: int, rock_clusters_per_100: 
 		_blob(grid, rng, IRON, rng.randi_range(2, 4), width, height, 0.4, 1.0)
 	for i in maxi(1, int(inner_cells / 100.0 * 0.05)):
 		_blob(grid, rng, COAL, rng.randi_range(2, 3), width, height, 0.4, 1.0)
+	# Schwefel nur im Zentrum (Design: nur live abbaubar, wertvoll/tödlich)
+	for i in maxi(1, int(inner_cells / 100.0 * 0.03)):
+		_blob(grid, rng, SULFUR, rng.randi_range(2, 3), width, height, 0.65, 1.0)
 	# Kupferadern nur im äußeren Ring (Design: Kupfer am Rand)
 	for i in maxi(2, int(inner_cells / 100.0 * 0.1)):
 		_blob(grid, rng, COPPER, rng.randi_range(2, 4), width, height, 0.0, 0.15)

@@ -28,8 +28,8 @@ func _ready() -> void:
 	_root.anchor_bottom = 0.5
 	_root.offset_left = -440
 	_root.offset_right = 440
-	_root.offset_top = -160
-	_root.offset_bottom = 160
+	_root.offset_top = -300
+	_root.offset_bottom = 300
 	add_child(_root)
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 8)
@@ -38,9 +38,14 @@ func _ready() -> void:
 	title.text = "Werkbank – Ausrüstung bauen (C schließt)"
 	title.add_theme_font_size_override("font_size", 18)
 	vbox.add_child(title)
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(0, 470)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	vbox.add_child(scroll)
 	_rows = VBoxContainer.new()
 	_rows.add_theme_constant_override("separation", 6)
-	vbox.add_child(_rows)
+	_rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(_rows)
 	_status = Label.new()
 	_status.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
 	vbox.add_child(_status)

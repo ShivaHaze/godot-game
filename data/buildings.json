@@ -126,6 +126,32 @@
       "_doc": "Für Fremde unsichtbar. Wer sie betritt (Fremde und Tiere), nimmt Schaden und wird enttarnt; die Falle ist danach verbraucht."
     },
     {
+      "id": "turret",
+      "name": "Turret",
+      "tier": "stone",
+      "cost": {
+        "iron": 4,
+        "wood": 6,
+        "wire": 2
+      },
+      "hp": 90,
+      "size": [
+        2,
+        2
+      ],
+      "passable": "none",
+      "decay_per_hour": 0.5,
+      "color": "#506070",
+      "turret": {
+        "radius": 6.0,
+        "damage": 12.0,
+        "cooldown": 1.0,
+        "ammo": "shot",
+        "capacity": 60
+      },
+      "_doc": "Schießt auf sichtbare Fremde und Tiere im Radius mit Sichtlinie, verbraucht je Schuss eine Kugel. Besitzer lädt per E daneben (oder NPC-Lieferung 'liefere Kugeln zu Turret 1'). Stufe Stein: nur Eisenwerkzeug bricht es."
+    },
+    {
       "id": "sign",
       "name": "Schild",
       "tier": "wood",
