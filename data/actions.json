@@ -1,0 +1,51 @@
+{
+  "_doc": "Aktionen des Regelsystems (Startvokabular, 6 Stück). Kein 'greife an': der Offline-Charakter wehrt sich, schlägt nie zuerst zu. Parameter-Typen: 'place' = Ort (nur 'here' oder live gesetzte Marker), 'radius' = Leine in Kacheln um den Ort (Voreinstellung aus balance.json npc.default_leash_radius), 'resource' = Rohstoff aus resources.json. 'label' ist der UI-Text, 'log' der Text in der Chronik. Die Ausführung jeder Aktion steckt in sim/npc_controller.gd; die Regelmaschine selbst kennt nur die Kennung.",
+  "actions": [
+    {
+      "id": "flee_to",
+      "label": "fliehe zu {place}",
+      "log": "geflohen zu {place}",
+      "params": [
+        { "name": "place", "type": "place", "label": "Ort", "default": "here" },
+        { "name": "radius", "type": "radius", "label": "Leine" }
+      ]
+    },
+    {
+      "id": "stay_at",
+      "label": "bleib bei {place}",
+      "log": "geblieben bei {place}",
+      "params": [
+        { "name": "place", "type": "place", "label": "Ort", "default": "here" },
+        { "name": "radius", "type": "radius", "label": "Leine" }
+      ]
+    },
+    {
+      "id": "gather",
+      "label": "sammle {resource} um {place}",
+      "log": "gesammelt: {resource} um {place}",
+      "params": [
+        { "name": "resource", "type": "resource", "label": "Rohstoff", "default": "berries" },
+        { "name": "place", "type": "place", "label": "Ort", "default": "here" },
+        { "name": "radius", "type": "radius", "label": "Leine" }
+      ]
+    },
+    {
+      "id": "eat",
+      "label": "iss",
+      "log": "gegessen",
+      "params": []
+    },
+    {
+      "id": "fight_back",
+      "label": "kämpfe zurück",
+      "log": "zurückgekämpft",
+      "params": []
+    },
+    {
+      "id": "hide",
+      "label": "verstecken",
+      "log": "versteckt",
+      "params": []
+    }
+  ]
+}

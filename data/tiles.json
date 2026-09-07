@@ -1,0 +1,9 @@
+{
+  "_doc": "Kacheltypen. 'char' ist das Zeichen in map.json. Quellen (mit 'resource') tragen 'amount' Gegenstände und wachsen nach (siehe balance.json, gathering). Farben nur für die Rechteck-Darstellung.",
+  "tiles": [
+    { "id": "floor", "char": ".", "name": "Boden", "walkable": true, "color": "#2f3a2f" },
+    { "id": "obstacle", "char": "#", "name": "Hindernis", "walkable": false, "color": "#707070" },
+    { "id": "wood_source", "char": "T", "name": "Holzquelle", "walkable": false, "resource": "wood", "amount": 5, "color": "#2e7d32" },
+    { "id": "berry_bush", "char": "B", "name": "Beerenbusch", "walkable": false, "resource": "berries", "amount": 4, "color": "#8e24aa" }
+  ]
+}

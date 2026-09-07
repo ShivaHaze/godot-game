@@ -1,0 +1,113 @@
+{
+  "_doc": "Alle Tuning-Werte des Prototyps. Einheiten: Zeiten in Sekunden, Distanzen in Kacheln, Geschwindigkeiten in Kacheln pro Sekunde, Schaden in Lebenspunkten. Wer hier Zahlen ändert, braucht keinen Code anzufassen. Schlüssel mit Unterstrich davor sind nur Erklärungen.",
+
+  "tick_rate": 20,
+  "_tick_rate": "Simulationsschritte pro Sekunde (fester Tick).",
+
+  "clock_start_hour": 8,
+  "_clock_start_hour": "Uhrzeit beim Spielstart, für die Zeitstempel der Chronik.",
+
+  "time_skip_hours": 8,
+  "_time_skip_hours": "Wie viele Stunden der Zeitsprung-Knopf überspringt.",
+
+  "character": {
+    "_doc": "Gilt für Spieler und Offline-NPC gleichermaßen (gleicher Körper, gleiches Kampfsystem).",
+    "max_hp": 30,
+    "armor": 0,
+    "_armor": "Flacher Abzug pro Treffer. 0 = nackt. Zum Testen z. B. 3 setzen.",
+    "move_speed": 4.0,
+    "weakened_speed_multiplier": 0.5,
+    "_weakened_speed_multiplier": "Geschwindigkeitsfaktor bei Hunger 0 (geschwächt, nicht tot).",
+    "collision_radius": 0.35,
+    "interact_range": 1.3,
+    "_interact_range": "Maximale Distanz (Mitte zu Kachelmitte) zum Sammeln oder Plündern."
+  },
+
+  "hunger": {
+    "_doc": "Hunger ist Unterhalt, kein Minispiel. 100 = satt, 0 = geschwächt.",
+    "max": 100,
+    "start": 80,
+    "hungry_threshold": 30,
+    "_hungry_threshold": "Unterhalb dieses Werts gilt die Bedingung 'hungrig'.",
+    "decay_per_second_live": 0.15,
+    "_decay_per_second_live": "Abbau pro Sekunde, solange der Spieler live steuert (100 -> 0 in ca. 11 Minuten).",
+    "decay_per_second_offline": 0.006,
+    "_decay_per_second_offline": "Abbau pro Sekunde im NPC-Modus, stark verlangsamt (100 -> 0 in ca. 4,6 Stunden)."
+  },
+
+  "inventory": {
+    "capacity": 20,
+    "_capacity": "Gesamtzahl aller Gegenstände, ab der das Inventar als 'voll' gilt."
+  },
+
+  "gathering": {
+    "gather_time": 0.8,
+    "_gather_time": "Sekunden pro gesammeltem Gegenstand.",
+    "node_regrow_time": 120.0,
+    "_node_regrow_time": "Sekunden, bis eine Quelle einen Gegenstand nachwachsen lässt."
+  },
+
+  "combat": {
+    "_doc": "Twin-Stick-Schuss mit wenigen langsamen Projektilen. TTK nackt ca. 3 Treffer.",
+    "projectile_speed": 7.0,
+    "projectile_damage": 10,
+    "projectile_lifetime": 1.6,
+    "_projectile_lifetime": "Sekunden, danach verschwindet das Projektil (Reichweite = speed * lifetime).",
+    "max_projectiles_per_shooter": 3,
+    "fire_cooldown": 0.5,
+    "front_arc_degrees": 120,
+    "_front_arc_degrees": "Winkelbereich vor dem Getroffenen, der als Fronttreffer zählt.",
+    "back_arc_degrees": 90,
+    "_back_arc_degrees": "Winkelbereich hinter dem Getroffenen, der als Rückentreffer zählt. Alles dazwischen ist 'seitlich'.",
+    "side_damage_multiplier": 1.5,
+    "back_damage_multiplier": 2.0,
+    "back_armor_ignore": 0.5,
+    "_back_armor_ignore": "Anteil der Rüstung, der bei Rückentreffern ignoriert wird (0 bis 1).",
+    "min_damage": 1,
+    "_min_damage": "Schaden, der trotz Rüstung mindestens durchgeht.",
+    "under_attack_window": 5.0,
+    "_under_attack_window": "Sekunden nach dem letzten Treffer, in denen 'wird angegriffen' wahr ist."
+  },
+
+  "wolf": {
+    "_doc": "Einfacher PvE-Druck: nähert sich, beißt, flieht bei niedrigem Leben.",
+    "max_hp": 24,
+    "armor": 0,
+    "move_speed": 4.6,
+    "bite_damage": 6,
+    "bite_range": 0.9,
+    "bite_cooldown": 1.0,
+    "aggro_radius": 7.0,
+    "_aggro_radius": "Ab dieser Distanz greift der Wolf ein sichtbares Ziel an.",
+    "flee_hp_percent": 30,
+    "flee_duration": 8.0,
+    "_flee_duration": "Sekunden, die der Wolf nach dem Fluchtentschluss wegläuft.",
+    "wander_radius": 5.0,
+    "respawn_time": 300.0,
+    "_respawn_time": "Sekunden, bis ein toter Wolf an einem Wolf-Spawn ersetzt wird.",
+    "max_alive": 3
+  },
+
+  "npc": {
+    "_doc": "Verhalten des Charakters im Offline-Modus (Regelmaschine).",
+    "default_leash_radius": 6.0,
+    "_default_leash_radius": "Voreingestellter Radius für Ortsregeln (die Leine). Der NPC verlässt den Kreis nie.",
+    "preferred_combat_range": 4.0,
+    "_preferred_combat_range": "Abstand, den der NPC beim Zurückkämpfen zu halten versucht (vorsichtig).",
+    "hide_delay": 3.0,
+    "_hide_delay": "Sekunden ohne Schaden, bis 'verstecken' wirkt.",
+    "reveal_radius": 1.0,
+    "_reveal_radius": "Kommt jemand näher als das, wird ein Versteckter entdeckt.",
+    "reveal_duration": 10.0,
+    "_reveal_duration": "Sekunden, die ein Entdeckter sichtbar bleibt, bevor er sich wieder verstecken kann.",
+    "decision_interval": 0.25,
+    "_decision_interval": "Sekunden zwischen zwei Regelauswertungen des NPC."
+  },
+
+  "offline": {
+    "_doc": "Zeitsprung: die Sim tickt ohne Darstellung. Ohne Gefahr in der Nähe grob (Simulationsstufen), bei Kampf fein.",
+    "coarse_tick_dt": 1.0,
+    "_coarse_tick_dt": "Sekunden pro grobem Tick, wenn kein Feind in hot_radius ist und keine Projektile fliegen.",
+    "hot_radius": 10.0
+  }
+}

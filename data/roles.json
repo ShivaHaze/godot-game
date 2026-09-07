@@ -1,0 +1,53 @@
+{
+  "_doc": "Rollen-Presets für das Ausloggen-Menü. Jede Rolle ist eine vorausgefüllte Regelliste (Priorität von oben nach unten, erste zutreffende Regel gewinnt, letzte Zeile ist immer 'Sonst'). Fehlende Parameter werden beim Laden mit den Voreinstellungen aus conditions.json / actions.json ergänzt. 'default_rules' gilt, wenn der Spieler nie ins Menü geht (Design [E]). Welche Regeln die Rollen genau haben, ist im Design offen [O] – das hier ist der Vorschlag für Phase 0.",
+  "default_rules": [
+    { "if": { "condition": "hungry" }, "then": { "action": "eat" } },
+    { "if": { "condition": "under_attack" }, "then": { "action": "flee_to", "params": { "place": "here" } } },
+    { "if": { "condition": "else" }, "then": { "action": "stay_at", "params": { "place": "here" } } }
+  ],
+  "roles": [
+    {
+      "id": "hide",
+      "name": "Verstecken",
+      "tip": "Kein Risiko, kein Ertrag. Dein Charakter wird unsichtbar, bis jemand über ihn läuft. Wird er entdeckt und angegriffen, wehrt er sich.",
+      "rules": [
+        { "if": { "condition": "hungry" }, "then": { "action": "eat" } },
+        { "if": { "condition": "under_attack" }, "then": { "action": "fight_back" } },
+        { "if": { "condition": "else" }, "then": { "action": "hide" } }
+      ]
+    },
+    {
+      "id": "guard",
+      "name": "Wache",
+      "tip": "Bleibt sichtbar an Ort und Stelle, wehrt Angriffe ab und zieht sich bei wenig Leben zurück. Risiko mittel, kein Ertrag.",
+      "rules": [
+        { "if": { "condition": "health_below", "params": { "percent": 30 } }, "then": { "action": "flee_to", "params": { "place": "here", "radius": 2 } } },
+        { "if": { "condition": "under_attack" }, "then": { "action": "fight_back" } },
+        { "if": { "condition": "hungry" }, "then": { "action": "eat" } },
+        { "if": { "condition": "else" }, "then": { "action": "stay_at", "params": { "place": "here", "radius": 4 } } }
+      ]
+    },
+    {
+      "id": "gatherer",
+      "name": "Sammler",
+      "tip": "Sammelt Beeren im Umkreis und flieht bei Gefahr zum Ausgangsort. Sichtbar: Risiko hoch, Ertrag hoch.",
+      "rules": [
+        { "if": { "condition": "health_below", "params": { "percent": 40 } }, "then": { "action": "flee_to", "params": { "place": "here", "radius": 2 } } },
+        { "if": { "condition": "under_attack" }, "then": { "action": "flee_to", "params": { "place": "here", "radius": 2 } } },
+        { "if": { "condition": "hungry" }, "then": { "action": "eat" } },
+        { "if": { "condition": "inventory_state", "params": { "state": "full" } }, "then": { "action": "stay_at", "params": { "place": "here", "radius": 2 } } },
+        { "if": { "condition": "else" }, "then": { "action": "gather", "params": { "resource": "berries", "place": "here", "radius": 8 } } }
+      ]
+    },
+    {
+      "id": "trader",
+      "name": "Händler",
+      "tip": "Platzhalter: Handel kommt erst mit dem Handelstisch (nicht in Phase 0). Verhält sich wie ein vorsichtiger Wächter.",
+      "rules": [
+        { "if": { "condition": "hungry" }, "then": { "action": "eat" } },
+        { "if": { "condition": "under_attack" }, "then": { "action": "flee_to", "params": { "place": "here", "radius": 2 } } },
+        { "if": { "condition": "else" }, "then": { "action": "stay_at", "params": { "place": "here", "radius": 2 } } }
+      ]
+    }
+  ]
+}

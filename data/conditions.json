@@ -1,0 +1,68 @@
+{
+  "_doc": "Bedingungen des Regelsystems (Startvokabular, 5 Stück + 'Sonst'). Jede Bedingung vergleicht einen Sensorwert ('fact', berechnet in sim/sensors.gd) per 'op' mit einem Parameter ('param', vom Spieler einstellbar) oder einer Konstante ('value'). Die Regelmaschine kennt keine einzelne Bedingung – eine neue Bedingung ist ein neuer Eintrag hier (plus ggf. ein neuer Sensorwert). 'label' ist der UI-Text, 'log' der Auslöser-Text in der Chronik; {name} wird durch den Parameterwert ersetzt.",
+  "_facts": {
+    "health_percent": "Leben in Prozent (0-100)",
+    "is_hungry": "true, wenn Hunger unter hunger.hungry_threshold",
+    "is_under_attack": "true, wenn in den letzten combat.under_attack_window Sekunden Schaden kam",
+    "nearest_stranger_distance": "Distanz in Kacheln zum nächsten sichtbaren Fremden (anderer Besitzer, auch Tiere); sehr groß, wenn keiner",
+    "inventory_state": "'full', 'empty' oder 'partial'",
+    "always": "immer true (für 'Sonst')"
+  },
+  "conditions": [
+    {
+      "id": "health_below",
+      "label": "Leben < {percent} %",
+      "log": "Leben unter {percent} %",
+      "params": [
+        { "name": "percent", "type": "int", "label": "%", "default": 50, "min": 5, "max": 95, "step": 5 }
+      ],
+      "check": { "fact": "health_percent", "op": "<", "param": "percent" }
+    },
+    {
+      "id": "hungry",
+      "label": "hungrig",
+      "log": "hungrig",
+      "params": [],
+      "check": { "fact": "is_hungry", "op": "==", "value": true }
+    },
+    {
+      "id": "under_attack",
+      "label": "wird angegriffen",
+      "log": "angegriffen",
+      "params": [],
+      "check": { "fact": "is_under_attack", "op": "==", "value": true }
+    },
+    {
+      "id": "stranger_near",
+      "label": "Fremder in Nähe ({radius} Kacheln)",
+      "log": "Fremder in Nähe",
+      "params": [
+        { "name": "radius", "type": "float", "label": "Radius", "default": 6, "min": 1, "max": 20, "step": 1 }
+      ],
+      "check": { "fact": "nearest_stranger_distance", "op": "<=", "param": "radius" }
+    },
+    {
+      "id": "inventory_state",
+      "label": "Inventar {state}",
+      "log": "Inventar {state}",
+      "params": [
+        {
+          "name": "state", "type": "choice", "label": "Zustand", "default": "full",
+          "options": [
+            { "value": "full", "label": "voll" },
+            { "value": "empty", "label": "leer" }
+          ]
+        }
+      ],
+      "check": { "fact": "inventory_state", "op": "==", "param": "state" }
+    },
+    {
+      "id": "else",
+      "label": "Sonst",
+      "log": "sonst",
+      "params": [],
+      "is_else": true,
+      "check": { "fact": "always", "op": "==", "value": true }
+    }
+  ]
+}

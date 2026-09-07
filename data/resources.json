@@ -1,0 +1,7 @@
+{
+  "_doc": "Rohstoffe des Prototyps. 'nutrition' = Hunger, den ein Stück beim Essen zurückgibt (nur bei edible). Farben nur für die Rechteck-Darstellung.",
+  "resources": [
+    { "id": "wood", "name": "Holz", "edible": false, "nutrition": 0, "color": "#a0703c" },
+    { "id": "berries", "name": "Beeren", "edible": true, "nutrition": 25, "color": "#b04ad8" }
+  ]
+}
