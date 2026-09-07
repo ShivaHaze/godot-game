@@ -133,6 +133,17 @@ func condition_def(id: String) -> Dictionary:
 	return conditions.get(id, {})
 
 
+## Freischalt-Bedingung eines Bausteins (Bedingung oder Aktion); leer = immer verfügbar.
+func unlock_of(def: Dictionary) -> Dictionary:
+	return def.get("unlock", {})
+
+
+## Ist ein Baustein für einen Besitzer mit diesen Freischaltungen (fact -> true) nutzbar?
+func is_unlocked(def: Dictionary, unlocks: Dictionary) -> bool:
+	var unlock := unlock_of(def)
+	return unlock.is_empty() or unlocks.has(unlock["fact"])
+
+
 func action_def(id: String) -> Dictionary:
 	return actions.get(id, {})
 
@@ -377,6 +388,8 @@ func _parse_conditions(raw: Dictionary) -> void:
 			continue
 		if not entry.has("log"):
 			entry["log"] = entry["label"]
+		if entry.has("unlock") and not _require_fields(entry["unlock"], {"fact": TYPE_STRING, "label": TYPE_STRING}, context + " unlock"):
+			continue
 		if entry.get("is_else", false) == true:
 			if not else_condition_id.is_empty():
 				errors.append("%s: es darf nur eine 'Sonst'-Bedingung geben" % context)
@@ -405,6 +418,8 @@ func _parse_actions(raw: Dictionary) -> void:
 			continue
 		if not entry.has("log"):
 			entry["log"] = entry["label"]
+		if entry.has("unlock") and not _require_fields(entry["unlock"], {"fact": TYPE_STRING, "label": TYPE_STRING}, context + " unlock"):
+			continue
 		actions[id] = entry
 		action_order.append(id)
 	if actions.is_empty():

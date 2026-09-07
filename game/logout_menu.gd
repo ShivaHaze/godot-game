@@ -11,6 +11,7 @@ signal marker_removed(marker_id: String)
 
 var data: SimData
 var character: SimCharacter
+var unlocks: Dictionary = {}    # Freischaltungen des Besitzers (fact -> true)
 var rules: Array = []          # Arbeitskopie, normalisierte Regeln
 var role_id: String = ""
 
@@ -34,9 +35,10 @@ func _ready() -> void:
 	_build()
 
 
-func open(p_data: SimData, p_character: SimCharacter, current_rules: Array, current_role: String) -> void:
+func open(p_data: SimData, p_character: SimCharacter, current_rules: Array, current_role: String, p_unlocks: Dictionary = {}) -> void:
 	data = p_data
 	character = p_character
+	unlocks = p_unlocks
 	rules = current_rules.duplicate(true)
 	role_id = current_role
 	_build_role_buttons()
@@ -241,7 +243,7 @@ func _make_row(index: int, rule: Dictionary) -> HBoxContainer:
 		for cid: String in data.condition_order:
 			if cid != data.else_condition_id:
 				condition_ids.append(cid)
-		var condition_button := _option_button(condition_ids, func(cid: String) -> String: return _short_label(data.conditions[cid]), String(rule["if"]["condition"]))
+		var condition_button := _option_button(condition_ids, func(cid: String) -> String: return _short_label(data.conditions[cid]), String(rule["if"]["condition"]), _locked(condition_ids, data.conditions))
 		condition_button.item_selected.connect(func(item: int) -> void:
 			var cid := condition_ids[item]
 			rule["if"] = {"condition": cid, "params": _defaults(data.conditions[cid]["params"])}
@@ -253,7 +255,7 @@ func _make_row(index: int, rule: Dictionary) -> HBoxContainer:
 	row.add_child(_label("dann"))
 	var action_ids: Array[String] = []
 	action_ids.assign(data.action_order)
-	var action_button := _option_button(action_ids, func(aid: String) -> String: return _short_label(data.actions[aid]), String(rule["then"]["action"]))
+	var action_button := _option_button(action_ids, func(aid: String) -> String: return _short_label(data.actions[aid]), String(rule["then"]["action"]), _locked(action_ids, data.actions))
 	action_button.item_selected.connect(func(item: int) -> void:
 		var aid := action_ids[item]
 		rule["then"] = {"action": aid, "params": _defaults(data.actions[aid]["params"])}
@@ -321,13 +323,28 @@ func _label(text: String) -> Label:
 	return label
 
 
-func _option_button(ids: Array[String], label_of: Callable, selected_id: String) -> OptionButton:
+func _option_button(ids: Array[String], label_of: Callable, selected_id: String, locked: Dictionary = {}) -> OptionButton:
 	var button := OptionButton.new()
 	for i in ids.size():
-		button.add_item(label_of.call(ids[i]), i)
+		var text: String = label_of.call(ids[i])
+		if locked.has(ids[i]):
+			text += " (gesperrt)"
+		button.add_item(text, i)
+		if locked.has(ids[i]):
+			button.set_item_disabled(i, true)
+			button.set_item_tooltip(i, String(locked[ids[i]]))
 		if ids[i] == selected_id:
 			button.select(i)
 	return button
+
+
+## Gesperrte Bausteine einer Liste: id -> Hinweistext.
+func _locked(ids: Array[String], defs: Dictionary) -> Dictionary:
+	var result := {}
+	for id: String in ids:
+		if not data.is_unlocked(defs[id], unlocks):
+			result[id] = String(data.unlock_of(defs[id])["label"])
+	return result
 
 
 ## Eingabefeld für einen Parameter; schreibt direkt in params[name].

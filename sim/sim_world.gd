@@ -17,6 +17,8 @@ var tick_count: int = 0
 var tick_dt: float = 0.05
 var rng := RandomNumberGenerator.new()
 
+var unlocks_by_owner: Dictionary = {}    # Besitzer -> {fact: true}: freigeschaltete Regel-Bausteine (todesfest)
+
 var _next_id: int = 1
 var _intents: Dictionary = {}            # id -> SimIntent, gilt nur für den nächsten Tick
 var _wolf_respawn_timer: float = 0.0
@@ -214,6 +216,38 @@ func in_transition(c: SimCharacter) -> bool:
 
 static func _pos_text(pos: Vector2) -> String:
 	return "(%d, %d)" % [int(pos.x), int(pos.y)]
+
+
+# --- Freischaltungen ------------------------------------------------------
+
+func unlocks_of(owner_id: String) -> Dictionary:
+	return unlocks_by_owner.get(owner_id, {})
+
+
+## Schaltet einen Baustein-Grundstein für einen Besitzer frei (einmalig) und meldet es.
+func unlock(owner_id: String, fact: String, witness: SimCharacter = null) -> bool:
+	if not unlocks_by_owner.has(owner_id):
+		unlocks_by_owner[owner_id] = {}
+	if unlocks_by_owner[owner_id].has(fact):
+		return false
+	unlocks_by_owner[owner_id][fact] = true
+	var labels: PackedStringArray = []
+	for id: String in data.action_order:
+		if data.unlock_of(data.actions[id]).get("fact", "") == fact:
+			labels.append(data.format_template(String(data.actions[id]["label"]), data.actions[id]["params"], {}))
+	for id: String in data.condition_order:
+		if data.unlock_of(data.conditions[id]).get("fact", "") == fact:
+			labels.append(String(data.conditions[id]["label"]))
+	var label := ", ".join(labels) if not labels.is_empty() else fact
+	events.append({"type": "unlock", "id": witness.id if witness != null else -1, "owner": owner_id, "fact": fact, "label": label})
+	if witness != null and witness.control == SimCharacter.Controller.RULES:
+		SimChronicle.add(self, witness, "neuer Regel-Baustein freigeschaltet: %s" % label)
+	return true
+
+
+## Ist ein Baustein für den Besitzer dieses Charakters nutzbar?
+func can_use(c: SimCharacter, def: Dictionary) -> bool:
+	return data.is_unlocked(def, unlocks_of(c.owner_id))
 
 
 # --- Ausrüstung -----------------------------------------------------------
@@ -562,6 +596,10 @@ func apply_damage(victim: SimCharacter, base_damage: float, hit_dir: Vector2, at
 	reveal(victim)
 	var event := {"type": "hit", "id": victim.id, "attacker": attacker_id, "damage": amount, "side": side, "pos": victim.pos}
 	events.append(event)
+	var attacker := get_character(attacker_id)
+	if attacker != null and attacker.kind == SimCharacter.Kind.PLAYER and attacker.control == SimCharacter.Controller.RULES \
+			and victim.kind == SimCharacter.Kind.PLAYER and victim.owner_id != attacker.owner_id:
+		unlock(victim.owner_id, "attacked_by_npc", victim)
 	if victim.hp <= 0.0:
 		_kill(victim, attacker_id)
 	return event

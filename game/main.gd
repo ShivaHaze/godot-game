@@ -44,6 +44,7 @@ var _skip_target: float = 0.0
 var _chronicle_id: int = -1          # Wessen Chronik die Tafel zeigt (-1 = keine)
 var _yesterday_id: int = -1          # Im Versus-Modus: der eigene NPC von gestern
 var _new_game_armed_until: float = 0.0  # Doppelklick-Schutz für 'Neues Spiel'
+var _net_saw_rules: bool = false        # Online: Server hat den eigenen Charakter als NPC gemeldet
 
 
 func _ready() -> void:
@@ -178,8 +179,12 @@ func _process_net(delta: float) -> void:
 	hud.refresh()
 	if craft_panel.visible:
 		craft_panel.refresh()
-	if mode == Mode.OFFLINE and player != null and player.control == SimCharacter.Controller.PLAYER:
-		_enter_live(true)  # Server hat uns wieder eingeloggt
+	if mode == Mode.OFFLINE and player != null:
+		if player.control == SimCharacter.Controller.RULES:
+			_net_saw_rules = true
+		elif _net_saw_rules and player.control == SimCharacter.Controller.PLAYER:
+			_net_saw_rules = false
+			_enter_live(true)  # Server hat uns wieder eingeloggt
 
 
 ## Stellt nach dem Laden den passenden Modus wieder her.
@@ -374,7 +379,8 @@ func _enter_live(keep_chronicle: bool = false) -> void:
 	else:
 		_chronicle_id = -1
 		hud.show_chronicle(false)
-	hud.add_button("Neues Spiel", _new_game)
+	if net == null:
+		hud.add_button("Neues Spiel", _new_game)
 
 
 func _hide_chronicle() -> void:
@@ -382,14 +388,15 @@ func _hide_chronicle() -> void:
 	hud.show_chronicle(false)
 	if mode == Mode.LIVE:
 		hud.clear_buttons()
-		hud.add_button("Neues Spiel", _new_game)
+		if net == null:
+			hud.add_button("Neues Spiel", _new_game)
 
 
 func _open_menu() -> void:
 	var player := world.get_character(player_id)
 	mode = Mode.MENU
 	craft_panel.close()
-	menu.open(data, player, player.rules, player.role_id)
+	menu.open(data, player, player.rules, player.role_id, world.unlocks_of(player.owner_id))
 
 
 func _close_menu() -> void:
@@ -544,6 +551,8 @@ func _handle_events() -> void:
 				for rid: String in event["items"]:
 					parts.append("%s %d" % [data.resources[rid]["name"], event["items"][rid]])
 				hud.show_message("Geplündert: " + ", ".join(parts), 2.0)
+			"unlock":
+				hud.show_message("Neuer Regel-Baustein freigeschaltet: %s" % event["label"], 5.0)
 			"death":
 				var killer := world.get_character(int(event["attacker"]))
 				var killer_name: String = killer.name if killer != null else "Unbekannt"

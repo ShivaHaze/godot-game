@@ -72,6 +72,8 @@ static func _evaluate(world: SimWorld, c: SimCharacter) -> void:
 static func blocked_reason(world: SimWorld, c: SimCharacter, rule: Dictionary) -> String:
 	var data := world.data
 	var params: Dictionary = rule["then"]["params"]
+	if not world.can_use(c, data.action_def(String(rule["then"]["action"]))) or not world.can_use(c, data.condition_def(String(rule["if"]["condition"]))):
+		return "Baustein nicht freigeschaltet"
 	match String(rule["then"]["action"]):
 		"eat":
 			if c.hunger >= data.balf("hunger.max"):
@@ -115,6 +117,8 @@ static func _execute(world: SimWorld, c: SimCharacter, rule: Dictionary, intent:
 			_gather(world, c, String(params["resource"]), c.place_pos(String(params["place"])), float(params["radius"]), intent, dt)
 		"fight_back":
 			_fight_back(world, c, intent, dt)
+		"attack":
+			_attack_nearby(world, c, float(params["radius"]), intent, dt)
 		"hide":
 			intent.hide = true
 		"eat":
@@ -159,13 +163,26 @@ static func _find_gather_node(world: SimWorld, c: SimCharacter, resource: String
 
 ## Zurückkämpfen: Angreifer (oder nächsten Feind) anvisieren, aktuelle Position beschießen,
 ## vorsichtig Abstand halten. Nie über die Leine hinaus verfolgen (siehe _apply_leash).
-static func _fight_back(world: SimWorld, c: SimCharacter, intent: SimIntent, _dt: float) -> void:
-	var data := world.data
+static func _fight_back(world: SimWorld, c: SimCharacter, intent: SimIntent, dt: float) -> void:
 	var target := world.get_character(c.last_attacker_id)
 	if target == null or target.dead or target.hidden:
-		target = world.nearest_enemy(c, data.balf("offline.hot_radius"))
+		target = world.nearest_enemy(c, world.data.balf("offline.hot_radius"))
 	if target == null:
 		return
+	_engage(world, c, target, intent, dt)
+
+
+## Angreifen (freigeschaltet): nächsten sichtbaren Fremden im Radius angreifen, ohne selbst angegriffen zu sein.
+static func _attack_nearby(world: SimWorld, c: SimCharacter, radius: float, intent: SimIntent, dt: float) -> void:
+	var target := world.nearest_enemy(c, radius)
+	if target == null:
+		return
+	_engage(world, c, target, intent, dt)
+
+
+## Gemeinsame Kampfausführung: Waffenwahl, Abstand, Schuss auf die aktuelle Position.
+static func _engage(world: SimWorld, c: SimCharacter, target: SimCharacter, intent: SimIntent, _dt: float) -> void:
+	var data := world.data
 	var to_target := target.pos - c.pos
 	var distance := to_target.length()
 	intent.aim = to_target  # zielt auf die aktuelle Position, kein Vorhalten
