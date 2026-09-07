@@ -131,6 +131,30 @@ func test_server_and_client_over_loopback() -> void:
 	server.stop()
 
 
+func test_client_receives_server_map() -> void:
+	var server_data := SimData.load_from_dir("res://data")
+	assert_true(server_data.apply_map(MapGen.generate(60, 40, 3)).is_empty())
+	var world := SimWorld.new(server_data, 6)
+	world.setup_new_game()
+	world.characters.erase(1)
+	var server := NetServer.new()
+	assert_eq(server.start(server_data, world, PORT + 2, 8), OK)
+	var client := NetClient.new()
+	client.connect_to(data, "127.0.0.1", PORT + 2, "Cleo")
+	for i in 200:
+		server.update(0.05)
+		client.poll()
+		await wait_frames(1)
+		if client.joined:
+			break
+	assert_true(client.joined)
+	assert_eq(client.mirror.map.width, 60, "Karte kommt vom Server")
+	assert_eq(client.mirror.map.height, 40)
+	assert_eq(client.mirror.map.nodes.size(), world.map.nodes.size())
+	client.disconnect_from_server()
+	server.stop()
+
+
 func test_disconnect_turns_character_into_npc() -> void:
 	var world := SimWorld.new(data, 5)
 	world.setup_new_game()

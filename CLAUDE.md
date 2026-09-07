@@ -8,7 +8,7 @@ Der Twist: Beim "Ausloggen" wird der Spielercharakter zum NPC, der nach vom Spie
 Designfragen, die das Dokument nicht beantwortet: **nicht raten, fragen.** Eigene Entscheidungen, die das Design berühren, dort als [T]/[O] eintragen und Bescheid sagen.
 
 ## Stand (2026-09-07)
-Schritte 1–8 (Phase 0) plus 9–12 sind gebaut und committet: Gerüst, Daten, Sim-Kern, Regelmaschine + Chronik, Kampf + Wolf, NPC-Modus, Ausloggen-Menü, Zeitsprung + Gegen-sich-selbst, Spielstand, Logout-Übergang, Chronik-Spur, Marker verwalten, Werkbank/Ausrüstung, Balancing-Bericht, Simulationsstufen + Nachbarschaftsraster, Netzwerk-Spike (headless ENet-Server, Bot-Clients, Netzwerk-Client im Spiel). 120 Tests laufen headless grün. Ergebnisse des Spikes stehen im Design-Dokument, Abschnitt 8. Nächster Schritt laut Design: Setting, Name, Optik (Entscheidungen des Nutzers), danach Inhalt (Bauen, Claims, Handel).
+Schritte 1–8 (Phase 0) plus 9–14 sind gebaut und committet: Gerüst, Daten, Sim-Kern, Regelmaschine + Chronik, Kampf + Wolf, NPC-Modus, Ausloggen-Menü, Zeitsprung + Gegen-sich-selbst, Spielstand, Logout-Übergang, Chronik-Spur, Marker verwalten, Werkbank/Ausrüstung, Balancing-Bericht, Simulationsstufen + Nachbarschaftsraster, Netzwerk-Spike (headless ENet-Server, Bot-Clients, Netzwerk-Client im Spiel), Freischalten von Regel-Bausteinen ('greife an'), Kartengenerator + Karte im Beitritt. 129 Tests laufen headless grün. Ergebnisse des Spikes stehen im Design-Dokument, Abschnitt 8. Offen vor dem nächsten Inhalt: Bauraster (½ oder ¼ Kachel), Vergeltungsketten, Reihenfolge Bauen/Claims/Handel, Setting/Name/Optik – Entscheidungen des Nutzers.
 
 ## Scope Phase 0 (nichts darüber hinaus ohne Rückfrage)
 - Karte aus Datendatei (Kacheln: Boden, Hindernis, Holzquelle, Beerenbusch). Rechtecke, keine Grafik.
@@ -63,6 +63,7 @@ sim/                 Simulation ohne Nodes:
   wolf_ai.gd           Wolf-Verhalten
   sim_nav.gd           Wegfolge (A*, Sichtlinie, kein Überschießen bei groben Ticks)
   sim_spatial.gd       Nachbarschaftsraster (pro Tick neu), Basis aller Umkreis-Abfragen
+  map_gen.gd           Seedbarer Kartengenerator (zusammenhängend, Spawns am Rand, Wölfe innen)
   net_protocol.gd      Nachrichten: Absichten, Snapshots (Sichtbereich, kompakt), eigene Details, Spiegelwelt füllen
 server/              Headless-Server: net_server.gd (ENet, Absichten rein, Snapshots raus, Trennen = NPC), server_main.gd (Startskript)
 game/                Darstellung und Eingabe (liest sim/, schreibt nur Intents):
@@ -76,7 +77,8 @@ tests/unit/          GUT-Tests (test_*.gd)
 tools/               run_tests.ps1 / run_tests.sh (headless), smoke_run.gd (Rauchtest mit Fenster), screenshot_run.gd (Bildschirmfotos),
                      balance_report.gd (Rollen × Seeds × 8 h headless, druckt Überleben/Vorräte),
                      server_bench.gd (N NPCs + Spieler headless bei 20 Hz, Tickzeit und Simulationsstufen),
-                     bot_clients.gd (N ENet-Clients gegen einen Server), net_smoke.gd (Client mit Fenster gegen einen Server)
+                     bot_clients.gd (N ENet-Clients gegen einen Server), net_smoke.gd (Client mit Fenster gegen einen Server),
+                     map_gen.gd (Karte als JSON schreiben)
 addons/gut/          Test-Framework GUT 9.6.1 (einziges Addon)
 ```
 
@@ -99,6 +101,8 @@ Server-Benchmark: `godot --headless --path . -s tools/server_bench.gd -- 300 5 3
 ## Netzwerk (Spike)
 ```
 godot --headless --path . -s server/server_main.gd -- 7777 200 0      # Server: Port, NPC-Füllung, Laufzeit (0 = endlos)
+godot --headless --path . -s server/server_main.gd -- 7777 300 0 gen:120x90:7   # ... mit generierter großer Karte
+godot --headless --path . -s tools/map_gen.gd -- 120 90 7 data/maps/gross.json  # Karte als Datei
 godot --path . -- --connect 127.0.0.1:7777 --name Anna                 # Spiel als Client
 godot --headless --path . -s tools/bot_clients.gd -- 50 127.0.0.1 7777 60   # 50 Bots für 60 s
 ```

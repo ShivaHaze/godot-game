@@ -74,3 +74,33 @@ func test_nearest_node_filters_resource() -> void:
 	assert_not_null(node)
 	assert_eq(node.resource, "berries")
 	assert_null(map.nearest_node(pos, 1.5, "wood"), "kein Holz in Reichweite")
+
+
+func test_generated_maps_are_valid_and_connected() -> void:
+	for seed in [1, 2, 3]:
+		var raw := MapGen.generate(80, 60, seed)
+		var gen_data := SimData.load_from_dir("res://data")
+		var problems := gen_data.apply_map(raw)
+		assert_true(problems.is_empty(), "Seed %d: %s" % [seed, problems])
+		assert_gte(gen_data.player_spawns.size(), 1)
+		assert_gte(gen_data.wolf_spawns.size(), 1)
+		var gen_map := SimMap.new(gen_data)
+		assert_gt(gen_map.nodes.size(), 20, "Quellen vorhanden")
+		# Alle Bodenzellen vom Spawn aus erreichbar
+		var reached := {}
+		var queue: Array[Vector2i] = [gen_data.player_spawns[0]]
+		reached[queue[0]] = true
+		while not queue.is_empty():
+			var cell: Vector2i = queue.pop_back()
+			for step: Vector2i in SimMap.NEIGHBORS_4:
+				var next := cell + step
+				if gen_map.is_walkable(next) and not reached.has(next):
+					reached[next] = true
+					queue.append(next)
+		var floor_cells := 0
+		for y in gen_map.height:
+			for x in gen_map.width:
+				if gen_map.is_walkable(Vector2i(x, y)):
+					floor_cells += 1
+		assert_eq(reached.size(), floor_cells, "Seed %d: zusammenhängend" % seed)
+		assert_eq_deep(MapGen.generate(80, 60, seed)["rows"], raw["rows"])

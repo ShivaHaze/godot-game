@@ -1,14 +1,16 @@
 extends SceneTree
 ## Headless-Server (Netzwerk-Spike): dieselbe Simulation wie im Spiel, autoritativ, 20 Hz, ENet.
 ## Lädt user://server_save.dat (falls vorhanden), sonst neue Welt; füllt optional NPCs auf; speichert alle 60 s.
-## Aufruf: godot --headless --path . -s server/server_main.gd [-- <Port> <NPC-Füllung> <Laufzeit s>]
-## Standard: Port 7777, 0 NPCs, unbegrenzt. Statistik alle 5 s auf der Konsole.
+## Aufruf: godot --headless --path . -s server/server_main.gd [-- <Port> <NPC-Füllung> <Laufzeit s> <Karte>]
+## Karte: Pfad zu einer map.json oder 'gen:120x90:7' (Generator mit Breite×Höhe:Seed); leer = data/map.json.
+## Standard: Port 7777, 0 NPCs, unbegrenzt. Statistik alle 5 s auf der Konsole. Clients bekommen die Karte beim Beitritt.
 
 const SAVE_PATH: String = "user://server_save.dat"
 
 var port: int = 7777
 var fill_npcs: int = 0
 var run_seconds: float = 0.0
+var map_arg: String = ""
 
 var data: SimData
 var world: SimWorld
@@ -27,12 +29,21 @@ func _init() -> void:
 		fill_npcs = int(args[1])
 	if args.size() > 2:
 		run_seconds = float(args[2])
+	if args.size() > 3:
+		map_arg = args[3]
 	data = SimData.load_from_dir("res://data")
 	if not data.is_valid():
 		for e: String in data.errors:
 			printerr(e)
 		quit(1)
 		return
+	if not map_arg.is_empty():
+		var problems := data.apply_map(_load_map_arg(map_arg))
+		if not problems.is_empty():
+			printerr("Karte unbrauchbar: ", problems)
+			quit(1)
+			return
+		print("Karte: %s (%d×%d, %d Spieler-Spawns)" % [map_arg, data.map_width, data.map_height, data.player_spawns.size()])
 	var saved := SimSave.load_from_file(data, SAVE_PATH)
 	if saved.is_empty():
 		world = SimWorld.new(data, int(Time.get_unix_time_from_system()) % 100000)
@@ -50,6 +61,19 @@ func _init() -> void:
 	_last_usec = Time.get_ticks_usec()
 	process_frame.connect(_on_frame)
 	print("Server läuft auf Port %d (Tick %d Hz, Snapshots %d Hz). Strg+C beendet." % [port, data.bali("tick_rate"), data.bali("tick_rate") / NetProtocol.SNAPSHOT_EVERY_TICKS])
+
+
+## 'gen:BxH:Seed' oder Pfad zu einer map.json.
+func _load_map_arg(arg: String) -> Dictionary:
+	if arg.begins_with("gen:"):
+		var parts := arg.split(":")
+		var size := parts[1].split("x") if parts.size() > 1 else PackedStringArray(["120", "90"])
+		var seed := int(parts[2]) if parts.size() > 2 else 1
+		return MapGen.generate(int(size[0]), int(size[1]) if size.size() > 1 else 90, seed)
+	var json := JSON.new()
+	if json.parse(FileAccess.get_file_as_string(arg)) != OK or not (json.data is Dictionary):
+		return {}
+	return json.data
 
 
 func _fill_npcs() -> void:

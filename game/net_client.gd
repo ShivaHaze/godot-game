@@ -23,7 +23,10 @@ var _peer: ENetPacketPeer
 
 func connect_to(data: SimData, host: String, port: int, name: String) -> Error:
 	player_name = name
-	mirror = SimWorld.new(data, 0)
+	var own_data := SimData.load_from_dir("res://data")  # eigene Kopie: die Karte kommt vom Server
+	if not own_data.is_valid():
+		own_data = data
+	mirror = SimWorld.new(own_data, 0)
 	mirror.lod_enabled = false
 	_enet = ENetConnection.new()
 	var err := _enet.create_host(1, NetProtocol.CHANNELS)
@@ -78,6 +81,8 @@ func poll() -> void:
 						NetProtocol.apply_snapshot(mirror, msg)
 					"welcome":
 						my_id = int(msg.get("id", -1))
+						if msg.has("map") and mirror.data.apply_map(msg["map"]).is_empty():
+							mirror.map = SimMap.new(mirror.data)
 						joined = true
 						messages.append(msg)
 					"self":

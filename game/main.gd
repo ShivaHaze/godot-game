@@ -143,6 +143,8 @@ func _process_net(delta: float) -> void:
 				player_id = net.my_id
 				hud.player_id = player_id
 				view.viewer_owner = net.player_name
+				camera.limit_right = int(world.map.width * WorldViewScript.TILE)
+				camera.limit_bottom = int(world.map.height * WorldViewScript.TILE)
 				hud.mode_text = "Online als %s" % net.player_name
 				hud.set_hint(HINT_LIVE)
 				hud.show_message("Verbunden. Dein Charakter wartet auf dem Server.", 3.0)

@@ -119,6 +119,26 @@ func bali(path: String) -> int:
 	return int(value) if value != null else 0
 
 
+## Tauscht die Karte gegen ein map.json-Dictionary (generierte Karte, Karte vom Server). Rückgabe: Fehlerliste (leer = ok).
+func apply_map(raw: Dictionary) -> PackedStringArray:
+	var previous_errors := errors.size()
+	map_width = 0
+	map_height = 0
+	map_rows = PackedStringArray()
+	map_tile_ids = []
+	player_spawns = []
+	wolf_spawns = []
+	_parse_map(raw)
+	var problems := errors.slice(previous_errors)
+	errors.resize(previous_errors)
+	return problems
+
+
+## Roh-Dictionary der aktuellen Karte (für Übertragung und Speicherung).
+func map_dict() -> Dictionary:
+	return {"width": map_width, "height": map_height, "rows": Array(map_rows), "spawn_chars": {"P": "player", "W": "wolf"}}
+
+
 func tile_id_at(x: int, y: int) -> String:
 	if x < 0 or y < 0 or x >= map_width or y >= map_height:
 		return "obstacle"

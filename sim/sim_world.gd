@@ -97,6 +97,12 @@ func spawn_wolf(pos: Vector2) -> SimCharacter:
 	return c
 
 
+## Ein Spieler-Spawn (bei mehreren zufällig, Design: gewichtete Spawn-Zonen kommen später).
+func random_player_spawn() -> Vector2:
+	var cell: Vector2i = data.player_spawns[rng.randi_range(0, data.player_spawns.size() - 1)]
+	return SimMap.cell_center(cell)
+
+
 func count_alive_wolves() -> int:
 	var n := 0
 	for c: SimCharacter in characters.values():

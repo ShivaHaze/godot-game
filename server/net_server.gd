@@ -129,7 +129,7 @@ func _on_message(peer: ENetPacketPeer, msg: Dictionary) -> void:
 				world.set_active_weapon(c, String(msg.get("item", "")))
 		"respawn":
 			if c != null and c.dead:
-				var fresh := world.spawn_player(SimMap.cell_center(data.player_spawns[0]), c.owner_id, c.name)
+				var fresh := world.spawn_player(world.random_player_spawn(), c.owner_id, c.name)
 				info["char_id"] = fresh.id
 				info["known"] = {}
 				info["nodes"] = {}
@@ -157,12 +157,12 @@ func _on_join(peer: ENetPacketPeer, name: String) -> void:
 			world.login(existing.id)
 		info["char_id"] = existing.id
 	else:
-		var fresh := world.spawn_player(SimMap.cell_center(data.player_spawns[0]), name, name)
+		var fresh := world.spawn_player(world.random_player_spawn(), name, name)
 		info["char_id"] = fresh.id
 	info["known"] = {}
 	info["nodes"] = {}
 	info["self_hash"] = 0
-	_send(peer, {"t": "welcome", "id": int(info["char_id"]), "time": world.time}, true)
+	_send(peer, {"t": "welcome", "id": int(info["char_id"]), "time": world.time, "map": data.map_dict()}, true)
 
 
 ## Trennung: der Charakter wird zum NPC mit seinen aktuellen Regeln (Übergang läuft, kein sofortiger Schutz).
