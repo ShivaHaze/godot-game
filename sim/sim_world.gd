@@ -196,6 +196,7 @@ func logout(id: int, rules: Array, role_name: String = "") -> void:
 	c.decision_timer = 0.0
 	c.path.clear()
 	c.chronicle.clear()
+	refresh_places(c.owner_id)
 	SimChronicle.add(self, c, "ausgeloggt" + (" als %s" % role_name if not role_name.is_empty() else "") + " bei %s" % _pos_text(c.pos) + (" (aus fremdem Claim geschoben)" if pushed else ""))
 	events.append({"type": "logout", "id": id})
 
@@ -468,6 +469,10 @@ func place_building(c: SimCharacter, part_id: String, origin: Vector2i, rotation
 	events.append({"type": "build", "id": c.id, "building": b.id, "part": part_id})
 	if part_id == "anchor":
 		claims.on_anchor_placed(self, b)
+	if is_sensor(b):
+		b.label = "Sensor %d" % sensors_of(c.owner_id).size()
+		unlock(c.owner_id, "owned_sensor", c)
+		refresh_places(c.owner_id)
 	return b
 
 
@@ -492,6 +497,8 @@ func remove_building(id: int, refund_to: SimCharacter = null) -> bool:
 				refund_to.inventory[rid] = int(refund_to.inventory.get(rid, 0)) + back
 	map.remove_building(id)
 	claims.on_building_removed(self, id)
+	if is_sensor(b):
+		refresh_places(b.owner_id)
 	events.append({"type": "demolish", "building": id, "id": refund_to.id if refund_to != null else -1})
 	return true
 
@@ -505,7 +512,87 @@ func damage_building(b: SimBuilding, amount: float, attacker_id: int) -> void:
 			_loot_table(b, attacker_id)
 		map.remove_building(b.id)
 		claims.on_building_removed(self, b.id)
+		if is_sensor(b):
+			refresh_places(b.owner_id)
 		events.append({"type": "building_destroyed", "building": b.id, "attacker": attacker_id, "pos": b.center()})
+
+
+# --- Sensoren und Fallen --------------------------------------------------
+
+func is_sensor(b: SimBuilding) -> bool:
+	return b != null and data.buildings.get(b.part, {}).has("sensor_radius")
+
+
+func is_trap(b: SimBuilding) -> bool:
+	return b != null and data.buildings.get(b.part, {}).has("trap_damage")
+
+
+## Für Fremde unsichtbare Bauteile (Fallen) sieht nur der Besitzer.
+func building_visible_to(b: SimBuilding, owner_id: String) -> bool:
+	return not bool(data.buildings.get(b.part, {}).get("hidden", false)) or b.owner_id == owner_id
+
+
+## Kennung eines Bauteils als Ort ("b<id>").
+static func place_id_of(b: SimBuilding) -> String:
+	return "b%d" % b.id
+
+
+## Eigene Sensoren, die gerade ausgelöst sind (Orts-Kennungen), für die Bedingung 'Sensor … ausgelöst'.
+func triggered_sensors_of(owner_id: String) -> Array:
+	var result := []
+	for b: SimBuilding in map.buildings.values():
+		if b.owner_id == owner_id and is_sensor(b) and time < b.triggered_until:
+			result.append(place_id_of(b))
+	return result
+
+
+func sensors_of(owner_id: String) -> Array[SimBuilding]:
+	var result: Array[SimBuilding] = []
+	for b: SimBuilding in map.buildings.values():
+		if b.owner_id == owner_id and is_sensor(b):
+			result.append(b)
+	return result
+
+
+## Orte aus Bauteilen (Sensoren) an alle Charaktere des Besitzers verteilen.
+func refresh_places(owner_id: String) -> void:
+	var places := {}
+	for b: SimBuilding in sensors_of(owner_id):
+		places[place_id_of(b)] = {"name": b.label, "pos": b.center()}
+	for c: SimCharacter in characters.values():
+		if c.owner_id == owner_id:
+			c.extra_places = places.duplicate(true)
+
+
+func _update_sensors_and_traps(dt: float) -> void:
+	if map.buildings.is_empty():
+		return
+	for id: int in map.buildings.keys():
+		var b: SimBuilding = map.buildings.get(id)
+		if b == null:
+			continue
+		var def: Dictionary = data.buildings[b.part]
+		if def.has("sensor_radius"):
+			var was_triggered := time < b.triggered_until
+			var center := b.center()
+			for other: SimCharacter in spatial.query(center, float(def["sensor_radius"])):
+				if other.dead or other.owner_id == b.owner_id or other.pos.distance_to(center) > float(def["sensor_radius"]):
+					continue
+				b.triggered_until = time + float(def.get("sensor_hold", 5.0))
+				if not was_triggered:
+					events.append({"type": "sensor_triggered", "building": b.id, "owner": b.owner_id, "by": other.id, "label": b.label})
+				break
+		elif def.has("trap_damage"):
+			for other: SimCharacter in spatial.query(b.center(), 1.5):
+				if other.dead or other.owner_id == b.owner_id:
+					continue
+				var half := SimBuilding.half_cell_of(other.pos)
+				if not b.cells.has(half):
+					continue
+				apply_damage(other, float(def["trap_damage"]), Vector2.DOWN, -1)
+				events.append({"type": "trap_triggered", "building": b.id, "owner": b.owner_id, "by": other.id, "pos": b.center()})
+				map.remove_building(b.id)
+				break
 
 
 # --- Handelstisch ---------------------------------------------------------
@@ -676,6 +763,8 @@ func _update_buildings(dt: float) -> void:
 		if b.hp <= 0.0:
 			map.remove_building(id)
 			claims.on_building_removed(self, id)
+			if is_sensor(b):
+				refresh_places(b.owner_id)
 			events.append({"type": "building_destroyed", "building": id, "attacker": -1, "pos": b.center(), "decayed": true})
 
 
@@ -726,6 +815,7 @@ func step(dt: float) -> void:
 	_update_hunger(dt)
 	_update_nodes(dt)
 	_update_buildings(dt)
+	_update_sensors_and_traps(dt)
 	claims.update(self, dt)
 	_update_wolves(dt)
 

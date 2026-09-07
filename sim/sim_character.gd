@@ -47,6 +47,7 @@ var revealed_until: float = -1e9     # Bis zu dieser Sim-Zeit kann man sich nich
 # Regelwerk und Orte (nur für Spielercharaktere relevant)
 var rules: Array = []                # normalisierte Regeln, siehe data/README.md
 var markers: Array[Dictionary] = []  # {id, name, pos}
+var extra_places: Dictionary = {}    # Orte aus eigenen Bauteilen (Sensoren): "b<id>" -> {name, pos}; die Welt pflegt sie
 var marker_counter: int = 0          # Zähler für Marker-Kennungen (werden nicht wiederverwendet)
 var logout_pos: Vector2 = Vector2.ZERO  # "Hier"
 var logout_time: float = -1e9        # Sim-Zeit des Ausloggens (Logout-Übergang)
@@ -108,6 +109,8 @@ func marker_name(place_id: String) -> String:
 	for marker: Dictionary in markers:
 		if marker["id"] == place_id:
 			return String(marker["name"])
+	if extra_places.has(place_id):
+		return String(extra_places[place_id]["name"])
 	return place_id
 
 
@@ -118,6 +121,8 @@ func place_pos(place_id: String) -> Vector2:
 	for marker: Dictionary in markers:
 		if marker["id"] == place_id:
 			return marker["pos"]
+	if extra_places.has(place_id):
+		return extra_places[place_id]["pos"]
 	return logout_pos
 
 
@@ -125,4 +130,6 @@ func place_names() -> Dictionary:
 	var names := {}
 	for marker: Dictionary in markers:
 		names[marker["id"]] = marker["name"]
+	for id: String in extra_places:
+		names[id] = extra_places[id]["name"]
 	return names

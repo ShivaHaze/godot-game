@@ -16,8 +16,8 @@ const FILE_NAMES: Dictionary = {
 	"buildings": "buildings.json",
 }
 
-const ALLOWED_OPS: Array[String] = ["<", "<=", ">", ">=", "==", "!="]
-const PARAM_TYPES: Array[String] = ["int", "float", "choice", "place", "resource", "radius"]
+const ALLOWED_OPS: Array[String] = ["<", "<=", ">", ">=", "==", "!=", "has"]
+const PARAM_TYPES: Array[String] = ["int", "float", "choice", "place", "resource", "radius", "sensor"]
 const PLACE_HERE: String = "here"
 
 ## Pflichtschlüssel in balance.json als Punktpfade. Tippfehler fallen so beim Laden auf.
@@ -183,6 +183,8 @@ func param_default(param_def: Dictionary) -> Variant:
 			return balf("npc.default_leash_radius")
 		"place":
 			return PLACE_HERE
+		"sensor":
+			return ""
 		"resource":
 			return resource_order[0] if not resource_order.is_empty() else ""
 		"int", "float":
@@ -254,10 +256,10 @@ func format_template(template: String, param_defs: Array, params: Dictionary, pl
 
 func display_value(param_def: Dictionary, value: Variant, place_names: Dictionary = {}) -> String:
 	match String(param_def.get("type", "")):
-		"place":
+		"place", "sensor":
 			if value == PLACE_HERE:
 				return "Hier"
-			return String(place_names.get(value, value))
+			return String(place_names.get(value, value if not String(value).is_empty() else "(keiner)"))
 		"resource":
 			return String(resources.get(value, {}).get("name", value))
 		"choice":
@@ -647,6 +649,9 @@ func _normalize_params(param_defs: Array, given: Variant, context: String) -> Di
 				if not (value is String) or String(value).is_empty():
 					errors.append("%s: Parameter '%s' braucht einen Ort" % [context, name])
 					value = PLACE_HERE
+			"sensor":
+				if not (value is String):
+					value = ""
 		result[name] = value
 	for key: Variant in given_dict:
 		if not result.has(key):

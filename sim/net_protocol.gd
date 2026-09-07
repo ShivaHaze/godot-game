@@ -122,13 +122,14 @@ static func snapshot(world: SimWorld, viewer_id: int, known: Dictionary, node_st
 	# Bauteile: neu/verändert im Sichtbereich, plus entfernte, die der Empfänger kannte
 	var built := []
 	for b: SimBuilding in world.map.buildings.values():
-		if b.center().distance_squared_to(center) > r2:
+		if b.center().distance_squared_to(center) > r2 or not world.building_visible_to(b, viewer.owner_id):
 			continue
-		var signature := [b.hp, b.contents, b.offers].hash()
+		var triggered := world.time < b.triggered_until
+		var signature := [b.hp, b.contents, b.offers, b.label, triggered].hash()
 		if building_state.has(b.id) and int(building_state[b.id]) == signature:
 			continue
 		building_state[b.id] = signature
-		built.append([b.id, b.part, b.owner_id, b.origin.x, b.origin.y, b.rotation, b.hp, b.max_hp, b.contents.duplicate(), b.offers.duplicate(true)])
+		built.append([b.id, b.part, b.owner_id, b.origin.x, b.origin.y, b.rotation, b.hp, b.max_hp, b.contents.duplicate(), b.offers.duplicate(true), b.label, triggered])
 	var removed := PackedInt32Array()
 	for id: int in building_state.keys():
 		if not world.map.buildings.has(id):
@@ -181,6 +182,7 @@ static func self_block(viewer: SimCharacter) -> Dictionary:
 		"leash": [viewer.leash_center.x, viewer.leash_center.y, viewer.leash_radius],
 		"chronicle_total": viewer.chronicle.size(),
 		"unlocks": {},
+		"places": viewer.extra_places.duplicate(true),
 	}
 
 
@@ -264,6 +266,9 @@ static func apply_snapshot(mirror: SimWorld, snap: Dictionary) -> void:
 			b.offers = []
 			for offer: Dictionary in row[9]:
 				b.offers.append({"sell": String(offer["sell"]), "sell_amount": int(offer["sell_amount"]), "price": String(offer["price"]), "price_amount": int(offer["price_amount"])})
+		if row.size() > 11:
+			b.label = String(row[10])
+			b.triggered_until = mirror.time + 1.0 if bool(row[11]) else -1.0
 	for id: int in snap.get("bld_rm", PackedInt32Array()):
 		mirror.map.remove_building(id)
 	for row: Array in snap.get("clm", []):
@@ -327,6 +332,11 @@ static func apply_self(mirror: SimWorld, you_id: int, block: Dictionary) -> void
 	var leash: Array = block.get("leash", [0, 0, 0])
 	you.leash_center = Vector2(leash[0], leash[1])
 	you.leash_radius = float(leash[2])
+	you.extra_places = {}
+	for pid: Variant in block.get("places", {}):
+		var place: Dictionary = block["places"][pid]
+		var pos: Variant = place.get("pos", Vector2.ZERO)
+		you.extra_places[String(pid)] = {"name": String(place.get("name", pid)), "pos": pos if pos is Vector2 else Vector2(pos[0], pos[1])}
 	mirror.unlocks_by_owner[you.owner_id] = {}
 	for fact: Variant in block.get("unlocks", {}):
 		mirror.unlocks_by_owner[you.owner_id][String(fact)] = true

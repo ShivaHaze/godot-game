@@ -1,5 +1,5 @@
 {
-  "_doc": "Bauteile. Raster: halbe Kacheln (Design [E]); 'size' in Halbzellen [Breite, Höhe], drehbar (R). Nur live baubar, NPCs bauen und brechen nie (Design: nur Live kann Nehmen und Verändern). 'passable': none = blockiert alle, owner = nur der Besitzer (und seine NPCs) geht durch (Tür). 'tier': wood wird mit Nahkampf beschädigt und verfällt (decay_per_hour Lebenspunkte je Stunde); stone/iron kommen später (Eisenwerkzeug bzw. Sprengsatz). Projektile bleiben an Bauteilen hängen, ohne sie zu beschädigen. 'trade': true = Handelstisch mit Inhalt und Angeboten.",
+  "_doc": "Bauteile. Raster: halbe Kacheln (Design [E]); 'size' in Halbzellen [Breite, Höhe], drehbar (R). Nur live baubar, NPCs bauen und brechen nie (Design: nur Live kann Nehmen und Verändern). 'passable': none = blockiert alle, owner = nur der Besitzer (und seine NPCs) geht durch (Tür). 'tier': wood wird mit Nahkampf beschädigt und verfällt (decay_per_hour Lebenspunkte je Stunde); stone/iron kommen später (Eisenwerkzeug bzw. Sprengsatz). Projektile bleiben an Bauteilen hängen, ohne sie zu beschädigen. 'trade': true = Handelstisch mit Inhalt und Angeboten. Sensor: 'sensor_radius'/'sensor_hold'. Falle: 'trap_damage', 'hidden' (nur der Besitzer sieht sie).",
   "buildings": [
     {
       "id": "wood_wall",
@@ -67,6 +67,46 @@
       "color": "#6fa8dc",
       "trade": true,
       "_doc": "Eigener Shop: der Besitzer lagert Waren ein und setzt bis zu 3 Angebote (verkaufe X für Y). Fremde kaufen live per E. Wird er zerstört, fällt der Inhalt dem Zerstörer zu (Shop ist auch Ziel)."
+    },
+    {
+      "id": "sensor",
+      "name": "Sensor",
+      "tier": "wood",
+      "cost": {
+        "wood": 2,
+        "stone": 2
+      },
+      "hp": 15,
+      "size": [
+        1,
+        1
+      ],
+      "passable": "all",
+      "decay_per_hour": 0.5,
+      "color": "#4fc3f7",
+      "sensor_radius": 6.0,
+      "sensor_hold": 5.0,
+      "_doc": "Meldet Fremde (auch versteckte) im Umkreis als Bedingung 'Sensor … ausgelöst' und ist als Ort in Regeln wählbar. Phase 1 aus Holz und Stein; laut Design später Kupferdraht."
+    },
+    {
+      "id": "trap",
+      "name": "Falle",
+      "tier": "wood",
+      "cost": {
+        "wood": 3,
+        "stone": 1
+      },
+      "hp": 10,
+      "size": [
+        2,
+        2
+      ],
+      "passable": "all",
+      "decay_per_hour": 0.5,
+      "color": "#8d6e63",
+      "trap_damage": 12.0,
+      "hidden": true,
+      "_doc": "Für Fremde unsichtbar. Wer sie betritt (Fremde und Tiere), nimmt Schaden und wird enttarnt; die Falle ist danach verbraucht."
     }
   ]
 }

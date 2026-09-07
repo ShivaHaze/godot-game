@@ -18,6 +18,7 @@ static func facts_for(world: SimWorld, c: SimCharacter) -> Dictionary:
 		"nearest_stranger_distance": nearest_stranger_distance(world, c),
 		"inventory_state": inventory_state(c, data.bali("inventory.capacity")),
 		"stranger_in_claim": stranger_in_claim(world, c),
+		"triggered_sensors": world.triggered_sensors_of(c.owner_id),
 	}
 
 

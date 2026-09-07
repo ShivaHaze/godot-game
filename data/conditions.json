@@ -7,7 +7,8 @@
     "nearest_stranger_distance": "Distanz in Kacheln zum nächsten sichtbaren Fremden (anderer Besitzer, auch Tiere); sehr groß, wenn keiner",
     "inventory_state": "'full', 'empty' oder 'partial'",
     "always": "immer true (für 'Sonst')",
-    "stranger_in_claim": "true, wenn ein sichtbarer Fremder auf einer Kachel des eigenen Claims steht"
+    "stranger_in_claim": "true, wenn ein sichtbarer Fremder auf einer Kachel des eigenen Claims steht",
+    "triggered_sensors": "Kennungen der eigenen Sensoren, die gerade ausgelöst sind (Array)"
   },
   "conditions": [
     {
@@ -115,6 +116,27 @@
         "fact": "stranger_in_claim",
         "op": "==",
         "value": true
+      }
+    },
+    {
+      "id": "sensor_triggered",
+      "label": "Sensor {sensor} ausgelöst",
+      "log": "Sensor {sensor} ausgelöst",
+      "unlock": {
+        "fact": "owned_sensor",
+        "label": "Frei, sobald du einen Sensor gebaut hast."
+      },
+      "params": [
+        {
+          "name": "sensor",
+          "type": "sensor",
+          "label": "Sensor"
+        }
+      ],
+      "check": {
+        "fact": "triggered_sensors",
+        "op": "has",
+        "param": "sensor"
       }
     },
     {

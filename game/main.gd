@@ -737,6 +737,10 @@ func _handle_events() -> void:
 					hud.show_message("Dein Claim ist aufgelöst (%s)." % event["reason"], 5.0)
 				"claim_restored":
 					hud.show_message("Anker wiederhergestellt, Claim gerettet.", 3.0)
+				"sensor_triggered":
+					hud.show_message("%s ausgelöst!" % event["label"], 2.5)
+				"trap_triggered":
+					hud.show_message("Deine Falle hat zugeschnappt.", 2.5)
 		if mode == Mode.VERSUS and id == _yesterday_id and String(event.get("type", "")) == "death":
 			hud.show_message("Du hast deinen Charakter von gestern besiegt. Plündere ihn mit E.", 5.0)
 			continue
@@ -760,6 +764,8 @@ func _handle_events() -> void:
 				hud.show_message("Neuer Regel-Baustein freigeschaltet: %s" % event["label"], 5.0)
 			"deposit":
 				hud.show_message("%d Holz am Anker abgeliefert, Vorrat %d." % [event["amount"], int(event["stock"])], 2.0)
+			"trap_triggered":
+				hud.show_message("In eine Falle getreten!", 2.0)
 			"healed":
 				_heal_active = false
 				hud.show_message("Verband angelegt: +%d Leben (%d übrig)." % [int(event["amount"]), event["left"]], 2.0)

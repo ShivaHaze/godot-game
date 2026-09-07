@@ -122,8 +122,15 @@ func _building_color(part: String) -> Color:
 func _draw_buildings() -> void:
 	var half := TILE * 0.5
 	for b: SimBuilding in world.map.buildings.values():
+		if not world.building_visible_to(b, viewer_owner):
+			continue
 		var color := _building_color(b.part)
 		var frac := b.hp / maxf(1.0, b.max_hp)
+		var def: Dictionary = world.data.buildings.get(b.part, {})
+		if def.has("sensor_radius") and b.owner_id == viewer_owner:
+			var triggered := world.time < b.triggered_until
+			draw_arc(b.center() * TILE, float(def["sensor_radius"]) * TILE, 0.0, TAU, 48, Color(1.0, 0.3, 0.3, 0.6) if triggered else Color(0.3, 0.8, 1.0, 0.25), 1.0)
+			draw_string(ThemeDB.fallback_font, b.center() * TILE + Vector2(8, -6), b.label, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.6, 0.9, 1.0))
 		color = color.darkened((1.0 - frac) * 0.5)
 		for cell: Vector2i in b.cells:
 			draw_rect(Rect2(cell.x * half, cell.y * half, half, half), color)

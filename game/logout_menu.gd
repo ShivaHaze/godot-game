@@ -392,6 +392,8 @@ func _param_widget(param_def: Dictionary, params: Dictionary) -> Control:
 			var values: Array[String] = [SimData.PLACE_HERE]
 			for marker: Dictionary in character.markers:
 				values.append(String(marker["id"]))
+			for pid: String in character.extra_places:
+				values.append(pid)
 			var current := String(params.get(name, SimData.PLACE_HERE))
 			if not values.has(current):
 				current = SimData.PLACE_HERE
@@ -401,6 +403,23 @@ func _param_widget(param_def: Dictionary, params: Dictionary) -> Control:
 				params[name] = values[item]
 				_mark_custom())
 			box.add_child(button)
+		"sensor":
+			var values: Array[String] = []
+			for pid: String in character.extra_places:
+				values.append(pid)
+			if values.is_empty():
+				box.add_child(_label("(kein Sensor gebaut)"))
+				params[name] = ""
+			else:
+				var current := String(params.get(name, ""))
+				if not values.has(current):
+					current = values[0]
+					params[name] = current
+				var button := _option_button(values, func(v: String) -> String: return character.marker_name(v), current)
+				button.item_selected.connect(func(item: int) -> void:
+					params[name] = values[item]
+					_mark_custom())
+				box.add_child(button)
 		"resource":
 			var values: Array[String] = []
 			values.assign(data.resource_order)

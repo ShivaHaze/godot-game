@@ -51,6 +51,8 @@ static func compare(actual: Variant, op: String, expected: Variant) -> bool:
 			return float(actual) == float(expected) if numeric else actual == expected
 		"!=":
 			return float(actual) != float(expected) if numeric else actual != expected
+		"has":
+			return actual is Array and actual.has(expected)
 	return false
 
 
