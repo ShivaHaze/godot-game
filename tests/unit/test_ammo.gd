@@ -65,6 +65,8 @@ func test_npc_prefers_bow_with_arrows_and_falls_back_without() -> void:
 	player.inventory["arrow"] = 2
 	var wolf := world.spawn_wolf(OPEN + Vector2(5, 0))
 	wolf.control = SimCharacter.Controller.NONE
+	wolf.max_hp = 500.0  # soll den Test überleben (ein Pfeil tötet sonst einen Wolf)
+	wolf.hp = wolf.max_hp
 	world.spatial.rebuild(world.characters)
 	var rules := data.normalize_rule_list([
 		{"if": {"condition": "else"}, "then": {"action": "fight_back"}},
@@ -76,7 +78,7 @@ func test_npc_prefers_bow_with_arrows_and_falls_back_without() -> void:
 	assert_eq(player.active_weapon, "bow", "Bogen mit Pfeilen ist die stärkste Fernwaffe")
 	for i in 20 * 15:
 		player.last_damage_time = world.time
-		wolf.hp = wolf.max_hp  # der Wolf soll den Test überleben
+		wolf.hp = wolf.max_hp
 		world.tick()
 		if int(player.inventory.get("arrow", 0)) == 0 and player.active_weapon != "bow":
 			break
