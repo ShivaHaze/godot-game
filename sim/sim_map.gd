@@ -16,6 +16,7 @@ var zone_ids: PackedStringArray = PackedStringArray()  # Zone je Kachel ("" oder
 var nodes: Dictionary = {}  # Vector2i -> SimResourceNode
 var buildings: Dictionary = {}       # id -> SimBuilding
 var built_half: Dictionary = {}      # Halbzelle (Vector2i) -> Gebäude-Kennung
+var built_tiles: PackedByteArray = PackedByteArray()  # je Kachel: Zahl bebauter Halbzellen (schneller Vorab-Check für Kollision und Wegsuche)
 
 
 func _init(data: SimData) -> void:
@@ -23,6 +24,7 @@ func _init(data: SimData) -> void:
 	height = data.map_height
 	tile_ids = data.map_tile_ids.duplicate()
 	walkable.resize(width * height)
+	built_tiles.resize(width * height)
 	for y in height:
 		for x in width:
 			var def := data.tile_def_at(x, y)
@@ -72,6 +74,7 @@ func add_building(b: SimBuilding) -> void:
 	buildings[b.id] = b
 	for half: Vector2i in b.cells:
 		built_half[half] = b.id
+		_count_tile(half, 1)
 
 
 func remove_building(id: int) -> void:
@@ -80,7 +83,20 @@ func remove_building(id: int) -> void:
 		return
 	for half: Vector2i in b.cells:
 		built_half.erase(half)
+		_count_tile(half, -1)
 	buildings.erase(id)
+
+
+func _count_tile(half: Vector2i, delta: int) -> void:
+	var cell := Vector2i(floori(half.x / 2.0), floori(half.y / 2.0))
+	if in_bounds(cell):
+		var index := cell.y * width + cell.x
+		built_tiles[index] = maxi(0, built_tiles[index] + delta)
+
+
+## Liegt in dieser Kachel irgendein Bauteil? (Array-Zugriff, kein Dictionary.)
+func tile_built(cell: Vector2i) -> bool:
+	return in_bounds(cell) and built_tiles[cell.y * width + cell.x] > 0
 
 
 func building_at_half(half: Vector2i) -> SimBuilding:
@@ -116,6 +132,23 @@ func cell_built_for(cell: Vector2i, owner_id: String, data: SimData) -> bool:
 ## Bauteil-Halbzellen, die ein Kreis berührt; nur die für `owner_id` blockierenden.
 func circle_hits_building(pos: Vector2, radius: float, owner_id: String, data: SimData) -> bool:
 	if built_half.is_empty():
+		return false
+	# Vorab: berührte Kacheln ohne Bauteil -> nichts zu prüfen (der häufige Fall auf freiem Feld).
+	# Bewusst ohne range()/Aufrufe: das läuft für jede Bewegung und jede Sichtlinien-Probe.
+	var x0 := floori(pos.x - radius)
+	var x1 := floori(pos.x + radius)
+	var y0 := floori(pos.y - radius)
+	var y1 := floori(pos.y + radius)
+	var any_built := false
+	var y := y0
+	while y <= y1:
+		var x := x0
+		while x <= x1:
+			if x >= 0 and y >= 0 and x < width and y < height and built_tiles[y * width + x] > 0:
+				any_built = true
+			x += 1
+		y += 1
+	if not any_built:
 		return false
 	var min_half := SimBuilding.half_cell_of(pos - Vector2(radius, radius))
 	var max_half := SimBuilding.half_cell_of(pos + Vector2(radius, radius))
@@ -217,7 +250,7 @@ func nearest_walkable_cell(cell: Vector2i, max_ring: int = 3) -> Vector2i:
 func is_walkable_for(cell: Vector2i, owner_id: String, data: SimData) -> bool:
 	if not is_walkable(cell):
 		return false
-	if data == null or built_half.is_empty():
+	if data == null or built_half.is_empty() or not tile_built(cell):
 		return true
 	return not cell_built_for(cell, owner_id, data)
 

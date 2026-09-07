@@ -192,3 +192,15 @@ func test_save_and_snapshot_carry_buildings() -> void:
 	assert_true(removal.has("bld_rm"))
 	NetProtocol.apply_snapshot(mirror, removal)
 	assert_false(mirror.map.buildings.has(b.id))
+
+
+func test_tile_occupancy_follows_add_and_remove() -> void:
+	assert_false(world.map.tile_built(Vector2i(22, 5)))
+	var wall := _wall_right()  # Halbzellen (44, 10) und (44, 11) -> Kachel (22, 5)
+	assert_true(world.map.tile_built(Vector2i(22, 5)))
+	assert_false(world.map.tile_built(Vector2i(23, 5)))
+	assert_false(world.map.is_walkable_for(Vector2i(22, 5), "p2", data))
+	world.remove_building(wall.id)
+	assert_false(world.map.tile_built(Vector2i(22, 5)))
+	assert_true(world.map.is_walkable_for(Vector2i(22, 5), "p2", data))
+	assert_true(world.map.tile_built(SimMap.cell_of(world.depots()[0].center())), "Depot zählt")
