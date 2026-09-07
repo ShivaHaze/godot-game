@@ -1,5 +1,5 @@
 {
-  "_doc": "Kacheltypen. 'char' ist das Zeichen in map.json. Quellen (mit 'resource') tragen 'amount' Gegenstände und wachsen nach (siehe balance.json, gathering). Farben nur für die Rechteck-Darstellung.",
+  "_doc": "Kacheltypen. 'char' ist das Zeichen in map.json. Quellen (mit 'resource') tragen 'amount' Gegenstände und wachsen nach (siehe balance.json, gathering). Farben nur für die Rechteck-Darstellung. 'offline_needs' = Bauteil, das ein Offline-Charakter direkt neben der Quelle braucht, um sie abzubauen (Eisen/Kohle: Mine); live geht es von Hand.",
   "tiles": [
     {
       "id": "floor",
@@ -68,6 +68,26 @@
       "color": "#5a4a30",
       "zone": "market",
       "_doc": "Neutraler Markt: kampffrei (kein Schaden, Projektile verpuffen, Wölfe jagen hier nicht), nicht bebaubar, nicht beanspruchbar. D = Markt-Depot auf Marktboden."
+    },
+    {
+      "id": "iron_vein",
+      "char": "I",
+      "name": "Eisenader",
+      "walkable": false,
+      "resource": "iron_ore",
+      "amount": 8,
+      "color": "#6a5a58",
+      "offline_needs": "mine"
+    },
+    {
+      "id": "coal_seam",
+      "char": "K",
+      "name": "Kohleflöz",
+      "walkable": false,
+      "resource": "coal",
+      "amount": 8,
+      "color": "#1e1e1e",
+      "offline_needs": "mine"
     }
   ]
 }

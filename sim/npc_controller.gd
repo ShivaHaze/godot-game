@@ -92,6 +92,8 @@ static func blocked_reason(world: SimWorld, c: SimCharacter, rule: Dictionary) -
 			if c.inventory_count() >= data.bali("inventory.capacity"):
 				return "Inventar voll"
 			if _find_gather_node(world, c, String(params["resource"]), c.place_pos(String(params["place"])), float(params["radius"])) == null:
+				if _find_gather_node(world, c, String(params["resource"]), c.place_pos(String(params["place"])), float(params["radius"]), false) != null:
+					return "braucht eine Mine daneben"
 				return "nichts zu sammeln in der Leine"
 		"hide":
 			if world.in_transition(c):
@@ -205,7 +207,7 @@ static func _deliver(world: SimWorld, c: SimCharacter, rid: String, center: Vect
 
 
 ## Nächste Quelle mit Vorrat, deren Mitte innerhalb der Leine liegt.
-static func _find_gather_node(world: SimWorld, c: SimCharacter, resource: String, center: Vector2, radius: float) -> SimResourceNode:
+static func _find_gather_node(world: SimWorld, c: SimCharacter, resource: String, center: Vector2, radius: float, require_mine: bool = true) -> SimResourceNode:
 	var best: SimResourceNode = null
 	var best_d := INF
 	for node: SimResourceNode in world.map.nodes.values():
@@ -215,6 +217,8 @@ static func _find_gather_node(world: SimWorld, c: SimCharacter, resource: String
 			continue
 		if world.claims.is_foreign(node.cell, c.owner_id):
 			continue  # Rohstoffknoten nur für Eigentümer-NPCs
+		if require_mine and not world.node_offline_ok(node, c.owner_id):
+			continue  # Eisen/Kohle offline nur mit Mine daneben
 		var d := node.center().distance_squared_to(c.pos)
 		if d < best_d:
 			best_d = d

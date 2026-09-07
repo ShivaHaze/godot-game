@@ -34,6 +34,23 @@
       "color": "#c48a4a"
     },
     {
+      "id": "stone_wall",
+      "name": "Steinwand",
+      "tier": "stone",
+      "cost": {
+        "stone": 6
+      },
+      "hp": 120,
+      "size": [
+        1,
+        2
+      ],
+      "passable": "none",
+      "decay_per_hour": 0.4,
+      "color": "#8c8c8c",
+      "_doc": "Stufe Stein: nur Werkzeuge mit 'breaks' stone (Eisenaxt) schlagen sie ein."
+    },
+    {
       "id": "anchor",
       "name": "Claim-Anker",
       "tier": "wood",
@@ -164,6 +181,28 @@
       "placeable": false,
       "indestructible": true,
       "_doc": "Kartenfeature des neutralen Markts (Zeichen D), gehört niemandem, unzerstörbar. Jeder lagert per E eigene Waren ein (Gebühr balance.json market.depot_fee, Kapazität market.depot_capacity je Besitzer und Depot) und holt sie gebührenfrei wieder – nur an diesem Depot, kein Teleport. Für Regeln ein Ort für alle ('Markt-Depot 1'), NPCs liefern hin."
+    },
+    {
+      "id": "mine",
+      "name": "Mine",
+      "tier": "wood",
+      "cost": {
+        "wood": 12,
+        "stone": 6
+      },
+      "hp": 80,
+      "size": [
+        2,
+        2
+      ],
+      "passable": "none",
+      "decay_per_hour": 1.0,
+      "color": "#7a6248",
+      "next_to_resource": [
+        "iron_ore",
+        "coal"
+      ],
+      "_doc": "Muss direkt neben einer Eisenader oder einem Kohleflöz stehen. Erst damit bauen Offline-Charaktere dort ab (Design: 'offline nur mit Mine'); live geht es von Hand."
     }
   ]
 }

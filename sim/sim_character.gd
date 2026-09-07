@@ -21,6 +21,7 @@ var collision_radius: float = 0.35
 var hp: float = 30.0
 var max_hp: float = 30.0
 var armor: float = 0.0
+var armor_slow: float = 0.0          # Anteil, um den die getragene Rüstung verlangsamt (0 = keine)
 var dead: bool = false
 var death_time: float = -1e9
 var melee_damage: float = 0.0        # 0 = kein Nahkampf (Spielercharaktere schießen nur)

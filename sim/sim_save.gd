@@ -85,6 +85,7 @@ static func world_from_dict(data: SimData, dict: Dictionary) -> SimWorld:
 	for entry: Dictionary in dict["characters"]:
 		var c := character_from_dict(data, entry)
 		world.characters[c.id] = c
+		world.refresh_equipment(c)  # abgeleitete Werte (Ruestung, Gewicht, Waffe) aus den Gegenstaenden
 	for entry: Dictionary in dict.get("projectiles", []):
 		var p := SimProjectile.new()
 		p.owner_id = int(entry["owner_id"])

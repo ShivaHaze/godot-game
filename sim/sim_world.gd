@@ -332,10 +332,12 @@ func refresh_equipment(c: SimCharacter) -> void:
 	if c.kind != SimCharacter.Kind.PLAYER:
 		return
 	var best_armor := 0.0
+	c.armor_slow = 0.0
 	for item_id: String in c.items:
 		var def: Dictionary = data.items.get(item_id, {})
-		if def.get("kind", "") == "armor":
-			best_armor = maxf(best_armor, float(def["armor"]))
+		if def.get("kind", "") == "armor" and float(def["armor"]) > best_armor:
+			best_armor = float(def["armor"])
+			c.armor_slow = float(def.get("slow", 0.0))  # die beste Rüstung wird getragen, mit ihrem Gewicht
 	c.armor = data.balf("character.armor") + best_armor
 	if not c.items.has(c.active_weapon):
 		c.active_weapon = ""
@@ -637,6 +639,20 @@ func can_place(c: SimCharacter, part_id: String, origin: Vector2i, rotation: int
 		for b: SimBuilding in map.buildings.values():
 			if b.owner_id == c.owner_id and b.part == part_id:
 				return "du hast schon %s" % [def["name"]]
+	if def.has("next_to_resource"):
+		var wanted: Array = def["next_to_resource"]
+		var adjacent := false
+		for half: Vector2i in cells:
+			var tile := Vector2i(floori(half.x / 2.0), floori(half.y / 2.0))
+			for step: Vector2i in SimMap.NEIGHBORS_4:
+				var node := map.node_at(tile + step)
+				if node != null and wanted.has(node.resource):
+					adjacent = true
+		if not adjacent:
+			var names: PackedStringArray = []
+			for rid: String in wanted:
+				names.append(String(data.resources[rid]["name"]))
+			return "muss neben %s stehen" % " oder ".join(names)
 	for half: Vector2i in cells:
 		var tile := Vector2i(floori(half.x / 2.0), floori(half.y / 2.0))
 		if claims.is_foreign(tile, c.owner_id):
@@ -708,6 +724,13 @@ func remove_building(id: int, refund_to: SimCharacter = null) -> bool:
 
 
 ## Schaden an einem Bauteil (Nahkampf gegen Holz, später Werkzeuge/Sprengsätze). Bei 0 verschwindet es.
+## Kann die aktive Waffe dieses Bauteil einschlagen? (Holz mit allem, Stein nur mit Eisenwerkzeug.)
+func can_break(c: SimCharacter, b: SimBuilding) -> bool:
+	var tier := String(data.buildings[b.part]["tier"])
+	var breaks: Array = data.items.get(c.active_weapon, {}).get("breaks", ["wood"])
+	return breaks.has(tier)
+
+
 func damage_building(b: SimBuilding, amount: float, attacker_id: int) -> void:
 	if bool(data.buildings.get(b.part, {}).get("indestructible", false)):
 		return
@@ -1252,7 +1275,7 @@ func _apply_intent(c: SimCharacter, intent: SimIntent, dt: float) -> void:
 	if move.length_squared() > 1.0:
 		move = move.normalized()
 	if move != Vector2.ZERO:
-		var speed := c.move_speed
+		var speed := c.move_speed * (1.0 - c.armor_slow)
 		if c.is_weakened():
 			speed *= data.balf("character.weakened_speed_multiplier")
 		c.pos = map.resolve_move(c.pos, move * speed * dt, c.collision_radius, c.owner_id, data)
@@ -1292,6 +1315,8 @@ func _gather(c: SimCharacter, dt: float, wanted_cell: Vector2i = Vector2i(-1, -1
 	# Offline-Charaktere sammeln nie auf fremdem Land (Rohstoffknoten nur für Eigentümer-NPCs)
 	if node != null and c.control == SimCharacter.Controller.RULES and claims.is_foreign(node.cell, c.owner_id):
 		node = null
+	if node != null and c.control == SimCharacter.Controller.RULES and not node_offline_ok(node, c.owner_id):
+		node = null
 	if node == null or c.inventory_count() >= data.bali("inventory.capacity"):
 		c.gather_progress = 0.0
 		c.gather_target = Vector2i(-1, -1)
@@ -1309,6 +1334,21 @@ func _gather(c: SimCharacter, dt: float, wanted_cell: Vector2i = Vector2i(-1, -1
 		var claim := claims.claim_at(node.cell)
 		if claim != null and claim.owner_id != c.owner_id:
 			events.append({"type": "theft", "id": c.id, "claim": claim.id, "owner": claim.owner_id, "resource": node.resource})
+
+
+## Darf ein Offline-Charakter dieses Besitzers die Quelle abbauen? Eisen/Kohle nur mit eigener Mine direkt daneben.
+func node_offline_ok(node: SimResourceNode, owner_id: String) -> bool:
+	var needs := String(data.tiles.get(map.tile_id(node.cell), {}).get("offline_needs", ""))
+	if needs.is_empty():
+		return true
+	for step: Vector2i in SimMap.NEIGHBORS_4:
+		var neighbor := node.cell + step
+		if not map.tile_built(neighbor):
+			continue
+		var b := map.building_at_half(neighbor * 2)
+		if b != null and b.part == needs and b.owner_id == owner_id:
+			return true
+	return false
 
 
 ## Holz am eigenen Anker abliefern (E daneben). true, wenn etwas abgeliefert wurde.
@@ -1430,7 +1470,8 @@ func _melee(c: SimCharacter) -> void:
 		if c.control != SimCharacter.Controller.PLAYER or c.kind != SimCharacter.Kind.PLAYER:
 			return
 		var b := building_in_reach(c, c.melee_range)
-		if b == null or String(data.buildings[b.part]["tier"]) != "wood":
+		if b == null or not can_break(c, b):
+			events.append({"type": "too_hard", "id": c.id, "building": b.id} if b != null else {"type": "swing", "id": c.id})
 			return
 		c.bite_cooldown = c.melee_cooldown
 		reveal(c)

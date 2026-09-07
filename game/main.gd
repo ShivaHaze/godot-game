@@ -905,6 +905,8 @@ func _handle_events() -> void:
 				hud.show_message("Neutraler Markt: hier gibt es keinen Kampf.", 1.5)
 			"item_broken":
 				hud.show_message("%s zerbrochen!" % data.items[event["item"]]["name"], 3.0)
+			"too_hard":
+				hud.show_message("Zu hart für %s – dafür braucht es Eisenwerkzeug." % data.items.get(world.get_character(player_id).active_weapon, {}).get("name", "bloße Hände"), 1.5)
 			"no_ammo":
 				hud.show_message("Keine %s mehr." % data.resources[world.ammo_of(event["weapon"])]["name"], 1.5)
 			"healed":

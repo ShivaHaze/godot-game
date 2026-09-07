@@ -1,5 +1,5 @@
 {
-  "_doc": "Rohstoffe und Verbrauchsgüter. 'nutrition' = Hunger, den ein Stück beim Essen zurückgibt (nur bei edible). 'cost' = an der Werkbank herstellbar (Verbrauchsgut, stapelbar), 'heal'/'heal_time' = Verband: Kanalisierung heal_time Sekunden ohne Angriff, dann +heal Leben. Farben nur für die Rechteck-Darstellung. Kette: Fasern → Stoff (2 Fasern) → Verband (1 Stoff) und Stoffrüstung (items.json). 'yield' = Stück je Herstellung (Standard 1). Pfeile sind Munition für den Bogen (items.json 'ammo'). Kette: Kupfererz (Rand) → Kupfer (2 Erz + 1 Holz als Brennstoff) → Draht (2 je Kupfer) für Sensoren und Kupferspeer (items.json).",
+  "_doc": "Rohstoffe und Verbrauchsgüter. 'nutrition' = Hunger, den ein Stück beim Essen zurückgibt (nur bei edible). 'cost' = an der Werkbank herstellbar (Verbrauchsgut, stapelbar), 'heal'/'heal_time' = Verband: Kanalisierung heal_time Sekunden ohne Angriff, dann +heal Leben. Farben nur für die Rechteck-Darstellung. Kette: Fasern → Stoff (2 Fasern) → Verband (1 Stoff) und Stoffrüstung (items.json). 'yield' = Stück je Herstellung (Standard 1). Pfeile sind Munition für den Bogen (items.json 'ammo'). Kette: Kupfererz (Rand) → Kupfer (2 Erz + 1 Holz als Brennstoff) → Draht (2 je Kupfer) für Sensoren und Kupferspeer (items.json). Kette: Eisenerz + Kohle (Mitte, offline nur mit Mine) → Eisen (2 Erz + 1 Kohle) → Eisenaxt, Eisenrüstung (items.json).",
   "resources": [
     {
       "id": "wood",
@@ -91,6 +91,31 @@
         "copper": 1
       },
       "yield": 2
+    },
+    {
+      "id": "iron_ore",
+      "name": "Eisenerz",
+      "edible": false,
+      "nutrition": 0,
+      "color": "#6a5a58"
+    },
+    {
+      "id": "coal",
+      "name": "Kohle",
+      "edible": false,
+      "nutrition": 0,
+      "color": "#1e1e1e"
+    },
+    {
+      "id": "iron",
+      "name": "Eisen",
+      "edible": false,
+      "nutrition": 0,
+      "color": "#8a9aa8",
+      "cost": {
+        "iron_ore": 2,
+        "coal": 1
+      }
     }
   ]
 }

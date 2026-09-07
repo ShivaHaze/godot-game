@@ -121,7 +121,7 @@ func _describe(def: Dictionary) -> String:
 				return "Fernkampf: %d Schaden, %d Projektile%s" % [int(def["damage"]), int(def["max_projectiles"]), (", braucht %s" % data.resources[ammo]["name"]) if not ammo.is_empty() else ""]
 			return "Nahkampf: %d Schaden, Reichweite %.1f" % [int(def["damage"]), float(def["range"])]
 		"armor":
-			return "Rüstung: −%d pro Treffer" % int(def["armor"])
+			return "Rüstung: −%d pro Treffer%s" % [int(def["armor"]), (", schwer: −%d %% Tempo" % int(roundf(float(def["slow"]) * 100.0))) if def.has("slow") else ""]
 	return ""
 
 

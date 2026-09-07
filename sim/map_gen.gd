@@ -12,6 +12,8 @@ const BUSH: String = "B"
 const STONE: String = "S"
 const FIBER: String = "F"
 const COPPER: String = "C"
+const IRON: String = "I"
+const COAL: String = "K"
 const PLAYER: String = "P"
 const WOLF: String = "W"
 const MARKET: String = "M"
@@ -43,6 +45,11 @@ static func generate(width: int, height: int, seed: int, rock_clusters_per_100: 
 		_blob(grid, rng, STONE, rng.randi_range(2, 5), width, height)
 	for i in maxi(1, int(inner_cells / 100.0 * 0.3)):
 		_blob(grid, rng, FIBER, rng.randi_range(2, 6), width, height)
+	# Eisen und Kohle nur innen (Design: Mitte, offline nur mit Mine; Kohle seltener = Engpass)
+	for i in maxi(2, int(inner_cells / 100.0 * 0.08)):
+		_blob(grid, rng, IRON, rng.randi_range(2, 4), width, height, 0.4, 1.0)
+	for i in maxi(1, int(inner_cells / 100.0 * 0.05)):
+		_blob(grid, rng, COAL, rng.randi_range(2, 3), width, height, 0.4, 1.0)
 	# Kupferadern nur im äußeren Ring (Design: Kupfer am Rand)
 	for i in maxi(2, int(inner_cells / 100.0 * 0.1)):
 		_blob(grid, rng, COPPER, rng.randi_range(2, 4), width, height, 0.0, 0.15)
