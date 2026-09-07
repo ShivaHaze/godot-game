@@ -14,6 +14,7 @@ const HudScript := preload("res://game/hud.gd")
 const LogoutMenuScript := preload("res://game/logout_menu.gd")
 const CraftPanelScript := preload("res://game/craft_panel.gd")
 const TradePanelScript := preload("res://game/trade_panel.gd")
+const DepotPanelScript := preload("res://game/depot_panel.gd")
 
 const MAX_TICKS_PER_FRAME: int = 5      # Schutz gegen Aufholspiralen bei Rucklern
 const SKIP_BUDGET_MSEC: int = 14        # Echtzeit pro Frame für den Zeitsprung (Fortschritt bleibt sichtbar)
@@ -53,6 +54,7 @@ var _build_part: String = ""
 var _build_rot: int = 0
 var _build_click: bool = false
 var _sign_edit: SimBuilding = null      # Schild, das gerade beschriftet wird
+var depot_panel: CanvasLayer
 
 
 func _ready() -> void:
@@ -125,6 +127,11 @@ func _ready() -> void:
 	trade_panel.buy_requested.connect(func(id: int, index: int) -> void: _trade_action("table_buy", {"id": id, "index": index}))
 	trade_panel.closed.connect(func() -> void: trade_panel.close())
 	add_child(trade_panel)
+	depot_panel = DepotPanelScript.new()
+	depot_panel.deposit_requested.connect(func(id: int, rid: String, amount: int) -> void: _depot_action("depot_deposit", {"id": id, "res": rid, "amount": amount}))
+	depot_panel.withdraw_requested.connect(func(id: int, rid: String, amount: int) -> void: _depot_action("depot_withdraw", {"id": id, "res": rid, "amount": amount}))
+	depot_panel.closed.connect(func() -> void: depot_panel.close())
+	add_child(depot_panel)
 	hud.chat_input.text_submitted.connect(_on_chat_submitted)
 
 	hud.world = world
@@ -173,6 +180,8 @@ func _process_net(delta: float) -> void:
 				craft_panel.show_status(String(msg.get("text", "")))
 				if trade_panel.visible:
 					trade_panel.show_status(String(msg.get("text", "")))
+				if depot_panel.visible:
+					depot_panel.show_status(String(msg.get("text", "")))
 	net.messages.clear()
 	if not net.connected and player_id >= 0:
 		hud.mode_text = "Verbindung verloren"
@@ -203,6 +212,13 @@ func _process_net(delta: float) -> void:
 	hud.refresh()
 	if craft_panel.visible:
 		craft_panel.refresh()
+	if depot_panel.visible:
+		var depot: SimBuilding = world.map.buildings.get(depot_panel.building.id) if depot_panel.building != null else null
+		if depot == null or depot.center().distance_to(player.pos) > data.balf("character.interact_range") + 0.5:
+			depot_panel.close()
+		else:
+			depot_panel.building = depot
+			depot_panel.rebuild()
 	if trade_panel.visible:
 		var table: SimBuilding = world.map.buildings.get(trade_panel.building.id) if trade_panel.building != null else null
 		if table == null or table.center().distance_to(player.pos) > data.balf("character.interact_range") + 0.5:
@@ -359,7 +375,7 @@ func _process_live_input(player: SimCharacter) -> void:
 		hud.chat_input.grab_focus()
 		return
 	if Input.is_action_just_pressed("interact") and not player.dead and not _build_mode:
-		if not _toggle_sign_edit(player):
+		if not _toggle_sign_edit(player) and not _toggle_depot_panel(player):
 			_toggle_trade_panel(player)
 	if Input.is_action_just_pressed("build_mode") and not player.dead:
 		_toggle_build_mode(player)
@@ -377,7 +393,7 @@ func _build_player_intent(player: SimCharacter) -> SimIntent:
 	intent.move = Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	intent.aim = view.mouse_world_pos() - player.pos
 	intent.shoot = Input.is_action_pressed("shoot") and not craft_panel.visible and not _build_mode
-	intent.interact = Input.is_action_pressed("interact") and not trade_panel.visible
+	intent.interact = Input.is_action_pressed("interact") and not trade_panel.visible and not depot_panel.visible
 	intent.eat = _eat_pressed
 	_eat_pressed = false
 	if intent.shoot or player.hp >= player.max_hp:
@@ -453,6 +469,35 @@ func _trade_signature(b: SimBuilding) -> int:
 
 
 ## E (tippen) neben einem Handelstisch öffnet die Tafel; sonst bleibt E das Sammeln (halten).
+## E neben einem Markt-Depot: eigene Waren einlagern/holen. true, wenn ein Depot in Reichweite ist.
+func _toggle_depot_panel(player: SimCharacter) -> bool:
+	if depot_panel.visible:
+		depot_panel.close()
+		return true
+	var depot := world.depot_near(player)
+	if depot == null:
+		return false
+	craft_panel.close()
+	trade_panel.close()
+	depot_panel.open(data, world, player, depot)
+	return true
+
+
+func _depot_action(kind: String, payload: Dictionary) -> void:
+	var player := world.get_character(player_id)
+	if player == null:
+		return
+	if net != null:
+		var msg := payload.duplicate()
+		msg["t"] = kind
+		net.send(msg, true)
+		return
+	var b: SimBuilding = world.map.buildings.get(int(payload["id"]))
+	var reason := world.depot_deposit(player, b, String(payload["res"]), int(payload["amount"])) if kind == "depot_deposit" else world.depot_withdraw(player, b, String(payload["res"]), int(payload["amount"]))
+	depot_panel.show_status("" if reason.is_empty() else "Geht nicht: %s" % reason)
+	depot_panel.rebuild()
+
+
 func _toggle_trade_panel(player: SimCharacter) -> void:
 	if trade_panel.visible:
 		trade_panel.close()
@@ -852,6 +897,12 @@ func _handle_events() -> void:
 				hud.show_message("%d Holz am Anker abgeliefert, Vorrat %d." % [event["amount"], int(event["stock"])], 2.0)
 			"trap_triggered":
 				hud.show_message("In eine Falle getreten!", 2.0)
+			"depot_deposit":
+				hud.show_message("Eingelagert: %d %s (Gebühr %d)." % [event["kept"], data.resources[event["resource"]]["name"], event["fee"]], 2.0)
+			"depot_withdraw":
+				hud.show_message("Geholt: %d %s." % [event["amount"], data.resources[event["resource"]]["name"]], 2.0)
+			"market_peace":
+				hud.show_message("Neutraler Markt: hier gibt es keinen Kampf.", 1.5)
 			"item_broken":
 				hud.show_message("%s zerbrochen!" % data.items[event["item"]]["name"], 3.0)
 			"healed":

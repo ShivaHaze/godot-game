@@ -146,6 +146,24 @@
       "claim_only": true,
       "one_per_owner": true,
       "_doc": "Teures Claim-Upgrade: nur im eigenen Claim, einer je Besitzer. Neue Charaktere des Besitzers (R nach dem Tod, Beitritt) erscheinen daneben statt am Kartenrand."
+    },
+    {
+      "id": "depot",
+      "name": "Markt-Depot",
+      "tier": "stone",
+      "cost": {},
+      "hp": 1000,
+      "size": [
+        2,
+        2
+      ],
+      "passable": "none",
+      "decay_per_hour": 0,
+      "color": "#c8a050",
+      "depot": true,
+      "placeable": false,
+      "indestructible": true,
+      "_doc": "Kartenfeature des neutralen Markts (Zeichen D), gehört niemandem, unzerstörbar. Jeder lagert per E eigene Waren ein (Gebühr balance.json market.depot_fee, Kapazität market.depot_capacity je Besitzer und Depot) und holt sie gebührenfrei wieder – nur an diesem Depot, kein Teleport. Für Regeln ein Ort für alle ('Markt-Depot 1'), NPCs liefern hin."
     }
   ]
 }

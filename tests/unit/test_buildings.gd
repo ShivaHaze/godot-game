@@ -32,7 +32,7 @@ func _wall_right() -> SimBuilding:
 
 func test_data_and_cells() -> void:
 	assert_true(data.is_valid(), "Fehler: %s" % data.errors)
-	assert_eq(data.building_order, ["wood_wall", "wood_door", "anchor", "trade_table", "sensor", "trap", "sign", "spawn_anchor"] as Array[String])
+	assert_eq(data.building_order, ["wood_wall", "wood_door", "anchor", "trade_table", "sensor", "trap", "sign", "spawn_anchor", "depot"] as Array[String])
 	assert_eq(SimBuilding.cells_for([1, 2], Vector2i(4, 6), 0), [Vector2i(4, 6), Vector2i(4, 7)] as Array[Vector2i])
 	assert_eq(SimBuilding.cells_for([1, 2], Vector2i(4, 6), 1), [Vector2i(4, 6), Vector2i(5, 6)] as Array[Vector2i])
 	assert_eq(SimBuilding.half_cell_of(Vector2(20.5, 5.5)), Vector2i(41, 11))
@@ -56,14 +56,14 @@ func test_place_rules() -> void:
 
 
 func test_wall_blocks_everyone_door_only_strangers() -> void:
-	_wall_right()
+	var wall := _wall_right()
 	var intent := SimIntent.new()
 	intent.move = Vector2.RIGHT
 	for i in 20:
 		world.set_intent(player.id, intent)
 		world.tick()
 	assert_lt(player.pos.x, 22.0, "eigene Wand blockiert auch den Besitzer")
-	world.remove_building(1)
+	world.remove_building(wall.id)
 	var door := world.place_building(player, "wood_door", Vector2i(44, 10), 0)
 	assert_not_null(door)
 	for i in 20:
@@ -180,7 +180,7 @@ func test_save_and_snapshot_carry_buildings() -> void:
 	var state := {}
 	world.tick()
 	var snap := NetProtocol.snapshot(world, player.id, known, nodes, state)
-	assert_eq(snap["bld"].size(), 1, "neues Bauteil im Snapshot")
+	assert_eq(snap["bld"].size(), 2, "neues Bauteil und das Markt-Depot im Snapshot")
 	var again := NetProtocol.snapshot(world, player.id, known, nodes, state)
 	assert_false(again.has("bld"), "unverändert: nicht nochmal")
 	var mirror := SimWorld.new(data, 0)

@@ -53,6 +53,17 @@ func _run() -> void:
 	await _frames(5)
 	await _shot("2b_werkbank")
 	main.craft_panel.close()
+	var depot: SimBuilding = main.world.depots()[0]
+	builder.pos = depot.center() + Vector2(-1.2, 0.0)
+	builder.prev_pos = builder.pos
+	builder.inventory["berries"] = 7
+	main.world.depot_deposit(builder, depot, "wood", 5)
+	main._toggle_depot_panel(builder)
+	await _frames(5)
+	await _shot("2c_markt_depot")
+	main.depot_panel.close()
+	builder.pos = Vector2(20.5, 5.5)
+	builder.prev_pos = builder.pos
 	main._open_menu()
 	await _frames(5)
 	await _shot("3_menu_roles")

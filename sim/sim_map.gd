@@ -12,6 +12,7 @@ var width: int = 0
 var height: int = 0
 var tile_ids: Array[String] = []
 var walkable: PackedByteArray = PackedByteArray()
+var zone_ids: PackedStringArray = PackedStringArray()  # Zone je Kachel ("" oder z. B. "market")
 var nodes: Dictionary = {}  # Vector2i -> SimResourceNode
 var buildings: Dictionary = {}       # id -> SimBuilding
 var built_half: Dictionary = {}      # Halbzelle (Vector2i) -> Gebäude-Kennung
@@ -26,6 +27,7 @@ func _init(data: SimData) -> void:
 		for x in width:
 			var def := data.tile_def_at(x, y)
 			walkable[y * width + x] = 1 if def.get("walkable", false) else 0
+			zone_ids.append(String(def.get("zone", "")))
 			if def.has("resource"):
 				var node := SimResourceNode.new()
 				node.cell = Vector2i(x, y)
@@ -49,6 +51,11 @@ func in_bounds(cell: Vector2i) -> bool:
 
 func is_walkable(cell: Vector2i) -> bool:
 	return in_bounds(cell) and walkable[cell.y * width + cell.x] == 1
+
+
+## Zone einer Kachel ("" = keine). Marktkacheln tragen "market".
+func zone(cell: Vector2i) -> String:
+	return zone_ids[cell.y * width + cell.x] if in_bounds(cell) else ""
 
 
 func tile_id(cell: Vector2i) -> String:

@@ -55,7 +55,7 @@ static func nearest_prey(world: SimWorld, wolf: SimCharacter, radius: float) -> 
 	var best: SimCharacter = null
 	var best_d := radius * radius
 	for c: SimCharacter in world.spatial.query(wolf.pos, radius):
-		if c.kind != SimCharacter.Kind.PLAYER or c.dead or c.hidden:
+		if c.kind != SimCharacter.Kind.PLAYER or c.dead or c.hidden or world.in_market(c.pos):
 			continue
 		var d := c.pos.distance_squared_to(wolf.pos)
 		if d <= best_d:

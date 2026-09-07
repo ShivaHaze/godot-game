@@ -191,6 +191,8 @@ func refresh() -> void:
 		state += "\nDein Claim: %d/%d Kacheln · Vorrat %d Holz (reicht %s)%s" % [mine.tiles.size(), world.data.bali("claim.max_tiles_solo"), int(mine.stock), hours_text, "" if mine.anchor_building_id >= 0 else " · ANKER WEG, Schonfrist läuft"]
 	if here != null and here.owner_id != c.owner_id:
 		state += "\nFremder Claim von %s – Sammeln hier ist Diebstahl" % here.owner_id
+	if world.in_market(c.pos):
+		state += "\nNeutraler Markt: kampffrei, kein Bauen. Depot per E."
 	if not c.dead and world.in_transition(c):
 		state += "\nLogout-Übergang: noch %d s (verwundbar, kein Verstecken)" % int(ceilf(world.transition_end(c) - world.time))
 	var weapon_name := String(world.data.items.get(c.active_weapon, {}).get("name", "keine"))

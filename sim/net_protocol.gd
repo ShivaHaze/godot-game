@@ -126,11 +126,13 @@ static func snapshot(world: SimWorld, viewer_id: int, known: Dictionary, node_st
 		if b.center().distance_squared_to(center) > r2 or not world.building_visible_to(b, viewer.owner_id):
 			continue
 		var triggered := world.time < b.triggered_until
-		var signature := [b.hp, b.contents, b.offers, b.label, triggered].hash()
+		# Depot: nur der eigene Bestand geht raus (als contents); fremde Bestände bleiben geheim
+		var shown: Dictionary = world.depot_stock(b, viewer.owner_id) if world.is_depot(b) else b.contents
+		var signature := [b.hp, shown, b.offers, b.label, triggered].hash()
 		if building_state.has(b.id) and int(building_state[b.id]) == signature:
 			continue
 		building_state[b.id] = signature
-		built.append([b.id, b.part, b.owner_id, b.origin.x, b.origin.y, b.rotation, b.hp, b.max_hp, b.contents.duplicate(), b.offers.duplicate(true), b.label, triggered])
+		built.append([b.id, b.part, b.owner_id, b.origin.x, b.origin.y, b.rotation, b.hp, b.max_hp, shown.duplicate(), b.offers.duplicate(true), b.label, triggered])
 	var removed := PackedInt32Array()
 	for id: int in building_state.keys():
 		if not world.map.buildings.has(id):

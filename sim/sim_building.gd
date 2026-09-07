@@ -16,6 +16,7 @@ var label: String = ""           # Sensor: Name als Ort und in Bedingungen ("Sen
 var triggered_until: float = -1.0 # Sensor: bis zu dieser Sim-Zeit ausgelöst
 var contents: Dictionary = {}     # Handelstisch: Rohstoff -> Anzahl
 var offers: Array = []            # Handelstisch: [{sell, sell_amount, price, price_amount}]
+var stores: Dictionary = {}       # Depot: Besitzer -> {Rohstoff -> Anzahl} (Server); im Client-Spiegel liegt der eigene Bestand in contents
 
 
 func contents_count() -> int:

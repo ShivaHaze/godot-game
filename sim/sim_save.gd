@@ -41,7 +41,7 @@ static func world_to_dict(world: SimWorld) -> Dictionary:
 		nodes.append({"cell": v2i(node.cell), "amount": node.amount, "regrow_timer": node.regrow_timer})
 	var buildings := []
 	for b: SimBuilding in world.map.buildings.values():
-		buildings.append({"id": b.id, "part": b.part, "owner": b.owner_id, "origin": v2i(b.origin), "rotation": b.rotation, "hp": b.hp, "max_hp": b.max_hp, "placed_time": b.placed_time, "contents": b.contents.duplicate(), "offers": b.offers.duplicate(true), "label": b.label, "triggered_until": b.triggered_until})
+		buildings.append({"id": b.id, "part": b.part, "owner": b.owner_id, "origin": v2i(b.origin), "rotation": b.rotation, "hp": b.hp, "max_hp": b.max_hp, "placed_time": b.placed_time, "contents": b.contents.duplicate(), "offers": b.offers.duplicate(true), "label": b.label, "triggered_until": b.triggered_until, "stores": b.stores.duplicate(true)})
 	return {
 		"version": VERSION,
 		"time": world.time,
@@ -118,6 +118,10 @@ static func world_from_dict(data: SimData, dict: Dictionary) -> SimWorld:
 		b.cells = SimBuilding.cells_for(data.buildings[part]["size"], b.origin, b.rotation)
 		for rid: Variant in entry.get("contents", {}):
 			b.contents[String(rid)] = int(entry["contents"][rid])
+		for owner: Variant in entry.get("stores", {}):
+			b.stores[String(owner)] = {}
+			for rid: Variant in entry["stores"][owner]:
+				b.stores[String(owner)][String(rid)] = int(entry["stores"][owner][rid])
 		for offer: Dictionary in entry.get("offers", []):
 			b.offers.append({"sell": String(offer["sell"]), "sell_amount": int(offer["sell_amount"]), "price": String(offer["price"]), "price_amount": int(offer["price_amount"])})
 		world.map.add_building(b)

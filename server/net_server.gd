@@ -147,6 +147,12 @@ func _on_message(peer: ENetPacketPeer, msg: Dictionary) -> void:
 				var b: SimBuilding = world.map.buildings.get(int(msg.get("id", -1)))
 				if world.can_demolish(c, b):
 					world.remove_building(b.id, c)
+		"depot_deposit", "depot_withdraw":
+			if c != null:
+				var b: SimBuilding = world.map.buildings.get(int(msg.get("id", -1)))
+				var reason := world.depot_deposit(c, b, String(msg.get("res", "")), int(msg.get("amount", 0))) if String(msg["t"]) == "depot_deposit" else world.depot_withdraw(c, b, String(msg.get("res", "")), int(msg.get("amount", 0)))
+				if not reason.is_empty():
+					_send(peer, {"t": "info", "text": "Depot: %s" % reason}, true)
 		"table_deposit", "table_withdraw", "table_offers", "table_buy":
 			if c != null:
 				var b: SimBuilding = world.map.buildings.get(int(msg.get("id", -1)))

@@ -112,6 +112,8 @@ func claim_tile_reason(world: SimWorld, c: SimCharacter, tile: Vector2i) -> Stri
 		return "schon beansprucht" if tile_owner[tile] == claim.id else "fremder Claim"
 	if not world.map.in_bounds(tile) or world.map.tile_id(tile) == "obstacle":
 		return "kein Land"
+	if world.map.zone(tile) == "market":
+		return "Marktland gehört niemandem"
 	if claim.tiles.size() >= data.bali("claim.max_tiles_solo"):
 		return "Obergrenze erreicht (%d Kacheln)" % data.bali("claim.max_tiles_solo")
 	var adjacent := false

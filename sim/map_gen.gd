@@ -13,6 +13,9 @@ const STONE: String = "S"
 const FIBER: String = "F"
 const PLAYER: String = "P"
 const WOLF: String = "W"
+const MARKET: String = "M"
+const DEPOT: String = "D"
+const MARKET_RADIUS: int = 2  # Markt = 5×5 Kacheln mit Depot in der Mitte
 
 
 ## Dichten je 100 Bodenzellen; Standardwerte entsprechen etwa der handgebauten 40×30-Karte.
@@ -49,6 +52,26 @@ static func generate(width: int, height: int, seed: int, rock_clusters_per_100: 
 			var next := cell + Vector2i(1, 0)
 			if next.x < width - 1 and grid[next.y][next.x] == FLOOR:
 				grid[next.y][next.x] = BUSH
+	# Neutrale Märkte (Design: 3–5 je Karte, hier 1 je 3000 Kacheln, mindestens 1), weit auseinander
+	var market_count := maxi(1, int(inner_cells / 3000.0))
+	var markets: Array[Vector2i] = []
+	for attempt in market_count * 30:
+		if markets.size() >= market_count:
+			break
+		var center := _random_floor(grid, rng, width, height, 0.15, 0.85)
+		if center.x < 0 or center.x < MARKET_RADIUS + 1 or center.y < MARKET_RADIUS + 1 or center.x >= width - MARKET_RADIUS - 1 or center.y >= height - MARKET_RADIUS - 1:
+			continue
+		var far := true
+		for other: Vector2i in markets:
+			if other.distance_to(center) < 20.0:
+				far = false
+		if not far:
+			continue
+		markets.append(center)
+		for dy in range(-MARKET_RADIUS, MARKET_RADIUS + 1):
+			for dx in range(-MARKET_RADIUS, MARKET_RADIUS + 1):
+				grid[center.y + dy][center.x + dx] = MARKET
+		grid[center.y][center.x] = DEPOT
 	# Spieler-Spawns am Rand (ruhig), Wolf-Spawns innen (gefährlich)
 	var player_spawns := maxi(1, int(inner_cells / 400.0))
 	var wolf_spawns := maxi(1, int(inner_cells / 400.0))
@@ -70,10 +93,10 @@ static func generate(width: int, height: int, seed: int, rock_clusters_per_100: 
 	for y in height:
 		rows.append("".join(grid[y]))
 	return {
-		"_doc": "Generierte Karte (MapGen, Seed %d, %d×%d). Zeichen laut tiles.json; P = Spieler-Spawn, W = Wolf-Spawn." % [seed, width, height],
+		"_doc": "Generierte Karte (MapGen, Seed %d, %d×%d). Zeichen laut tiles.json; P = Spieler-Spawn, W = Wolf-Spawn, D = Markt-Depot." % [seed, width, height],
 		"width": width,
 		"height": height,
-		"spawn_chars": {"P": "player", "W": "wolf"},
+		"spawn_chars": {"P": "player", "W": "wolf", "D": "depot"},
 		"rows": rows,
 	}
 

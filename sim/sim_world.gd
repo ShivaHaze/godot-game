@@ -37,12 +37,34 @@ func _init(p_data: SimData, seed: int = 12345) -> void:
 
 ## Startet ein neues Spiel: Spieler am Spawn, Wölfe an ihren Spawns. Gibt die Spieler-Kennung zurück.
 func setup_new_game() -> int:
+	for cell: Vector2i in data.depot_spawns:
+		spawn_depot(cell)
 	var player := spawn_player(SimMap.cell_center(data.player_spawns[0]), "p1", "Du")
 	for cell: Vector2i in data.wolf_spawns:
 		if count_alive_wolves() >= data.bali("wolf.max_alive"):
 			break
 		spawn_wolf(SimMap.cell_center(cell))
 	return player.id
+
+
+## Neutrales Markt-Depot (Kartenfeature): gehört niemandem, unzerstörbar, für alle ein Ort.
+func spawn_depot(cell: Vector2i) -> SimBuilding:
+	if not data.buildings.has("depot"):
+		return null
+	var def: Dictionary = data.buildings["depot"]
+	var b := SimBuilding.new()
+	b.id = _next_building_id
+	_next_building_id += 1
+	b.part = "depot"
+	b.owner_id = ""
+	b.origin = cell * 2
+	b.max_hp = float(def["hp"])
+	b.hp = b.max_hp
+	b.placed_time = time
+	b.cells = SimBuilding.cells_for(def["size"], b.origin, 0)
+	map.add_building(b)
+	b.label = "Markt-Depot %d" % depots().size()
+	return b
 
 
 func spawn_player(pos: Vector2, owner_id: String, display_name: String) -> SimCharacter:
@@ -72,6 +94,7 @@ func spawn_player(pos: Vector2, owner_id: String, display_name: String) -> SimCh
 				c.active_weapon = item_id
 	refresh_equipment(c)
 	characters[c.id] = c
+	refresh_places(owner_id)
 	return c
 
 
@@ -549,6 +572,8 @@ func can_place(c: SimCharacter, part_id: String, origin: Vector2i, rotation: int
 	var def: Dictionary = data.buildings.get(part_id, {})
 	if def.is_empty():
 		return "unbekanntes Bauteil"
+	if not bool(def.get("placeable", true)):
+		return "nicht baubar"
 	if c.control != SimCharacter.Controller.PLAYER or c.dead:
 		return "nur live baubar"
 	var cells := SimBuilding.cells_for(def["size"], origin, rotation)
@@ -557,6 +582,8 @@ func can_place(c: SimCharacter, part_id: String, origin: Vector2i, rotation: int
 		var tile := Vector2i(floori(half.x / 2.0), floori(half.y / 2.0))
 		if not map.is_walkable(tile):
 			return "kein freier Boden"
+		if map.zone(tile) == "market":
+			return "auf dem Markt wird nicht gebaut"
 		if map.built_half.has(half):
 			return "schon bebaut"
 		center += SimBuilding.half_cell_center(half)
@@ -655,6 +682,8 @@ func remove_building(id: int, refund_to: SimCharacter = null) -> bool:
 
 ## Schaden an einem Bauteil (Nahkampf gegen Holz, später Werkzeuge/Sprengsätze). Bei 0 verschwindet es.
 func damage_building(b: SimBuilding, amount: float, attacker_id: int) -> void:
+	if bool(data.buildings.get(b.part, {}).get("indestructible", false)):
+		return
 	b.hp = maxf(0.0, b.hp - amount)
 	events.append({"type": "building_hit", "building": b.id, "attacker": attacker_id, "damage": amount, "pos": b.center()})
 	if b.hp <= 0.0:
@@ -706,7 +735,7 @@ func sensors_of(owner_id: String) -> Array[SimBuilding]:
 
 ## Bauteile, in die geliefert werden kann (Anker nimmt Holz für den Unterhalt, Handelstisch alles).
 func is_container(b: SimBuilding) -> bool:
-	return b != null and (b.part == "anchor" or is_trade_table(b))
+	return b != null and (b.part == "anchor" or is_trade_table(b) or is_depot(b))
 
 
 ## Orte aus Bauteilen (Sensoren, Anker, Handelstische) an alle Charaktere des Besitzers verteilen.
@@ -714,6 +743,9 @@ func refresh_places(owner_id: String) -> void:
 	var places := {}
 	var tables := 0
 	for b: SimBuilding in map.buildings.values():
+		if is_depot(b):
+			places[place_id_of(b)] = {"name": b.label, "pos": b.center()}
+			continue
 		if b.owner_id != owner_id:
 			continue
 		if is_sensor(b):
@@ -761,13 +793,17 @@ func _update_sensors_and_traps(dt: float) -> void:
 
 ## Liefert alles von `rid` in ein eigenes Bauteil (Anker: nur Holz; Handelstisch: alles) in Reichweite. Rückgabe: Menge.
 func deliver_to(c: SimCharacter, b: SimBuilding, rid: String) -> int:
-	if not is_container(b) or b.owner_id != c.owner_id or c.dead:
+	if not is_container(b) or (b.owner_id != c.owner_id and not is_depot(b)) or c.dead:
 		return 0
 	if b.center().distance_to(c.pos) > data.balf("character.interact_range") + 0.5:
 		return 0
 	var amount := int(c.inventory.get(rid, 0))
 	if amount <= 0:
 		return 0
+	if is_depot(b):
+		if not depot_deposit(c, b, rid, amount, true).is_empty():
+			return 0
+		return amount - int(c.inventory.get(rid, 0))
 	if b.part == "anchor":
 		if rid != "wood":
 			return 0
@@ -784,13 +820,117 @@ func container_near(owner_id: String, pos: Vector2, radius: float) -> SimBuildin
 	var best: SimBuilding = null
 	var best_d := radius
 	for b: SimBuilding in map.buildings.values():
-		if b.owner_id != owner_id or not is_container(b):
+		if not is_container(b) or (b.owner_id != owner_id and not is_depot(b)):
 			continue
 		var d := b.center().distance_to(pos)
 		if d <= best_d:
 			best_d = d
 			best = b
 	return best
+
+
+# --- Neutraler Markt und Depot --------------------------------------------
+
+func is_depot(b: SimBuilding) -> bool:
+	return b != null and bool(data.buildings.get(b.part, {}).get("depot", false))
+
+
+func depots() -> Array[SimBuilding]:
+	var result: Array[SimBuilding] = []
+	for b: SimBuilding in map.buildings.values():
+		if is_depot(b):
+			result.append(b)
+	result.sort_custom(func(a: SimBuilding, b: SimBuilding) -> bool: return a.id < b.id)
+	return result
+
+
+## Kampffreie Zone: auf Marktboden gibt es keinen Schaden.
+func in_market(pos: Vector2) -> bool:
+	return map.zone(SimMap.cell_of(pos)) == "market"
+
+
+## Depot in Interaktionsreichweite, sonst null.
+func depot_near(c: SimCharacter) -> SimBuilding:
+	for b: SimBuilding in map.buildings.values():
+		if is_depot(b) and b.center().distance_to(c.pos) <= data.balf("character.interact_range") + 0.5:
+			return b
+	return null
+
+
+## Eigener Bestand in einem Depot (Verweis). Im Client-Spiegel liegt der eigene Bestand in `contents`.
+func depot_stock(b: SimBuilding, owner_id: String) -> Dictionary:
+	if b.stores.has(owner_id):
+		return b.stores[owner_id]
+	return b.contents if b.stores.is_empty() else {}
+
+
+func depot_stock_count(b: SimBuilding, owner_id: String) -> int:
+	var total := 0
+	for amount: int in depot_stock(b, owner_id).values():
+		total += amount
+	return total
+
+
+func _depot_reason(c: SimCharacter, b: SimBuilding, allow_npc: bool) -> String:
+	if not is_depot(b):
+		return "kein Depot"
+	if c.dead or (c.control != SimCharacter.Controller.PLAYER and not allow_npc):
+		return "nur live"
+	if b.center().distance_to(c.pos) > data.balf("character.interact_range") + 0.5:
+		return "zu weit weg"
+	return ""
+
+
+## Einlagern: die Gebühr (Anteil) geht verloren – die Senke des neutralen Markts. Rückgabe: Grund oder leer.
+func depot_deposit(c: SimCharacter, b: SimBuilding, rid: String, amount: int, allow_npc: bool = false) -> String:
+	var reason := _depot_reason(c, b, allow_npc)
+	if not reason.is_empty():
+		return reason
+	if not data.resources.has(rid):
+		return "unbekannter Rohstoff"
+	amount = mini(amount, int(c.inventory.get(rid, 0)))
+	if amount <= 0:
+		return "nichts einzulagern"
+	var capacity := data.bali("market.depot_capacity")
+	var room := capacity - depot_stock_count(b, c.owner_id)
+	if room <= 0:
+		return "Depot voll (%d)" % capacity
+	var keep_fraction := 1.0 - data.balf("market.depot_fee")
+	var kept := int(floorf(float(amount) * keep_fraction))
+	if kept <= 0:
+		return "zu wenig, die Gebühr frisst alles"
+	if kept > room:
+		amount = mini(int(ceilf(float(room) / keep_fraction)), int(c.inventory.get(rid, 0)))
+		kept = mini(room, int(floorf(float(amount) * keep_fraction)))
+	if not b.stores.has(c.owner_id):
+		b.stores[c.owner_id] = {}
+	b.stores[c.owner_id][rid] = int(b.stores[c.owner_id].get(rid, 0)) + kept
+	c.inventory[rid] = int(c.inventory[rid]) - amount
+	if c.control == SimCharacter.Controller.PLAYER:
+		unlock(c.owner_id, "owned_container", c)
+	events.append({"type": "depot_deposit", "id": c.id, "building": b.id, "resource": rid, "amount": amount, "kept": kept, "fee": amount - kept})
+	return ""
+
+
+## Entnehmen ist gebührenfrei; nur so viel, wie ins Inventar passt.
+func depot_withdraw(c: SimCharacter, b: SimBuilding, rid: String, amount: int) -> String:
+	var reason := _depot_reason(c, b, false)
+	if not reason.is_empty():
+		return reason
+	var stock := depot_stock(b, c.owner_id)
+	amount = mini(amount, int(stock.get(rid, 0)))
+	if amount <= 0:
+		return "nichts im Depot"
+	var room := data.bali("inventory.capacity") - c.inventory_count()
+	if room <= 0:
+		return "Inventar voll"
+	amount = mini(amount, room)
+	stock[rid] = int(stock[rid]) - amount
+	if int(stock[rid]) <= 0:
+		stock.erase(rid)
+	c.inventory[rid] = int(c.inventory.get(rid, 0)) + amount
+	events.append({"type": "depot_withdraw", "id": c.id, "building": b.id, "resource": rid, "amount": amount})
+	return ""
 
 
 # --- Schilder -------------------------------------------------------------
@@ -1292,7 +1432,7 @@ func _update_projectiles(dt: float) -> void:
 		var part := p.velocity * dt / float(steps)
 		for s in steps:
 			p.pos += part
-			if not map.is_walkable(SimMap.cell_of(p.pos)) or map.building_at(p.pos) != null:
+			if not map.is_walkable(SimMap.cell_of(p.pos)) or map.building_at(p.pos) != null or in_market(p.pos):
 				events.append({"type": "projectile_wall", "pos": p.pos})
 				removed = true
 				break
@@ -1322,6 +1462,10 @@ func _projectile_victim(p: SimProjectile) -> SimCharacter:
 
 ## Fügt Schaden mit Richtungstreffer zu. hit_dir = Flugrichtung des Treffers (Angreifer -> Opfer).
 func apply_damage(victim: SimCharacter, base_damage: float, hit_dir: Vector2, attacker_id: int, effect: String = "") -> Dictionary:
+	var peace_attacker := get_character(attacker_id)
+	if in_market(victim.pos) or (peace_attacker != null and in_market(peace_attacker.pos)):
+		events.append({"type": "market_peace", "id": victim.id, "attacker": attacker_id, "pos": victim.pos})
+		return {}
 	var side := SimCombat.hit_side(victim.facing, hit_dir, data.balf("combat.front_arc_degrees"), data.balf("combat.back_arc_degrees"))
 	var amount := SimCombat.damage(base_damage, victim.armor, side, data)
 	victim.hp = maxf(0.0, victim.hp - amount)

@@ -42,6 +42,7 @@ const REQUIRED_BALANCE: Array[String] = [
 	"building.reach", "building.refund_fraction", "building.melee_damage_multiplier", "building.table_capacity", "building.table_max_offers", "building.sign_max_length", "building.sign_read_distance",
 	"effects.bleeding.duration", "effects.bleeding.damage_per_second",
 	"wear.repair_cost_fraction", "wear.repair_max_loss",
+	"market.depot_fee", "market.depot_capacity",
 	"claim.max_tiles_solo", "claim.tile_cost_wood", "claim.upkeep_base", "claim.upkeep_growth", "claim.stock_capacity",
 	"claim.shrink_interval_hours", "claim.grace_hours", "claim.min_anchor_distance", "claim.foreign_decay_multiplier",
 ]
@@ -57,6 +58,7 @@ var map_rows: PackedStringArray = []
 var map_tile_ids: Array[String] = []    # width*height, zeilenweise; Spawn-Zeichen werden zu "floor"
 var player_spawns: Array[Vector2i] = []
 var wolf_spawns: Array[Vector2i] = []
+var depot_spawns: Array[Vector2i] = []   # Markt-Depots (Zeichen D), liegen auf Marktboden
 var conditions: Dictionary = {}         # id -> Definition
 var condition_order: Array[String] = []
 var else_condition_id: String = ""
@@ -136,6 +138,7 @@ func apply_map(raw: Dictionary) -> PackedStringArray:
 	map_tile_ids = []
 	player_spawns = []
 	wolf_spawns = []
+	depot_spawns = []
 	_parse_map(raw)
 	var problems := errors.slice(previous_errors)
 	errors.resize(previous_errors)
@@ -144,7 +147,7 @@ func apply_map(raw: Dictionary) -> PackedStringArray:
 
 ## Roh-Dictionary der aktuellen Karte (für Übertragung und Speicherung).
 func map_dict() -> Dictionary:
-	return {"width": map_width, "height": map_height, "rows": Array(map_rows), "spawn_chars": {"P": "player", "W": "wolf"}}
+	return {"width": map_width, "height": map_height, "rows": Array(map_rows), "spawn_chars": {"P": "player", "W": "wolf", "D": "depot"}}
 
 
 func tile_id_at(x: int, y: int) -> String:
@@ -394,13 +397,18 @@ func _parse_map(raw: Dictionary) -> void:
 			if tile_by_char.has(ch):
 				map_tile_ids.append(tile_by_char[ch])
 			elif spawn_chars.has(ch):
-				map_tile_ids.append("floor")
 				match String(spawn_chars[ch]):
 					"player":
+						map_tile_ids.append("floor")
 						player_spawns.append(Vector2i(x, y))
 					"wolf":
+						map_tile_ids.append("floor")
 						wolf_spawns.append(Vector2i(x, y))
+					"depot":
+						map_tile_ids.append("market" if tiles.has("market") else "floor")
+						depot_spawns.append(Vector2i(x, y))
 					_:
+						map_tile_ids.append("floor")
 						errors.append("map.json: unbekannter Spawn-Typ '%s' für Zeichen '%s'" % [spawn_chars[ch], ch])
 			else:
 				errors.append("map.json: unbekanntes Zeichen '%s' bei x=%d y=%d" % [ch, x, y])

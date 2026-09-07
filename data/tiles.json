@@ -50,6 +50,15 @@
       "resource": "fibers",
       "amount": 6,
       "color": "#6f7a2a"
+    },
+    {
+      "id": "market",
+      "char": "M",
+      "name": "Marktplatz",
+      "walkable": true,
+      "color": "#5a4a30",
+      "zone": "market",
+      "_doc": "Neutraler Markt: kampffrei (kein Schaden, Projektile verpuffen, Wölfe jagen hier nicht), nicht bebaubar, nicht beanspruchbar. D = Markt-Depot auf Marktboden."
     }
   ]
 }

@@ -115,7 +115,7 @@
       "log": "geliefert: {resource} zu {place}",
       "unlock": {
         "fact": "owned_container",
-        "label": "Frei, sobald du einen Claim-Anker oder Handelstisch gebaut hast."
+        "label": "Frei, sobald du einen Claim-Anker oder Handelstisch gebaut oder ein Markt-Depot benutzt hast."
       },
       "params": [
         {
