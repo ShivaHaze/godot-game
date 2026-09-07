@@ -490,6 +490,47 @@ func _update_wolves(dt: float) -> void:
 		spawn_wolf(SimMap.cell_center(cell))
 
 
+# --- Zeitsprung -----------------------------------------------------------
+
+## Simuliert `seconds` Sim-Sekunden ohne Darstellung (Simulationsstufen): grob mit offline.coarse_tick_dt,
+## solange kein Spielercharakter in Gefahr ist und nichts fliegt, sonst fein mit tick_dt. Gibt die Schrittzahl zurück.
+func advance(seconds: float) -> int:
+	var target := time + seconds
+	var steps := 0
+	while time < target - 1e-6:
+		_advance_one(target)
+		steps += 1
+	return steps
+
+
+## Wie advance(), aber höchstens budget_msec Echtzeit am Stück (für eine Fortschrittsanzeige). true = Ziel erreicht.
+func advance_until(target_time: float, budget_msec: int) -> bool:
+	var deadline := Time.get_ticks_msec() + budget_msec
+	while time < target_time - 1e-6:
+		_advance_one(target_time)
+		if Time.get_ticks_msec() >= deadline:
+			break
+	return time >= target_time - 1e-6
+
+
+func _advance_one(target_time: float) -> void:
+	var dt := tick_dt if is_hot() else data.balf("offline.coarse_tick_dt")
+	step(minf(dt, target_time - time))
+
+
+## Gefahr in der Nähe eines Spielercharakters (oder Projektile in der Luft)? Dann fein simulieren.
+func is_hot() -> bool:
+	if not projectiles.is_empty():
+		return true
+	var radius := data.balf("offline.hot_radius")
+	for c: SimCharacter in characters.values():
+		if c.dead or c.kind != SimCharacter.Kind.PLAYER:
+			continue
+		if SimSensors.is_under_attack(self, c) or nearest_enemy(c, radius) != null:
+			return true
+	return false
+
+
 # --- Abfragen -------------------------------------------------------------
 
 ## Uhrzeit "HH:MM" für eine Sim-Zeit (Standard: jetzt).

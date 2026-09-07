@@ -1,6 +1,6 @@
 extends SceneTree
 ## Rauchtest mit Fenster: startet die Hauptszene, öffnet das Ausloggen-Menü (Advanced), wählt eine Rolle,
-## loggt aus, schaut kurz zu und loggt wieder ein. Prüft Zeichen- und UI-Code, der headless nicht läuft.
+## loggt aus, schaut kurz zu, springt 6 Minuten, tritt gegen sich selbst an. Prüft Zeichen- und UI-Code, der headless nicht läuft.
 ## Aufruf: godot --path . -s tools/smoke_run.gd   (beendet sich selbst, Ausgabe "SMOKE OK")
 
 
@@ -21,7 +21,14 @@ func _run() -> void:
 	await _frames(5)
 	main.menu._on_confirm()
 	await _frames(60)
-	main._login()
+	main.skip_hours = 0.1
+	main._start_skip()
+	while main.mode == main.Mode.SKIPPING:
+		await process_frame
+	await _frames(20)
+	main._start_versus()
+	await _frames(40)
+	main._toggle_yesterday_chronicle()
 	await _frames(20)
 	print("SMOKE OK")
 	quit()

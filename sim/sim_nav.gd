@@ -8,7 +8,8 @@ const WAYPOINT_REACHED: float = 0.35
 const LINE_SAMPLE: float = 0.2
 
 
-## Richtung (Länge 1) zum Ziel oder ZERO, wenn innerhalb arrive_distance.
+## Bewegungsabsicht (Länge ≤ 1) zum Ziel oder ZERO, wenn innerhalb arrive_distance.
+## Bei großen Schritten (grobe Ticks) wird die Länge so gekürzt, dass das Ziel nie überschossen wird.
 static func direction_toward(world: SimWorld, c: SimCharacter, goal: Vector2, dt: float, arrive_distance: float = 0.2) -> Vector2:
 	var to_goal := goal - c.pos
 	if to_goal.length() <= arrive_distance:
@@ -17,7 +18,7 @@ static func direction_toward(world: SimWorld, c: SimCharacter, goal: Vector2, dt
 	var map := world.map
 	if line_clear(map, c.pos, goal, c.collision_radius):
 		c.path.clear()
-		return to_goal.normalized()
+		return _capped(to_goal, c, dt)
 	c.path_age += dt
 	var goal_cell := map.nearest_walkable_cell(SimMap.cell_of(goal))
 	if goal_cell != c.path_goal or c.path_age >= REPLAN_INTERVAL or c.path.is_empty():
@@ -27,8 +28,18 @@ static func direction_toward(world: SimWorld, c: SimCharacter, goal: Vector2, dt
 	while not c.path.is_empty() and c.pos.distance_to(SimMap.cell_center(c.path[0])) < WAYPOINT_REACHED:
 		c.path.pop_front()
 	if c.path.is_empty():
-		return to_goal.normalized()  # kein Weg bekannt: direkt versuchen, gleitet an Wänden
-	return (SimMap.cell_center(c.path[0]) - c.pos).normalized()
+		return _capped(to_goal, c, dt)  # kein Weg bekannt: direkt versuchen, gleitet an Wänden
+	return _capped(SimMap.cell_center(c.path[0]) - c.pos, c, dt)
+
+
+## Richtung mit Länge ≤ 1; kürzer, wenn ein voller Schritt (move_speed * dt) über das Ziel hinausginge.
+static func _capped(offset: Vector2, c: SimCharacter, dt: float) -> Vector2:
+	var max_step := c.move_speed * dt
+	if max_step <= 0.0:
+		return offset.normalized()
+	if offset.length() >= max_step:
+		return offset.normalized()
+	return offset / max_step
 
 
 ## Ist die gerade Strecke für einen Kreis mit radius frei von Hindernissen?

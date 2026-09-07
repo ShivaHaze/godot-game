@@ -89,3 +89,34 @@ func test_main_scene_logout_and_login_cycle() -> void:
 	main._login()
 	assert_eq(main.mode, main.Mode.LIVE)
 	assert_eq(player.control, SimCharacter.Controller.PLAYER)
+
+
+func test_main_scene_skip_and_versus() -> void:
+	var main: Node2D = MainScene.instantiate()
+	add_child_autofree(main)
+	await wait_frames(2)
+	main._open_menu()
+	main.menu._select_role("guard")
+	main.menu._on_confirm()
+	assert_eq(main.mode, main.Mode.OFFLINE)
+	var npc_id: int = main.player_id
+	main.skip_hours = 0.02  # 72 Sim-Sekunden, damit der Test schnell bleibt
+	var before: float = main.world.time
+	main._start_skip()
+	assert_eq(main.mode, main.Mode.SKIPPING)
+	await wait_until(func() -> bool: return main.mode != main.Mode.SKIPPING, 20.0)
+	assert_eq(main.mode, main.Mode.OFFLINE, "Zeitsprung fertig")
+	assert_gte(main.world.time - before, 72.0 - 0.001, "Ziel erreicht")
+	assert_lt(main.world.time - before, 73.0, "danach nur normale Ticks")
+	main._start_versus()
+	assert_eq(main.mode, main.Mode.VERSUS)
+	assert_ne(main.player_id, npc_id, "frischer Charakter")
+	var fresh: SimCharacter = main.world.get_character(main.player_id)
+	assert_eq(fresh.owner_id, "p2")
+	assert_eq(main.view.viewer_owner, "p2")
+	var yesterday: SimCharacter = main.world.get_character(npc_id)
+	assert_eq(yesterday.control, SimCharacter.Controller.RULES, "NPC von gestern bleibt in der Welt")
+	assert_eq(yesterday.name, "Du (gestern)")
+	main._toggle_yesterday_chronicle()
+	assert_eq(main._chronicle_id, npc_id)
+	await wait_frames(3)

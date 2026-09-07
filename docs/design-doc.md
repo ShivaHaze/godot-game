@@ -126,7 +126,7 @@ Marktorte (Kartenfeatures, keine NPC-Händler; Unterschied nur über Regeln):
 - Setting (Mittelalter / Postapo / abstrakt / Sci-Fi) – bewusst offen.
 - Konkrete Zahlen: Unterhalt, TTK, Verfallsraten, Solo-Claim-Grenze → Prototyp.
 - Ereignis-Design (Karawanen, Bosse).
-- Welche Rollen-Presets genau und mit welchen Regeln.
+- Welche Rollen-Presets genau und mit welchen Regeln. → Phase-0-Vorschlag [T] siehe Abschnitt 8, `data/roles.json`.
 - Aggressions-Freischaltung: genaue Bedingung.
 - Kosmetik-Umfang.
 - Name.
@@ -160,6 +160,18 @@ Marktorte (Kartenfeatures, keine NPC-Händler; Unterschied nur über Regeln):
 - Datengetrieben ab Tag 1: Regeln, Rollen, Rohstoffe, Karte als Datendateien. Simulation strikt getrennt von Darstellung (später headless wiederverwendbar).
 
 **Abnahmetest:** Regeln festlegen → Zeitsprung → Charakter finden → Chronik lesen → sofort Regeln ändern wollen. Kommt das Gefühl nicht, ist der Kern nicht da.
+
+**Phase-0-Entscheidungen (2026-09-07, beim Bau des Prototyps getroffen; alle [T], im Spiel per Datendatei änderbar):**
+- **Rollen-Presets** (zu [O] "Welche Rollen-Presets genau"): Vorschlag in `data/roles.json`. Verstecken: hungrig → iss · angegriffen → kämpfe zurück · sonst → verstecken. Wache: Leben < 30 % → fliehe zu Hier (2) · angegriffen → kämpfe zurück · hungrig → iss · sonst → bleib bei Hier (4). Sammler: Leben < 40 % → fliehe zu Hier (2) · angegriffen → fliehe zu Hier (2) · hungrig → iss · Inventar voll → bleib bei Hier (2) · sonst → sammle Beeren um Hier (8). Händler: Platzhalter, verhält sich wie vorsichtige Wache.
+- **Leine konkret:** Die Leine ist der Kreis der zuletzt gefeuerten Ortsregel (fliehe zu / bleib bei / sammle um). Aktionen ohne Ort (iss, kämpfe zurück, verstecken) behalten die aktuelle Leine. Beim Ausloggen gilt Hier + Standardradius (balance: npc.default_leash_radius), bis die erste Ortsregel feuert. Zurückkämpfen verfolgt nie über die Leine hinaus.
+- **Nicht ausführbare Regel fällt durch:** Trifft eine Regel zu, ist aber nicht ausführbar (iss ohne Essbares, sammle ohne Quelle mit Vorrat in der Leine, sammle bei vollem Inventar), gilt die nächste zutreffende Regel. Das Überspringen steht einmal in der Chronik ("nicht möglich, übersprungen"). Grund: sonst friert ein hungriger NPC ohne Beeren ein.
+- **"Fremder in Nähe"** zählt auch Tiere (Wölfe). "Inventar voll/leer" ist eine Bedingung mit Parameter (voll | leer).
+- **Verstecken:** wirkt nach 3 s ohne Bewegung und ohne Schaden; entdeckt wird, wer näher als 1 Kachel kommt; nach Entdeckung oder Schaden 10 s nicht erneut versteckbar. Schießen oder Laufen beendet das Verstecken.
+- **NPC-Kampf:** zielt auf die aktuelle Position (kein Vorhalten), dreht sich zum nächsten sichtbaren Fremden (bis 10 Kacheln), hält beim Zurückkämpfen den Abstand npc.preferred_combat_range, schießt nur mit freier Sichtlinie. Beim Fliehen blickt er in Laufrichtung und zeigt den Rücken.
+- **Richtungstreffer Zahlen (Start):** vorn 120°-Bogen ×1, hinten 90°-Bogen ×2 mit halber Rüstung ignoriert, dazwischen seitlich ×1,5; flacher Abzug, Mindestschaden 1.
+- **Tod im Prototyp:** Leiche bleibt mit Inventar liegen und ist plünderbar (E); R erzeugt einen frischen Charakter am Spawn.
+- **Zeitsprung = Simulationsstufen:** 1 Tick/s, solange kein Spielercharakter einen sichtbaren Fremden in 10 Kacheln hat, kürzlich Schaden nahm oder Projektile fliegen; sonst voller Tick (20 Hz). 8 h laufen in 1–6 s.
+- **Nicht umgesetzt in Phase 0:** Logout-Übergang (30–60 s verwundbar) – Ausloggen wirkt sofort; Claims/Marktorte; Hunger-Zustandseffekt beschränkt auf halbe Geschwindigkeit.
 
 Danach: Netzwerk-Spike (Godot headless, 300 NPCs, Tickzeit messen; 50 Bot-Clients per ENet) → erst dann Setting, Name, Optik.
 

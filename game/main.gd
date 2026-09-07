@@ -1,23 +1,28 @@
 extends Node2D
 ## Spielsteuerung: bindet die Simulation (sim/) an Darstellung und Eingabe.
 ## Liest den Sim-Zustand, zeichnet ihn und schreibt nur Absichten (SimIntent) hinein.
-## Modi: LIVE (Spieler steuert), MENU (Ausloggen-Menü, Sim pausiert), OFFLINE (Charakter ist NPC, Zuschauen).
+## Modi: LIVE (Spieler steuert) · MENU (Ausloggen-Menü, Sim pausiert) · OFFLINE (Charakter ist NPC, Zuschauen)
+## · SKIPPING (Zeitsprung läuft beschleunigt) · VERSUS (frischer Charakter gegen den eigenen NPC von gestern).
 
-enum Mode { LIVE, MENU, OFFLINE }
+enum Mode { LIVE, MENU, OFFLINE, SKIPPING, VERSUS }
 
 const WorldViewScript := preload("res://game/world_view.gd")
 const HudScript := preload("res://game/hud.gd")
 const LogoutMenuScript := preload("res://game/logout_menu.gd")
 
-const MAX_TICKS_PER_FRAME: int = 5  # Schutz gegen Aufholspiralen bei Rucklern
+const MAX_TICKS_PER_FRAME: int = 5      # Schutz gegen Aufholspiralen bei Rucklern
+const SKIP_BUDGET_MSEC: int = 14        # Echtzeit pro Frame für den Zeitsprung (Fortschritt bleibt sichtbar)
 const HINT_LIVE: String = "WASD bewegen · Maus zielen · Linksklick schießen · E halten: sammeln/plündern · F essen · M Marker · Esc Ausloggen"
 const HINT_DEAD: String = "Du bist tot. R = neuer Charakter am Spawn."
 const HINT_OFFLINE: String = "Dein Charakter handelt jetzt nach seinen Regeln. Du schaust nur zu."
+const HINT_SKIPPING: String = "Zeitsprung läuft …"
+const HINT_VERSUS: String = "Finde deinen Charakter von gestern und besiege ihn – er handelt nach deinen Regeln. Leiche plündern mit E."
 
 var data: SimData
 var world: SimWorld
 var player_id: int = -1
 var mode: Mode = Mode.LIVE
+var skip_hours: float = 8.0
 
 var view: Node2D
 var hud: CanvasLayer
@@ -26,6 +31,10 @@ var camera: Camera2D
 
 var _accumulator: float = 0.0
 var _eat_pressed: bool = false
+var _skip_start: float = 0.0
+var _skip_target: float = 0.0
+var _chronicle_id: int = -1          # Wessen Chronik die Tafel zeigt (-1 = keine)
+var _yesterday_id: int = -1          # Im Versus-Modus: der eigene NPC von gestern
 
 
 func _ready() -> void:
@@ -38,6 +47,7 @@ func _ready() -> void:
 			push_error(e)
 		hud.set_hint("Datenfehler, siehe Konsole: " + data.errors[0])
 		return
+	skip_hours = data.balf("time_skip_hours")
 	world = SimWorld.new(data, 12345)
 	player_id = world.setup_new_game()
 
@@ -69,12 +79,16 @@ func _process(delta: float) -> void:
 		return
 	var player := world.get_character(player_id)
 	match mode:
-		Mode.LIVE:
+		Mode.LIVE, Mode.VERSUS:
 			_process_live_input(player)
 		Mode.MENU:
 			if Input.is_action_just_pressed("logout_menu"):
 				_close_menu()
 			_refresh_view(player)  # Sim pausiert, Leinen-Vorschau wird trotzdem gezeichnet
+			return
+		Mode.SKIPPING:
+			_process_skip()
+			_refresh_view(player)
 			return
 		Mode.OFFLINE:
 			pass
@@ -82,7 +96,7 @@ func _process(delta: float) -> void:
 	_accumulator += delta
 	var ticks := 0
 	while _accumulator >= world.tick_dt and ticks < MAX_TICKS_PER_FRAME:
-		if mode == Mode.LIVE and player != null and not player.dead:
+		if (mode == Mode.LIVE or mode == Mode.VERSUS) and player != null and not player.dead:
 			world.set_intent(player_id, _build_player_intent(player))
 		world.tick()
 		_handle_events()
@@ -95,12 +109,13 @@ func _process(delta: float) -> void:
 
 
 func _refresh_view(player: SimCharacter) -> void:
-	view.alpha = _accumulator / world.tick_dt
+	view.alpha = clampf(_accumulator / world.tick_dt, 0.0, 1.0)
 	if player != null:
 		camera.position = WorldViewScript.to_pixels(player.render_pos(view.alpha))
 	view.queue_redraw()
-	if mode == Mode.OFFLINE and player != null:
-		hud.set_chronicle(SimChronicle.format_all(player))
+	var chronicle_owner := world.get_character(_chronicle_id)
+	if chronicle_owner != null:
+		hud.set_chronicle(SimChronicle.format_all(chronicle_owner))
 	hud.refresh()
 
 
@@ -114,7 +129,7 @@ func _process_live_input(player: SimCharacter) -> void:
 		hud.show_message("%s gesetzt" % marker["name"])
 	if Input.is_action_just_pressed("respawn") and player.dead:
 		_respawn_player()
-	if Input.is_action_just_pressed("logout_menu") and not player.dead:
+	if Input.is_action_just_pressed("logout_menu") and not player.dead and mode == Mode.LIVE:
 		_open_menu()
 
 
@@ -131,13 +146,23 @@ func _build_player_intent(player: SimCharacter) -> SimIntent:
 
 # --- Modi -----------------------------------------------------------------
 
-func _enter_live() -> void:
+func _enter_live(keep_chronicle: bool = false) -> void:
 	mode = Mode.LIVE
 	hud.mode_text = "Live"
 	hud.set_hint(HINT_LIVE)
 	hud.clear_buttons()
-	hud.show_chronicle(false)
 	view.preview_rules = []
+	if keep_chronicle:
+		hud.add_button("Chronik schließen", _hide_chronicle)
+	else:
+		_hide_chronicle()
+
+
+func _hide_chronicle() -> void:
+	_chronicle_id = -1
+	hud.show_chronicle(false)
+	if mode == Mode.LIVE:
+		hud.clear_buttons()
 
 
 func _open_menu() -> void:
@@ -165,8 +190,45 @@ func _enter_offline() -> void:
 	hud.mode_text = "Offline – NPC handelt nach Regeln"
 	hud.set_hint(HINT_OFFLINE)
 	hud.clear_buttons()
+	_chronicle_id = player_id
 	hud.show_chronicle(true, "Chronik (live)")
+	hud.add_button("%d Stunden überspringen" % int(skip_hours), _start_skip)
 	hud.add_button("Wieder einloggen", _login)
+
+
+func _start_skip() -> void:
+	mode = Mode.SKIPPING
+	_skip_start = world.time
+	_skip_target = world.time + skip_hours * 3600.0
+	hud.mode_text = "Zeitsprung"
+	hud.set_hint(HINT_SKIPPING)
+	hud.clear_buttons()
+
+
+func _process_skip() -> void:
+	var done := world.advance_until(_skip_target, SKIP_BUDGET_MSEC)
+	var elapsed := world.time - _skip_start
+	@warning_ignore("integer_division")
+	hud.show_message("Simuliere … %d:%02d h von %d h" % [int(elapsed) / 3600, (int(elapsed) % 3600) / 60, int(skip_hours)], 1.0)
+	if done:
+		_finish_skip()
+
+
+func _finish_skip() -> void:
+	mode = Mode.OFFLINE
+	var player := world.get_character(player_id)
+	hud.mode_text = "Offline – %d Stunden später" % int(skip_hours)
+	hud.show_chronicle(true, "Chronik der letzten %d Stunden" % int(skip_hours))
+	if player.dead:
+		hud.set_hint("Dein Charakter ist gestorben. Lies die Chronik – und ändere die Regeln beim nächsten Mal.")
+		hud.show_message("Dein Charakter hat es nicht geschafft.", 4.0)
+	else:
+		hud.set_hint("Du findest deinen Charakter dort, wo er jetzt steht. Lies die Chronik.")
+		hud.show_message("%d Stunden sind vergangen." % int(skip_hours), 3.0)
+	hud.clear_buttons()
+	hud.add_button("Charakter übernehmen", _login)
+	hud.add_button("Gegen mich selbst antreten", _start_versus)
+	hud.add_button("Weitere %d Stunden" % int(skip_hours), _start_skip)
 
 
 func _login() -> void:
@@ -174,32 +236,65 @@ func _login() -> void:
 	if player == null:
 		return
 	world.login(player_id)
-	_enter_live()
+	_enter_live(true)
 	hud.show_message("Du übernimmst deinen Charakter wieder.", 3.0)
 	if player.dead:
 		hud.set_hint(HINT_DEAD)
 
 
-## Neuer, frischer Charakter am Spawn; die Leiche bleibt liegen.
-func _respawn_player() -> void:
-	var spawn := SimMap.cell_center(data.player_spawns[0])
-	var fresh := world.spawn_player(spawn, "p1", "Du")
+## Gegen sich selbst: der NPC von gestern bleibt in der Welt, ein frischer Charakter startet am Spawn.
+func _start_versus() -> void:
+	var yesterday := world.get_character(player_id)
+	yesterday.name = "Du (gestern)"
+	_yesterday_id = yesterday.id
+	var fresh := world.spawn_player(SimMap.cell_center(data.player_spawns[0]), "p2", "Du (heute)")
 	player_id = fresh.id
 	hud.player_id = player_id
-	hud.set_hint(HINT_LIVE)
+	view.viewer_owner = fresh.owner_id
+	mode = Mode.VERSUS
+	hud.mode_text = "Gegen dich selbst"
+	hud.set_hint(HINT_VERSUS)
+	_hide_chronicle()
+	hud.clear_buttons()
+	hud.add_button("Chronik von gestern", _toggle_yesterday_chronicle)
+	hud.add_button("Neues Spiel", func() -> void: get_tree().reload_current_scene())
+	hud.show_message("Dein Charakter von gestern ist irgendwo da draußen.", 4.0)
+
+
+func _toggle_yesterday_chronicle() -> void:
+	if _chronicle_id == _yesterday_id:
+		_chronicle_id = -1
+		hud.show_chronicle(false)
+	else:
+		_chronicle_id = _yesterday_id
+		hud.show_chronicle(true, "Chronik von gestern")
+
+
+## Neuer, frischer Charakter am Spawn; die Leiche bleibt liegen.
+func _respawn_player() -> void:
+	var old := world.get_character(player_id)
+	var spawn := SimMap.cell_center(data.player_spawns[0])
+	var fresh := world.spawn_player(spawn, old.owner_id if old != null else "p1", old.name if old != null else "Du")
+	player_id = fresh.id
+	hud.player_id = player_id
+	hud.set_hint(HINT_VERSUS if mode == Mode.VERSUS else HINT_LIVE)
 	hud.show_message("Neuer Charakter. Dein altes Zeug liegt bei der Leiche.")
 
 
 func _handle_events() -> void:
 	for event: Dictionary in world.events:
-		if int(event.get("id", -1)) != player_id:
+		var id := int(event.get("id", -1))
+		if mode == Mode.VERSUS and id == _yesterday_id and String(event.get("type", "")) == "death":
+			hud.show_message("Du hast deinen Charakter von gestern besiegt. Plündere ihn mit E.", 5.0)
+			continue
+		if id != player_id:
 			continue
 		match String(event.get("type", "")):
 			"gather":
-				if mode == Mode.LIVE:
+				if mode != Mode.OFFLINE:
 					hud.show_message("%s +1" % data.resources[event["resource"]]["name"], 1.0)
 			"eat":
-				if mode == Mode.LIVE:
+				if mode != Mode.OFFLINE:
 					hud.show_message("Gegessen: %s (%d→%d)" % [data.resources[event["resource"]]["name"], event["before"], event["after"]], 1.5)
 			"hit":
 				hud.show_message("Getroffen %s: −%d" % [SimCombat.side_name(event["side"]), int(ceilf(event["damage"]))], 1.0)
@@ -211,8 +306,8 @@ func _handle_events() -> void:
 			"death":
 				var killer := world.get_character(int(event["attacker"]))
 				var killer_name: String = killer.name if killer != null else "Unbekannt"
-				if mode == Mode.LIVE:
+				if mode == Mode.OFFLINE:
+					hud.show_message("Dein Charakter ist gestorben (%s)." % killer_name, 4.0)
+				else:
 					hud.set_hint(HINT_DEAD)
 					hud.show_message("Du bist gestorben (%s)." % killer_name, 4.0)
-				else:
-					hud.show_message("Dein Charakter ist gestorben (%s)." % killer_name, 4.0)

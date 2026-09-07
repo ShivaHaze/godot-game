@@ -184,7 +184,7 @@ static func _apply_leash(world: SimWorld, c: SimCharacter, intent: SimIntent, dt
 	if intent.move == Vector2.ZERO:
 		return
 	var speed := c.move_speed * (world.data.balf("character.weakened_speed_multiplier") if c.is_weakened() else 1.0)
-	var next := c.pos + intent.move.normalized() * speed * dt
+	var next := c.pos + intent.move * speed * dt
 	if next.distance_to(c.leash_center) > c.leash_radius and distance > 0.0:
 		var radial := offset / distance
 		var outward := intent.move.dot(radial)
