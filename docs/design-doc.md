@@ -179,6 +179,13 @@ Marktorte (Kartenfeatures, keine NPC-Händler; Unterschied nur über Regeln):
 - **Spielstand:** wird automatisch geschrieben (Ausloggen, Zeitsprung, Einloggen, Versus, Beenden) und beim Start geladen; "Neues Spiel" löscht ihn. Format binär (exakter Verlauf), Inhalt ist dasselbe Dictionary, das später als Netzwerk-Snapshot dient.
 - **Nicht umgesetzt in Phase 0:** Claims/Marktorte; Hunger-Zustandseffekt beschränkt auf halbe Geschwindigkeit; Waffen-Verschleiß.
 
+**Netzwerk-Spike (2026-09-07, Ergebnis; alle Zahlen vom Entwicklungsrechner, Loopback):**
+- Aufbau: `server/server_main.gd` (Godot headless, dieselbe Sim, autoritativ, 20 Hz, ENet), `game/net_client.gd` (Spiegelwelt aus Snapshots, dieselbe Darstellung), `tools/bot_clients.gd` (N Clients in einem Prozess). Trennen = Charakter wird NPC mit seinen Regeln, Übergang läuft; Wiederkommen unter demselben Namen = Einloggen in den eigenen NPC. Das Spiel selbst verbindet mit `godot --path . -- --connect host:port --name X`.
+- Server mit 200 NPC-Füllung + 50 Bots (laufen, schießen, loggen aus und wieder ein): Tick Ø 5–12 ms, max 37 ms (Budget 50 ms). Godot headless trägt die Zielgröße (200–300 Charaktere) auf einem Prozess.
+- Bandbreite: erstes Format (Dictionaries, eigene Chronik in jedem Snapshot) 24 MB/s raus für 50 Clients. Kompaktes Format (Zeile je Charakter als Array, Stammdaten einmal, eigene Details und Quellen nur bei Änderung) 4,5 MB/s, ≈ 56 Byte je Charakter und Snapshot bei 10 Hz. Auf der kleinen Karte sind ≈ 160 Charaktere in jedem Sichtbereich (22 Kacheln); auf einer großen Karte entsprechend weniger. Nächste Hebel, falls nötig: Delta-Positionen, 5 Hz für ferne Charaktere, kleinerer Sichtbereich.
+- **Design-Befund Vergeltungskette:** 50 zufällig schießende Bots ließen die NPC-Zahl in 100 s von 198 auf 98 fallen. Ein verirrter Treffer macht den Getroffenen "angegriffen", er kämpft gegen den Schützen zurück, dessen Treffer treffen Umstehende, die ebenfalls zurückkämpfen. "Kämpfe zurück" ist wörtlich richtig, aber Querschläger zünden Ketten. Offen [O]: Soll ein einzelner Streiftreffer (kein zweiter Treffer binnen X s) als Angriff zählen? Soll Zurückkämpfen nur gegen den ursprünglichen Angreifer gelten? Muss vor Phase 1 entschieden werden.
+- **Bewertung Godot headless (Tendenz [T] bestätigt):** ein Code für Client und Simulation funktioniert, Spielstand = Snapshot-Format, Tickzeit im Budget. Persistenz: Server speichert alle 60 s (`user://server_save.dat`); SQLite/Postgres bleibt offen.
+
 Danach: Netzwerk-Spike (Godot headless, 300 NPCs, Tickzeit messen; 50 Bot-Clients per ENet) → erst dann Setting, Name, Optik.
 
 ## 9. Verworfen

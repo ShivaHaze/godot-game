@@ -6,6 +6,9 @@ extends Node2D
 
 enum Mode { LIVE, MENU, OFFLINE, SKIPPING, VERSUS }
 
+## Netzwerk: `godot --path . -- --connect 127.0.0.1:7777 --name Anna` verbindet mit einem Server (server/server_main.gd).
+## Dann ist `world` eine Spiegelwelt aus Snapshots, Eingaben gehen als Nachrichten an den Server.
+
 const WorldViewScript := preload("res://game/world_view.gd")
 const HudScript := preload("res://game/hud.gd")
 const LogoutMenuScript := preload("res://game/logout_menu.gd")
@@ -32,6 +35,7 @@ var hud: CanvasLayer
 var menu: CanvasLayer
 var craft_panel: CanvasLayer
 var camera: Camera2D
+var net: NetClient = null            # gesetzt im Netzwerk-Modus
 
 var _accumulator: float = 0.0
 var _eat_pressed: bool = false
@@ -53,14 +57,27 @@ func _ready() -> void:
 		hud.set_hint("Datenfehler, siehe Konsole: " + data.errors[0])
 		return
 	skip_hours = data.balf("time_skip_hours")
-	var saved := SimSave.load_from_file(data, save_path) if not save_path.is_empty() else {}
-	var saved_game: Dictionary = saved.get("game", {})
-	if saved.is_empty():
-		world = SimWorld.new(data, 12345)
-		player_id = world.setup_new_game()
-	else:
-		world = saved["world"]
-		player_id = int(saved_game.get("player_id", 1))
+	var net_target := _parse_connect_args()
+	var saved: Dictionary = {}
+	var saved_game: Dictionary = {}
+	if not net_target.is_empty():
+		net = NetClient.new()
+		var err := net.connect_to(data, String(net_target["host"]), int(net_target["port"]), String(net_target["name"]))
+		if err != OK:
+			hud.set_hint("Verbindung zu %s fehlgeschlagen: %s" % [net_target["host"], error_string(err)])
+			net = null
+		else:
+			world = net.mirror
+			save_path = ""
+	if net == null:
+		saved = SimSave.load_from_file(data, save_path) if not save_path.is_empty() else {}
+		saved_game = saved.get("game", {})
+		if saved.is_empty():
+			world = SimWorld.new(data, 12345)
+			player_id = world.setup_new_game()
+		else:
+			world = saved["world"]
+			player_id = int(saved_game.get("player_id", 1))
 
 	view = WorldViewScript.new()
 	view.world = world
@@ -78,7 +95,11 @@ func _ready() -> void:
 	menu.confirmed.connect(_on_logout_confirmed)
 	menu.cancelled.connect(_close_menu)
 	menu.rules_changed.connect(func(rules: Array) -> void: view.preview_rules = rules)
-	menu.marker_renamed.connect(func(marker_id: String, new_name: String) -> void: world.rename_marker(player_id, marker_id, new_name))
+	menu.marker_renamed.connect(func(marker_id: String, new_name: String) -> void:
+		if net != null:
+			net.send({"t": "marker_rename", "id": marker_id, "name": new_name}, true)
+		else:
+			world.rename_marker(player_id, marker_id, new_name))
 	menu.marker_removed.connect(_on_marker_removed)
 	add_child(menu)
 
@@ -89,7 +110,76 @@ func _ready() -> void:
 
 	hud.world = world
 	hud.player_id = player_id
-	_restore_mode(saved_game)
+	if net != null:
+		_enter_live()
+		hud.mode_text = "Online – verbinde …"
+		hud.set_hint("Verbinde mit dem Server …")
+	else:
+		_restore_mode(saved_game)
+
+
+## Liest `--connect host[:port]` und `--name X` aus den Programmargumenten (nach `--`).
+func _parse_connect_args() -> Dictionary:
+	var args := OS.get_cmdline_user_args()
+	var result := {}
+	for i in args.size():
+		if args[i] == "--connect" and i + 1 < args.size():
+			var parts := String(args[i + 1]).split(":")
+			result["host"] = parts[0]
+			result["port"] = int(parts[1]) if parts.size() > 1 else 7777
+		if args[i] == "--name" and i + 1 < args.size():
+			result["name"] = args[i + 1]
+	if result.has("host") and not result.has("name"):
+		result["name"] = "Spieler%d" % (Time.get_ticks_msec() % 1000)
+	return result
+
+
+func _process_net(delta: float) -> void:
+	net.poll()
+	for msg: Dictionary in net.messages:
+		match String(msg.get("t", "")):
+			"welcome":
+				player_id = net.my_id
+				hud.player_id = player_id
+				view.viewer_owner = net.player_name
+				hud.mode_text = "Online als %s" % net.player_name
+				hud.set_hint(HINT_LIVE)
+				hud.show_message("Verbunden. Dein Charakter wartet auf dem Server.", 3.0)
+			"info":
+				hud.show_message(String(msg.get("text", "")), 2.0)
+				craft_panel.show_status(String(msg.get("text", "")))
+	net.messages.clear()
+	if not net.connected and player_id >= 0:
+		hud.mode_text = "Verbindung verloren"
+		hud.set_hint("Verbindung zum Server verloren. Dein Charakter handelt dort nach seinen Regeln weiter.")
+	var player := world.get_character(player_id)
+	match mode:
+		Mode.LIVE:
+			_process_live_input(player)
+			_accumulator += delta
+			while _accumulator >= world.tick_dt:
+				_accumulator -= world.tick_dt
+				if player != null and not player.dead and player.control == SimCharacter.Controller.PLAYER:
+					net.send_intent(_build_player_intent(player))
+		Mode.MENU:
+			if Input.is_action_just_pressed("logout_menu"):
+				_close_menu()
+		Mode.OFFLINE:
+			pass
+	_chronicle_id = player_id if mode == Mode.OFFLINE else _chronicle_id
+	view.alpha = net.render_alpha()
+	if player != null:
+		camera.position = WorldViewScript.to_pixels(player.render_pos(view.alpha))
+	view.trail_character_id = _chronicle_id
+	view.queue_redraw()
+	var chronicle_owner := world.get_character(_chronicle_id)
+	if chronicle_owner != null:
+		hud.set_chronicle(SimChronicle.format_numbered(chronicle_owner))
+	hud.refresh()
+	if craft_panel.visible:
+		craft_panel.refresh()
+	if mode == Mode.OFFLINE and player != null and player.control == SimCharacter.Controller.PLAYER:
+		_enter_live(true)  # Server hat uns wieder eingeloggt
 
 
 ## Stellt nach dem Laden den passenden Modus wieder her.
@@ -133,12 +223,18 @@ func _new_game() -> void:
 
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_WM_CLOSE_REQUEST and mode != Mode.MENU:
-		_save()
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		if net != null:
+			net.disconnect_from_server()
+		elif mode != Mode.MENU:
+			_save()
 
 
 func _process(delta: float) -> void:
 	if world == null:
+		return
+	if net != null:
+		_process_net(delta)
 		return
 	var player := world.get_character(player_id)
 	match mode:
@@ -191,10 +287,17 @@ func _process_live_input(player: SimCharacter) -> void:
 	if Input.is_action_just_pressed("eat"):
 		_eat_pressed = true
 	if Input.is_action_just_pressed("place_marker") and not player.dead:
-		var marker := world.add_marker(player_id)
-		hud.show_message("%s gesetzt" % marker["name"])
+		if net != null:
+			net.send({"t": "marker"}, true)
+			hud.show_message("Marker gesetzt")
+		else:
+			var marker := world.add_marker(player_id)
+			hud.show_message("%s gesetzt" % marker["name"])
 	if Input.is_action_just_pressed("respawn") and player.dead:
-		_respawn_player()
+		if net != null:
+			net.send({"t": "respawn"}, true)
+		else:
+			_respawn_player()
 	if Input.is_action_just_pressed("switch_weapon") and not player.dead:
 		_switch_weapon(player)
 	if Input.is_action_just_pressed("craft_menu") and not player.dead:
@@ -226,13 +329,19 @@ func _switch_weapon(player: SimCharacter) -> void:
 		return
 	var index := weapons.find(player.active_weapon)
 	var next_id: String = weapons[(index + 1) % weapons.size()]
-	world.set_active_weapon(player, next_id)
+	if net != null:
+		net.send({"t": "weapon", "item": next_id}, true)
+	else:
+		world.set_active_weapon(player, next_id)
 	hud.show_message("Waffe: %s" % data.items[next_id]["name"], 1.5)
 
 
 func _on_craft_requested(item_id: String) -> void:
 	var player := world.get_character(player_id)
 	if player == null:
+		return
+	if net != null:
+		net.send({"t": "craft", "item": item_id}, true)
 		return
 	var reason := world.craft(player, item_id)
 	if reason.is_empty():
@@ -244,7 +353,10 @@ func _on_craft_requested(item_id: String) -> void:
 
 
 func _on_marker_removed(marker_id: String) -> void:
-	world.remove_marker(player_id, marker_id)
+	if net != null:
+		net.send({"t": "marker_remove", "id": marker_id}, true)
+	else:
+		world.remove_marker(player_id, marker_id)
 	menu.on_marker_removed(marker_id)
 
 
@@ -289,6 +401,10 @@ func _on_logout_confirmed(rules: Array, role_id: String, role_name: String) -> v
 	menu.close()
 	var player := world.get_character(player_id)
 	player.role_id = role_id
+	if net != null:
+		net.send({"t": "logout", "rules": rules, "role": role_id}, true)
+		_enter_offline()
+		return
 	world.logout(player_id, rules, role_name)
 	_enter_offline()
 	_save()
@@ -296,14 +412,16 @@ func _on_logout_confirmed(rules: Array, role_id: String, role_name: String) -> v
 
 func _enter_offline() -> void:
 	mode = Mode.OFFLINE
-	world.observer_ids = [player_id]  # Zuschauer-Kamera: der eigene NPC und seine Umgebung laufen fein
+	if net == null:
+		world.observer_ids = [player_id]  # Zuschauer-Kamera: der eigene NPC und seine Umgebung laufen fein
 	view.preview_rules = []
 	hud.mode_text = "Offline – NPC handelt nach Regeln"
 	hud.set_hint(HINT_OFFLINE)
 	hud.clear_buttons()
 	_chronicle_id = player_id
 	hud.show_chronicle(true, "Chronik (live)")
-	hud.add_button("%d Stunden überspringen" % int(skip_hours), _start_skip)
+	if net == null:
+		hud.add_button("%d Stunden überspringen" % int(skip_hours), _start_skip)
 	hud.add_button("Wieder einloggen", _login)
 
 
@@ -346,6 +464,10 @@ func _finish_skip() -> void:
 func _login() -> void:
 	var player := world.get_character(player_id)
 	if player == null:
+		return
+	if net != null:
+		net.send({"t": "login"}, true)
+		hud.show_message("Einloggen angefragt …", 2.0)
 		return
 	world.login(player_id)
 	_enter_live(true)
