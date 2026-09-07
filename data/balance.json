@@ -52,7 +52,9 @@
     "min_damage": 1,
     "_min_damage": "Schaden, der trotz Rüstung mindestens durchgeht.",
     "under_attack_window": 5.0,
-    "_under_attack_window": "Sekunden nach dem letzten Treffer, in denen 'wird angegriffen' wahr ist."
+    "_under_attack_window": "Sekunden nach dem letzten Treffer, in denen 'wird angegriffen' wahr ist.",
+    "name_range": 4.0,
+    "_name_range": "Kacheln, innerhalb derer man den Namen eines fremden Menschen erkennt (Design: Name erst in unmittelbarer Nähe). Weiter weg: 'Fremder' bzw. in der Chronik 'Unbekannter mit <Waffe>'. Tiere und eigene Leute erkennt man immer."
   },
   "wolf": {
     "_doc": "Einfacher PvE-Druck: nähert sich, beißt, flieht bei niedrigem Leben.",

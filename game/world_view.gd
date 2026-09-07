@@ -238,7 +238,7 @@ func _draw_characters() -> void:
 		# Verband anlegen (Kanalisierung)
 		if c.heal_progress > 0.0:
 			draw_rect(Rect2(top_left.x, top_left.y + size + 6, size * minf(1.0, c.heal_progress / 3.0), 3), Color(0.9, 0.95, 1.0))
-		var label := c.name
+		var label := c.name if world.knows_name(_viewer_character(), c) and not c.name.is_empty() else "Fremder"
 		if c.is_weakened():
 			label += " (geschwächt)"
 		if c.hidden:

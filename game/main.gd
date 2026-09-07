@@ -918,7 +918,7 @@ func _handle_events() -> void:
 				pass
 			"death":
 				var killer := world.get_character(int(event["attacker"]))
-				var killer_name: String = killer.name if killer != null else "Unbekannt"
+				var killer_name: String = world.describe(world.get_character(player_id), killer)
 				if mode == Mode.OFFLINE:
 					hud.show_message("Dein Charakter ist gestorben (%s)." % killer_name, 4.0)
 				else:

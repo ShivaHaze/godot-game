@@ -1509,9 +1509,9 @@ func apply_damage(victim: SimCharacter, base_damage: float, hit_dir: Vector2, at
 	victim.last_damage_time = time
 	victim.last_attacker_id = attacker_id
 	reveal(victim)
-	var event := {"type": "hit", "id": victim.id, "attacker": attacker_id, "damage": amount, "side": side, "pos": victim.pos}
-	events.append(event)
 	var attacker := get_character(attacker_id)
+	var event := {"type": "hit", "id": victim.id, "attacker": attacker_id, "damage": amount, "side": side, "pos": victim.pos, "known": attacker != null and knows_name(victim, attacker)}
+	events.append(event)
 	if attacker != null and attacker.kind == SimCharacter.Kind.PLAYER and attacker.control == SimCharacter.Controller.RULES \
 			and victim.kind == SimCharacter.Kind.PLAYER and victim.owner_id != attacker.owner_id:
 		unlock(victim.owner_id, "attacked_by_npc", victim)
@@ -1529,12 +1529,33 @@ func _kill(victim: SimCharacter, attacker_id: int, cause: String = "") -> void:
 	victim.effects.clear()
 	victim.death_time = time
 	var attacker := get_character(attacker_id)
-	var attacker_name := attacker.name if attacker != null else "Unbekannt"
+	var attacker_name := describe(victim, attacker) if attacker != null else "Unbekannt"
 	events.append({"type": "death", "id": victim.id, "attacker": attacker_id, "cause": cause})
 	if victim.kind == SimCharacter.Kind.PLAYER:
 		SimChronicle.add(self, victim, ("%s, zuletzt getroffen von %s" % [cause, attacker_name]) if not cause.is_empty() else "gestorben durch %s" % attacker_name)
 	if attacker != null and attacker.kind == SimCharacter.Kind.PLAYER and attacker.control == SimCharacter.Controller.RULES:
-		SimChronicle.add(self, attacker, "%s getötet" % victim.name)
+		SimChronicle.add(self, attacker, "%s getötet" % describe(attacker, victim))
+
+
+# --- Namen und Sichtbarkeit ----------------------------------------------
+
+## Kennt `observer` den Namen von `other`? Eigene Leute und Tiere immer, fremde Menschen nur in unmittelbarer Nähe.
+func knows_name(observer: SimCharacter, other: SimCharacter) -> bool:
+	if observer == null or other == null or observer == other:
+		return true
+	if other.kind != SimCharacter.Kind.PLAYER or other.owner_id == observer.owner_id:
+		return true
+	return observer.pos.distance_to(other.pos) <= data.balf("combat.name_range")
+
+
+## Wie `observer` den anderen benennt: Name oder "Unbekannter mit <Waffe>" (Chronik-Design).
+func describe(observer: SimCharacter, other: SimCharacter) -> String:
+	if other == null:
+		return "Unbekannt"
+	if knows_name(observer, other):
+		return other.name
+	var weapon := String(data.items.get(other.active_weapon, {}).get("name", ""))
+	return "Unbekannter mit %s" % (weapon if not weapon.is_empty() else "bloßen Händen")
 
 
 # --- Verstecken -----------------------------------------------------------

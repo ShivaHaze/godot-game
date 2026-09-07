@@ -68,8 +68,8 @@ static func _safe_vector(value: Variant) -> Vector2:
 # --- Server -> Client -----------------------------------------------------
 
 ## Stammdaten eines Charakters (einmal je Empfänger, solange er in Sicht bleibt).
-static func character_intro(c: SimCharacter) -> Dictionary:
-	return {"i": c.id, "n": c.name, "k": c.kind, "o": c.owner_id, "mh": c.max_hp}
+static func character_intro(c: SimCharacter, named: bool = true) -> Dictionary:
+	return {"i": c.id, "n": c.name if named else "", "k": c.kind, "o": c.owner_id, "mh": c.max_hp}
 
 
 ## Bewegliche Daten eines Charakters, kompakt.
@@ -94,9 +94,12 @@ static func snapshot(world: SimWorld, viewer_id: int, known: Dictionary, node_st
 		if c.pos.distance_squared_to(center) > r2 and c.id != viewer_id:
 			continue
 		chars.append(character_dynamic(c))
-		now_known[c.id] = true
-		if not known.has(c.id):
-			intros.append(character_intro(c))
+		# known[id]: true = Stammdaten mit Name geschickt, false = ohne Name (noch zu weit weg)
+		var named := world.knows_name(viewer, c)
+		var state: Variant = known.get(c.id)
+		if state == null or (state == false and named):
+			intros.append(character_intro(c, named))
+		now_known[c.id] = named or state == true
 	known.clear()
 	known.merge(now_known)
 	var projectiles := PackedFloat32Array()
@@ -199,7 +202,9 @@ static func apply_snapshot(mirror: SimWorld, snap: Dictionary) -> void:
 			c = SimCharacter.new()
 			c.id = id
 			mirror.characters[id] = c
-		c.name = String(intro["n"])
+		var name := String(intro["n"])
+		if not name.is_empty() or c.name.is_empty() or c.name == "?":
+			c.name = name  # leer = Name noch unbekannt (zu weit weg); ein bekannter Name bleibt
 		c.kind = int(intro["k"]) as SimCharacter.Kind
 		c.owner_id = String(intro["o"])
 		c.max_hp = float(intro["mh"])
