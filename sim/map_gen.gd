@@ -11,6 +11,7 @@ const TREE: String = "T"
 const BUSH: String = "B"
 const STONE: String = "S"
 const FIBER: String = "F"
+const COPPER: String = "C"
 const PLAYER: String = "P"
 const WOLF: String = "W"
 const MARKET: String = "M"
@@ -42,6 +43,9 @@ static func generate(width: int, height: int, seed: int, rock_clusters_per_100: 
 		_blob(grid, rng, STONE, rng.randi_range(2, 5), width, height)
 	for i in maxi(1, int(inner_cells / 100.0 * 0.3)):
 		_blob(grid, rng, FIBER, rng.randi_range(2, 6), width, height)
+	# Kupferadern nur im äußeren Ring (Design: Kupfer am Rand)
+	for i in maxi(2, int(inner_cells / 100.0 * 0.1)):
+		_blob(grid, rng, COPPER, rng.randi_range(2, 4), width, height, 0.0, 0.15)
 	# Beerenbüsche, einzeln oder als Paar
 	for i in int(inner_cells / 100.0 * bushes_per_100):
 		var cell := _random_floor(grid, rng, width, height)
@@ -102,8 +106,8 @@ static func generate(width: int, height: int, seed: int, rock_clusters_per_100: 
 
 
 ## Zufallslauf-Blob aus `symbol` mit `size` Zellen, nur auf Boden, nicht am Rand.
-static func _blob(grid: Array[PackedStringArray], rng: RandomNumberGenerator, symbol: String, size: int, width: int, height: int) -> void:
-	var cell := _random_floor(grid, rng, width, height)
+static func _blob(grid: Array[PackedStringArray], rng: RandomNumberGenerator, symbol: String, size: int, width: int, height: int, inner_frac: float = 0.0, outer_frac: float = 1.0) -> void:
+	var cell := _random_floor(grid, rng, width, height, inner_frac, outer_frac)
 	if cell.x < 0:
 		return
 	for i in size:

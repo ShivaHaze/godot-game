@@ -67,6 +67,22 @@
       "durability": 50
     },
     {
+      "id": "copper_spear",
+      "name": "Kupferspeer",
+      "kind": "weapon",
+      "attack": "melee",
+      "damage": 22,
+      "range": 1.6,
+      "cooldown": 0.9,
+      "starting": false,
+      "cost": {
+        "copper": 2,
+        "wood": 3
+      },
+      "durability": 90,
+      "effect": "bleeding"
+    },
+    {
       "id": "cloth_armor",
       "name": "Stoffrüstung",
       "kind": "armor",

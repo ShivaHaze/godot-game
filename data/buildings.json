@@ -74,7 +74,7 @@
       "tier": "wood",
       "cost": {
         "wood": 2,
-        "stone": 2
+        "wire": 1
       },
       "hp": 15,
       "size": [
@@ -86,7 +86,7 @@
       "color": "#4fc3f7",
       "sensor_radius": 6.0,
       "sensor_hold": 5.0,
-      "_doc": "Meldet Fremde (auch versteckte) im Umkreis als Bedingung 'Sensor … ausgelöst' und ist als Ort in Regeln wählbar. Phase 1 aus Holz und Stein; laut Design später Kupferdraht."
+      "_doc": "Meldet Fremde (auch versteckte) im Umkreis als Bedingung 'Sensor … ausgelöst' und ist als Ort in Regeln wählbar. Phase 1 aus Holz und Stein; laut Design später Kupferdraht. Braucht Draht aus der Kupferkette."
     },
     {
       "id": "trap",

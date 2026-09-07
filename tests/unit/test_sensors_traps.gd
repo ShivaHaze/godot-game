@@ -16,6 +16,7 @@ func before_each() -> void:
 	player.pos = OPEN
 	player.inventory["wood"] = 20
 	player.inventory["stone"] = 10
+	player.inventory["wire"] = 5
 	for c: SimCharacter in world.characters.values():
 		if c.kind == SimCharacter.Kind.WOLF:
 			c.pos = Vector2(38.5, 28.5)

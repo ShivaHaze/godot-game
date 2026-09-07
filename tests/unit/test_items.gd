@@ -44,7 +44,7 @@ func _tick(ticks: int, intent: SimIntent = null, collect_type: String = "") -> A
 
 func test_items_data_loaded() -> void:
 	assert_true(data.is_valid(), "Fehler: %s" % data.errors)
-	assert_eq(data.item_order, ["sling", "bow", "club", "stone_axe", "cloth_armor", "wood_armor"] as Array[String])
+	assert_eq(data.item_order, ["sling", "bow", "club", "stone_axe", "copper_spear", "cloth_armor", "wood_armor"] as Array[String])
 	assert_true(player.items.has("sling"), "Startausrüstung")
 	assert_eq(player.active_weapon, "sling")
 	assert_eq(player.armor, data.balf("character.armor"))
