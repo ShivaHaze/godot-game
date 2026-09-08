@@ -42,7 +42,7 @@ static func nearest_stranger(world: SimWorld, c: SimCharacter) -> SimCharacter:
 	var best: SimCharacter = null
 	var best_d := INF
 	for other: SimCharacter in world.spatial.query(c.pos, SEARCH_RADIUS):
-		if other == c or other.dead or other.hidden or other.owner_id == c.owner_id:
+		if other == c or other.dead or other.hidden or world.allied(other.owner_id, c.owner_id):
 			continue
 		var d := other.pos.distance_squared_to(c.pos)
 		if d < best_d:
@@ -57,7 +57,7 @@ static func stranger_in_claim(world: SimWorld, c: SimCharacter) -> bool:
 	if claim == null:
 		return false
 	for other: SimCharacter in world.characters.values():
-		if other == c or other.dead or other.hidden or other.owner_id == c.owner_id:
+		if other == c or other.dead or other.hidden or world.allied(other.owner_id, c.owner_id):
 			continue
 		if claim.tiles.has(SimMap.cell_of(other.pos)):
 			return true

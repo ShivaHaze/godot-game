@@ -16,6 +16,7 @@ var zone_ids: PackedStringArray = PackedStringArray()  # Zone je Kachel ("" oder
 var nodes: Dictionary = {}  # Vector2i -> SimResourceNode
 var buildings: Dictionary = {}       # id -> SimBuilding
 var built_half: Dictionary = {}      # Halbzelle (Vector2i) -> Gebäude-Kennung
+var guilds: SimGuilds = null  # gesetzt von SimWorld; Gildenmitglieder gehen durch die Türen der anderen
 var built_tiles: PackedByteArray = PackedByteArray()  # je Kachel: Zahl bebauter Halbzellen (schneller Vorab-Check für Kollision und Wegsuche)
 
 
@@ -115,7 +116,7 @@ func half_blocked_for(half: Vector2i, owner_id: String, data: SimData) -> bool:
 	var passable := String(data.buildings[b.part]["passable"])
 	if passable == "all":
 		return false
-	if passable == "owner" and b.owner_id == owner_id:
+	if passable == "owner" and (b.owner_id == owner_id or (guilds != null and guilds.allied(b.owner_id, owner_id))):
 		return false
 	return true
 

@@ -132,7 +132,9 @@
     "_grace_hours": "Nach Verlust des Ankers: so lange kann der Besitzer auf seinem Land neu verankern, dann wird es frei.",
     "min_anchor_distance": 8,
     "foreign_decay_multiplier": 3.0,
-    "_foreign_decay_multiplier": "Bauteile auf fremdem oder verlorenem Land verfallen so viel schneller."
+    "_foreign_decay_multiplier": "Bauteile auf fremdem oder verlorenem Land verfallen so viel schneller.",
+    "guild_tiles_per_member": 20,
+    "_guild_tiles_per_member": "Zusätzliche Kacheln je weiterem Gildenmitglied auf jedem Claim eines Mitglieds (Design: mehr Land pro Kopf; [T] statt Gildenlevel)."
   },
   "offline": {
     "_doc": "Zeitsprung: die Sim tickt ohne Darstellung. Ohne Gefahr in der Nähe grob (Simulationsstufen), bei Kampf fein.",

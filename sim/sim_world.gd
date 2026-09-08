@@ -19,6 +19,7 @@ var rng := RandomNumberGenerator.new()
 
 var unlocks_by_owner: Dictionary = {}    # Besitzer -> {fact: true}: freigeschaltete Regel-Bausteine (todesfest)
 var claims := SimClaims.new()            # Land: Anker, Kacheln, Unterhalt
+var guilds := SimGuilds.new()            # Gilden: Verbündete teilen Claims, Türen und Alarm
 
 var _next_id: int = 1
 var _next_building_id: int = 1
@@ -29,6 +30,8 @@ var _wolf_respawn_timer: float = 0.0
 func _init(p_data: SimData, seed: int = 12345) -> void:
 	data = p_data
 	map = SimMap.new(data)
+	map.guilds = guilds
+	claims.guilds = guilds
 	tick_dt = 1.0 / data.balf("tick_rate")
 	rng.seed = seed
 
@@ -811,7 +814,7 @@ func is_trap(b: SimBuilding) -> bool:
 
 ## Für Fremde unsichtbare Bauteile (Fallen) sieht nur der Besitzer.
 func building_visible_to(b: SimBuilding, owner_id: String) -> bool:
-	return not bool(data.buildings.get(b.part, {}).get("hidden", false)) or b.owner_id == owner_id
+	return not bool(data.buildings.get(b.part, {}).get("hidden", false)) or allied(b.owner_id, owner_id)
 
 
 ## Kennung eines Bauteils als Ort ("b<id>").
@@ -823,15 +826,15 @@ static func place_id_of(b: SimBuilding) -> String:
 func triggered_sensors_of(owner_id: String) -> Array:
 	var result := []
 	for b: SimBuilding in map.buildings.values():
-		if b.owner_id == owner_id and is_sensor(b) and time < b.triggered_until:
+		if allied(b.owner_id, owner_id) and is_sensor(b) and time < b.triggered_until:
 			result.append(place_id_of(b))
 	return result
 
 
-func sensors_of(owner_id: String) -> Array[SimBuilding]:
+func sensors_of(owner_id: String, include_allies: bool = false) -> Array[SimBuilding]:
 	var result: Array[SimBuilding] = []
 	for b: SimBuilding in map.buildings.values():
-		if b.owner_id == owner_id and is_sensor(b):
+		if (b.owner_id == owner_id or (include_allies and allied(b.owner_id, owner_id))) and is_sensor(b):
 			result.append(b)
 	return result
 
@@ -847,7 +850,7 @@ func is_turret(b: SimBuilding) -> bool:
 
 ## Munition ins eigene Turret laden (live per E oder NPC-Lieferung). Rückgabe: geladene Menge.
 func turret_load(c: SimCharacter, b: SimBuilding, amount: int) -> int:
-	if not is_turret(b) or b.owner_id != c.owner_id or c.dead:
+	if not is_turret(b) or not allied(b.owner_id, c.owner_id) or c.dead:
 		return 0
 	var spec: Dictionary = data.buildings[b.part]["turret"]
 	var ammo := String(spec["ammo"])
@@ -864,7 +867,7 @@ func turret_load(c: SimCharacter, b: SimBuilding, amount: int) -> int:
 ## Turret in Reichweite des eigenen Besitzers, sonst null.
 func turret_near(c: SimCharacter) -> SimBuilding:
 	for b: SimBuilding in map.buildings.values():
-		if is_turret(b) and b.owner_id == c.owner_id and b.center().distance_to(c.pos) <= data.balf("character.interact_range") + 0.5:
+		if is_turret(b) and allied(b.owner_id, c.owner_id) and b.center().distance_to(c.pos) <= data.balf("character.interact_range") + 0.5:
 			return b
 	return null
 
@@ -916,7 +919,7 @@ func _update_turrets(_dt: float) -> void:
 		var target: SimCharacter = null
 		var best := radius * radius
 		for other: SimCharacter in spatial.query(center, radius):
-			if other.dead or other.hidden or other.owner_id == b.owner_id or in_peace_zone(other.pos):
+			if other.dead or other.hidden or allied(other.owner_id, b.owner_id) or in_peace_zone(other.pos):
 				continue
 			var d := other.pos.distance_squared_to(center)
 			# Sichtlinie ab dem Rand des eigenen Bauteils (sonst blockiert sich das Turret selbst), Bauteile zählen
@@ -968,7 +971,7 @@ func _update_sensors_and_traps(dt: float) -> void:
 			var was_triggered := time < b.triggered_until
 			var center := b.center()
 			for other: SimCharacter in spatial.query(center, float(def["sensor_radius"])):
-				if other.dead or other.owner_id == b.owner_id or other.pos.distance_to(center) > float(def["sensor_radius"]):
+				if other.dead or allied(other.owner_id, b.owner_id) or other.pos.distance_to(center) > float(def["sensor_radius"]):
 					continue
 				b.triggered_until = time + float(def.get("sensor_hold", 5.0))
 				if not was_triggered:
@@ -976,7 +979,7 @@ func _update_sensors_and_traps(dt: float) -> void:
 				break
 		elif def.has("trap_damage"):
 			for other: SimCharacter in spatial.query(b.center(), 1.5):
-				if other.dead or other.owner_id == b.owner_id:
+				if other.dead or allied(other.owner_id, b.owner_id):
 					continue
 				var half := SimBuilding.half_cell_of(other.pos)
 				if not b.cells.has(half):
@@ -989,7 +992,7 @@ func _update_sensors_and_traps(dt: float) -> void:
 
 ## Liefert alles von `rid` in ein eigenes Bauteil (Anker: nur Holz; Handelstisch: alles) in Reichweite. Rückgabe: Menge.
 func deliver_to(c: SimCharacter, b: SimBuilding, rid: String) -> int:
-	if not is_container(b) or (b.owner_id != c.owner_id and not is_depot(b)) or c.dead:
+	if not is_container(b) or (not allied(b.owner_id, c.owner_id) and not is_depot(b)) or c.dead:
 		return 0
 	if b.center().distance_to(c.pos) > data.balf("character.interact_range") + 0.5:
 		return 0
@@ -1005,7 +1008,9 @@ func deliver_to(c: SimCharacter, b: SimBuilding, rid: String) -> int:
 	if b.part == "anchor":
 		if rid != "wood":
 			return 0
-		var claim := claims.claim_of_owner(c.owner_id)
+		var claim := claims.claim_at(SimMap.cell_of(b.center()))  # auch der Anker eines Gildenmitglieds
+		if claim == null:
+			claim = claims.claim_of_owner(c.owner_id)
 		return claims.deposit(self, c, claim, amount)
 	var before := int(b.contents.get(rid, 0))
 	if not table_deposit(c, b, rid, amount, true).is_empty():
@@ -1018,7 +1023,7 @@ func container_near(owner_id: String, pos: Vector2, radius: float) -> SimBuildin
 	var best: SimBuilding = null
 	var best_d := radius
 	for b: SimBuilding in map.buildings.values():
-		if not is_container(b) or (b.owner_id != owner_id and not is_depot(b)):
+		if not is_container(b) or (not allied(b.owner_id, owner_id) and not is_depot(b)):
 			continue
 		var d := b.center().distance_to(pos)
 		if d <= best_d:
@@ -1349,7 +1354,7 @@ func _update_buildings(dt: float) -> void:
 			continue
 		# Auf fremdem oder verlorenem Land verfällt es schneller (Claim geschrumpft, Anker weg)
 		var claim := claims.claim_at(SimMap.cell_of(b.center()))
-		if claim != null and claim.owner_id != b.owner_id:
+		if claim != null and not allied(claim.owner_id, b.owner_id):
 			decay *= foreign_multiplier
 		b.hp -= decay
 		if b.hp <= 0.0:
@@ -1506,7 +1511,7 @@ func _gather(c: SimCharacter, dt: float, wanted_cell: Vector2i = Vector2i(-1, -1
 		c.inventory[node.resource] = int(c.inventory.get(node.resource, 0)) + 1
 		events.append({"type": "gather", "id": c.id, "resource": node.resource, "cell": node.cell})
 		var claim := claims.claim_at(node.cell)
-		if claim != null and claim.owner_id != c.owner_id:
+		if claim != null and not allied(claim.owner_id, c.owner_id):
 			events.append({"type": "theft", "id": c.id, "claim": claim.id, "owner": claim.owner_id, "resource": node.resource})
 
 
@@ -1525,7 +1530,7 @@ func node_offline_ok(node: SimResourceNode, owner_id: String) -> bool:
 		if not map.tile_built(neighbor):
 			continue
 		var b := map.building_at_half(neighbor * 2)
-		if b != null and b.part == needs and b.owner_id == owner_id:
+		if b != null and b.part == needs and allied(b.owner_id, owner_id):
 			return true
 	return false
 
@@ -1682,7 +1687,7 @@ func nearest_enemy(c: SimCharacter, radius: float) -> SimCharacter:
 	var best: SimCharacter = null
 	var best_d := radius * radius
 	for other: SimCharacter in spatial.query(c.pos, radius):
-		if other == c or other.dead or other.hidden or other.owner_id == c.owner_id:
+		if other == c or other.dead or other.hidden or allied(other.owner_id, c.owner_id):
 			continue
 		var d := other.pos.distance_squared_to(c.pos)
 		if d <= best_d:
@@ -1747,7 +1752,7 @@ func apply_damage(victim: SimCharacter, base_damage: float, hit_dir: Vector2, at
 	var event := {"type": "hit", "id": victim.id, "attacker": attacker_id, "damage": amount, "side": side, "pos": victim.pos, "known": attacker != null and knows_name(victim, attacker)}
 	events.append(event)
 	if attacker != null and attacker.kind == SimCharacter.Kind.PLAYER and attacker.control == SimCharacter.Controller.RULES \
-			and victim.kind == SimCharacter.Kind.PLAYER and victim.owner_id != attacker.owner_id:
+			and victim.kind == SimCharacter.Kind.PLAYER and not allied(victim.owner_id, attacker.owner_id):
 		unlock(victim.owner_id, "attacked_by_npc", victim)
 	if victim.hp <= 0.0:
 		_kill(victim, attacker_id, "", attacker_label)
@@ -1773,11 +1778,16 @@ func _kill(victim: SimCharacter, attacker_id: int, cause: String = "", attacker_
 
 # --- Namen und Sichtbarkeit ----------------------------------------------
 
+## Verbündet: derselbe Besitzer oder dieselbe Gilde.
+func allied(a: String, b: String) -> bool:
+	return guilds.allied(a, b)
+
+
 ## Kennt `observer` den Namen von `other`? Eigene Leute und Tiere immer, fremde Menschen nur in unmittelbarer Nähe.
 func knows_name(observer: SimCharacter, other: SimCharacter) -> bool:
 	if observer == null or other == null or observer == other:
 		return true
-	if other.kind != SimCharacter.Kind.PLAYER or other.owner_id == observer.owner_id:
+	if other.kind != SimCharacter.Kind.PLAYER or allied(other.owner_id, observer.owner_id):
 		return true
 	return observer.pos.distance_to(other.pos) <= data.balf("combat.name_range")
 
@@ -1855,7 +1865,7 @@ func _update_wolves(dt: float) -> void:
 			continue
 		# Wer über einen Versteckten läuft, entdeckt ihn
 		for other: SimCharacter in spatial.query(c.pos, reveal_radius):
-			if other != c and not other.dead and other.owner_id != c.owner_id and other.pos.distance_squared_to(c.pos) <= reveal_radius_sq:
+			if other != c and not other.dead and not allied(other.owner_id, c.owner_id) and other.pos.distance_squared_to(c.pos) <= reveal_radius_sq:
 				reveal(c)
 				events.append({"type": "discovered", "id": c.id, "by": other.id})
 				break

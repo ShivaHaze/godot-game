@@ -229,7 +229,7 @@ func _draw_characters() -> void:
 			draw_line(top_left + Vector2(size, 0), top_left + Vector2(0, size), Color(0.6, 0.1, 0.1), 2.0)
 			draw_string(ThemeDB.fallback_font, top_left + Vector2(0, size + 12), c.name + " (tot)", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.7, 0.7, 0.7))
 			continue
-		if c.hidden and c.owner_id != viewer_owner:
+		if c.hidden and not world.allied(c.owner_id, viewer_owner):
 			continue
 		var color := _character_color(c)
 		if c.hidden:
@@ -252,6 +252,8 @@ func _draw_characters() -> void:
 		if c.heal_progress > 0.0:
 			draw_rect(Rect2(top_left.x, top_left.y + size + 6, size * minf(1.0, c.heal_progress / 3.0), 3), Color(0.9, 0.95, 1.0))
 		var label := c.name if world.knows_name(_viewer_character(), c) and not c.name.is_empty() else "Fremder"
+		if label != "Fremder" and c.kind == SimCharacter.Kind.PLAYER and not world.guilds.name_of(c.owner_id).is_empty():
+			label += " [%s]" % world.guilds.name_of(c.owner_id)
 		if c.is_weakened():
 			label += " (geschwächt)"
 		if c.hidden:

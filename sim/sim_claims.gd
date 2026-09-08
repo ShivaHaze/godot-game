@@ -29,9 +29,24 @@ func claim_of_owner(owner_id: String) -> SimClaim:
 
 
 ## Ist die Kachel fremdes Land für diesen Besitzer?
+var guilds: SimGuilds = null  # gesetzt von SimWorld; Gildenmitglieder gelten auf den Claims der anderen nicht als fremd
+
+
+func _allied(a: String, b: String) -> bool:
+	return a == b or (guilds != null and guilds.allied(a, b))
+
+
 func is_foreign(tile: Vector2i, owner_id: String) -> bool:
 	var claim := claim_at(tile)
-	return claim != null and claim.owner_id != owner_id
+	return claim != null and not _allied(claim.owner_id, owner_id)
+
+
+## Kachelgrenze eines Claims: solo plus Land je weiterem Gildenmitglied.
+func max_tiles_for(data: SimData, owner_id: String) -> int:
+	var members := 1
+	if guilds != null and guilds.guild_of(owner_id) >= 0:
+		members = guilds.members_of(owner_id).size()
+	return data.bali("claim.max_tiles_solo") + data.bali("claim.guild_tiles_per_member") * (members - 1)
 
 
 ## Unterhalt je Stunde in Holz: base × n × (1 + n / growth) – überproportional.
@@ -59,7 +74,7 @@ func anchor_reason(data: SimData, c: SimCharacter, tile: Vector2i) -> String:
 		return "fremder Claim"
 	var min_distance := data.balf("claim.min_anchor_distance")
 	for claim: SimClaim in claims.values():
-		if claim.owner_id != c.owner_id and claim.anchor_tile.distance_to(tile) < min_distance:
+		if not _allied(claim.owner_id, c.owner_id) and claim.anchor_tile.distance_to(tile) < min_distance:
 			return "zu nah an einem fremden Anker"
 	return ""
 
@@ -114,8 +129,8 @@ func claim_tile_reason(world: SimWorld, c: SimCharacter, tile: Vector2i) -> Stri
 		return "kein Land"
 	if not world.map.zone(tile).is_empty():
 		return String(world.zone_def(world.map.zone(tile)).get("claim_reason", "dieses Land gehört niemandem"))
-	if claim.tiles.size() >= data.bali("claim.max_tiles_solo"):
-		return "Obergrenze erreicht (%d Kacheln)" % data.bali("claim.max_tiles_solo")
+	if claim.tiles.size() >= max_tiles_for(data, claim.owner_id):
+		return "Obergrenze erreicht (%d Kacheln)" % max_tiles_for(data, claim.owner_id)
 	var adjacent := false
 	for step: Vector2i in SimMap.NEIGHBORS_4:
 		if claim.tiles.has(tile + step):

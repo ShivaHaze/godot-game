@@ -69,8 +69,8 @@ static func _safe_vector(value: Variant) -> Vector2:
 # --- Server -> Client -----------------------------------------------------
 
 ## Stammdaten eines Charakters (einmal je Empfänger, solange er in Sicht bleibt).
-static func character_intro(c: SimCharacter, named: bool = true) -> Dictionary:
-	return {"i": c.id, "n": c.name if named else "", "k": c.kind, "o": c.owner_id, "mh": c.max_hp}
+static func character_intro(c: SimCharacter, named: bool = true, guild: String = "") -> Dictionary:
+	return {"i": c.id, "n": c.name if named else "", "k": c.kind, "o": c.owner_id, "mh": c.max_hp, "g": guild}
 
 
 ## Bewegliche Daten eines Charakters, kompakt.
@@ -99,7 +99,7 @@ static func snapshot(world: SimWorld, viewer_id: int, known: Dictionary, node_st
 		var named := world.knows_name(viewer, c)
 		var state: Variant = known.get(c.id)
 		if state == null or (state == false and named):
-			intros.append(character_intro(c, named))
+			intros.append(character_intro(c, named, world.guilds.name_of(c.owner_id)))
 		now_known[c.id] = named or state == true
 	known.clear()
 	known.merge(now_known)
@@ -190,7 +190,25 @@ static func self_block(viewer: SimCharacter) -> Dictionary:
 		"chronicle_total": viewer.chronicle.size(),
 		"unlocks": {},
 		"places": viewer.extra_places.duplicate(true),
+		"guild": _guild_block(viewer),
 	}
+
+
+static func _guild_block(viewer: SimCharacter) -> Dictionary:
+	return {}  # wird vom Server gefüllt (self_block_for)
+
+
+## Selbstblock mit Gildendaten (der Server kennt die Welt).
+static func self_block_for(world: SimWorld, viewer: SimCharacter) -> Dictionary:
+	var block := self_block(viewer)
+	var id := world.guilds.guild_of(viewer.owner_id)
+	if id >= 0:
+		var g: Dictionary = world.guilds.guilds[id]
+		block["guild"] = {"name": g["name"], "leader": g["leader"], "members": Array(g["members"]).duplicate()}
+	var invite_id := int(world.guilds.invites.get(viewer.owner_id, -1))
+	if invite_id >= 0 and world.guilds.guilds.has(invite_id):
+		block["invite"] = String(world.guilds.guilds[invite_id]["name"])
+	return block
 
 
 ## Spielt einen Snapshot in eine Spiegelwelt ein (Client). Charaktere außer Sicht verschwinden.
@@ -208,6 +226,7 @@ static func apply_snapshot(mirror: SimWorld, snap: Dictionary) -> void:
 			c.name = name  # leer = Name noch unbekannt (zu weit weg); ein bekannter Name bleibt
 		c.kind = int(intro["k"]) as SimCharacter.Kind
 		c.owner_id = String(intro["o"])
+		mirror.guilds.register(c.owner_id, String(intro.get("g", "")))
 		c.max_hp = float(intro["mh"])
 	var seen := {}
 	for row: Array in snap.get("chars", []):
@@ -353,6 +372,15 @@ static func apply_self(mirror: SimWorld, you_id: int, block: Dictionary) -> void
 	var leash: Array = block.get("leash", [0, 0, 0])
 	you.leash_center = Vector2(leash[0], leash[1])
 	you.leash_radius = float(leash[2])
+	var guild: Dictionary = block.get("guild", {})
+	if guild.is_empty():
+		mirror.guilds.register(you.owner_id, "")
+	else:
+		for member: Variant in guild.get("members", []):
+			mirror.guilds.register(String(member), String(guild["name"]))
+		var gid := mirror.guilds.guild_of(you.owner_id)
+		if gid >= 0:
+			mirror.guilds.guilds[gid]["leader"] = String(guild.get("leader", you.owner_id))
 	you.extra_places = {}
 	for pid: Variant in block.get("places", {}):
 		var place: Dictionary = block["places"][pid]

@@ -194,8 +194,11 @@ func refresh() -> void:
 		var hours := mine.hours_left_hint if mine.hours_left_hint >= 0.0 else world.claims.hours_left(world.data, mine)
 		var hours_text := "∞" if hours == INF else "%.1f h" % hours
 		state += "\nDein Claim: %d/%d Kacheln · Vorrat %d Holz (reicht %s)%s" % [mine.tiles.size(), world.data.bali("claim.max_tiles_solo"), int(mine.stock), hours_text, "" if mine.anchor_building_id >= 0 else " · ANKER WEG, Schonfrist läuft"]
-	if here != null and here.owner_id != c.owner_id:
+	if here != null and not world.allied(here.owner_id, c.owner_id):
 		state += "\nFremder Claim von %s – Sammeln hier ist Diebstahl" % here.owner_id
+	var guild_name := world.guilds.name_of(c.owner_id)
+	if not guild_name.is_empty():
+		state += "\nGilde: %s (%d Mitglieder)" % [guild_name, world.guilds.members_of(c.owner_id).size()]
 	var zone := world.zone_at(c.pos)
 	if not zone.is_empty():
 		state += "\n%s: %s Depot per E." % [zone.get("name", "Zone"), "kampffrei, kein Bauen." if zone.get("peace", false) else "kein Kampfverbot, Raidwaren handelbar, kein Bauen."]
