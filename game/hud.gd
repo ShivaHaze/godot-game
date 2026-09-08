@@ -94,7 +94,7 @@ func _ready() -> void:
 	chat_input.offset_top = -58
 	chat_input.offset_right = 520
 	chat_input.offset_bottom = -34
-	chat_input.placeholder_text = "Nah-Chat … (/g für global, Esc bricht ab)"
+	chat_input.placeholder_text = "Nah-Chat … (/g global, /gi Gilde, /gilde gründen|einladen|annehmen|verlassen, Esc bricht ab)"
 	chat_input.max_length = 160
 	chat_input.visible = false
 	add_child(chat_input)
@@ -199,6 +199,8 @@ func refresh() -> void:
 	var guild_name := world.guilds.name_of(c.owner_id)
 	if not guild_name.is_empty():
 		state += "\nGilde: %s (%d Mitglieder)" % [guild_name, world.guilds.members_of(c.owner_id).size()]
+	elif not world.guild_invite_name.is_empty():
+		state += "\nEinladung: Gilde „%s“ – Enter, dann /gilde annehmen" % world.guild_invite_name
 	var zone := world.zone_at(c.pos)
 	if not zone.is_empty():
 		state += "\n%s: %s Depot per E." % [zone.get("name", "Zone"), "kampffrei, kein Bauen." if zone.get("peace", false) else "kein Kampfverbot, Raidwaren handelbar, kein Bauen."]

@@ -177,6 +177,17 @@ func _on_message(peer: ENetPacketPeer, msg: Dictionary) -> void:
 		"chat":
 			if c != null:
 				_relay_chat(c, String(msg.get("text", "")).strip_edges().substr(0, CHAT_MAX_LENGTH), String(msg.get("scope", "near")))
+		"guild":
+			if c != null:
+				var text := world.guild_command(c.owner_id, String(msg.get("op", "")), String(msg.get("arg", "")))
+				_send(peer, {"t": "info", "text": text}, true)
+				var invited := String(msg.get("arg", "")).strip_edges()
+				if String(msg.get("op", "")) == "invite" and world.guilds.invites.has(invited):
+					for other_peer: ENetPacketPeer in peers:
+						if String(peers[other_peer].get("name", "")) == invited:
+							_send(other_peer, {"t": "info", "text": "Einladung in die Gilde „%s“ – antworte mit /gilde annehmen." % world.guilds.name_of(c.owner_id)}, true)
+				for other_peer: ENetPacketPeer in peers:
+					peers[other_peer]["self_hash"] = 0  # Gildenstand aller Beteiligten neu schicken
 		"claim_tile":
 			if c != null:
 				var tile := Vector2i(int(msg.get("x", 0)), int(msg.get("y", 0)))
@@ -206,13 +217,19 @@ func _relay_chat(sender: SimCharacter, text: String, scope: String) -> void:
 	if text.is_empty():
 		return
 	var global := scope == "global"
-	var out := {"t": "chat", "from": sender.name, "text": text, "scope": "global" if global else "near"}
+	var guild := scope == "guild"
+	if guild and world.guilds.guild_of(sender.owner_id) < 0:
+		return
+	var out := {"t": "chat", "from": sender.name, "text": text, "scope": scope if (global or guild) else "near"}
 	for peer: ENetPacketPeer in peers:
 		var info: Dictionary = peers[peer]
 		var listener := world.get_character(int(info["char_id"]))
 		if listener == null:
 			continue
-		if global or listener.pos.distance_to(sender.pos) <= CHAT_NEAR_RADIUS:
+		if guild:
+			if world.guilds.guild_of(listener.owner_id) == world.guilds.guild_of(sender.owner_id):
+				_send(peer, out, true)
+		elif global or listener.pos.distance_to(sender.pos) <= CHAT_NEAR_RADIUS:
 			_send(peer, out, true)
 
 

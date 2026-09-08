@@ -372,6 +372,7 @@ static func apply_self(mirror: SimWorld, you_id: int, block: Dictionary) -> void
 	var leash: Array = block.get("leash", [0, 0, 0])
 	you.leash_center = Vector2(leash[0], leash[1])
 	you.leash_radius = float(leash[2])
+	mirror.guild_invite_name = String(block.get("invite", ""))
 	var guild: Dictionary = block.get("guild", {})
 	if guild.is_empty():
 		mirror.guilds.register(you.owner_id, "")

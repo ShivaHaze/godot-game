@@ -174,7 +174,7 @@ func _process_net(delta: float) -> void:
 				hud.set_hint(HINT_LIVE)
 				hud.show_message("Verbunden. Dein Charakter wartet auf dem Server.", 3.0)
 			"chat":
-				hud.add_chat_line("[%s] %s: %s" % ["global" if msg.get("scope", "") == "global" else "nah", msg.get("from", "?"), msg.get("text", "")])
+				hud.add_chat_line("[%s] %s: %s" % [{"global": "global", "guild": "gilde"}.get(String(msg.get("scope", "")), "nah"), msg.get("from", "?"), msg.get("text", "")])
 			"info":
 				hud.show_message(String(msg.get("text", "")), 2.0)
 				craft_panel.show_status(String(msg.get("text", "")))
@@ -424,15 +424,38 @@ func _on_chat_submitted(text: String) -> void:
 	if line.is_empty():
 		_close_chat()
 		return
+	if line.begins_with("/gilde") or line.begins_with("/guild"):
+		_guild_command_line(line)
+		_close_chat()
+		return
 	var scope := "near"
 	if line.begins_with("/g "):
 		scope = "global"
 		line = line.substr(3).strip_edges()
+	elif line.begins_with("/gi "):
+		scope = "guild"
+		line = line.substr(4).strip_edges()
 	if net != null:
 		net.send({"t": "chat", "text": line, "scope": scope}, true)
 	else:
-		hud.add_chat_line("[%s] Du: %s (niemand hört zu – Einzelspieler)" % ["global" if scope == "global" else "nah", line])
+		hud.add_chat_line("[%s] Du: %s (niemand hört zu – Einzelspieler)" % [{"global": "global", "guild": "gilde"}.get(scope, "nah"), line])
 	_close_chat()
+
+
+## "/gilde gründen <Name>", "/gilde einladen <Spieler>", "/gilde annehmen", "/gilde verlassen"
+func _guild_command_line(line: String) -> void:
+	var parts := line.split(" ", false, 2)
+	var word := String(parts[1]).to_lower() if parts.size() > 1 else ""
+	var arg := String(parts[2]) if parts.size() > 2 else ""
+	var op: String = {"gründen": "found", "gruenden": "found", "found": "found", "einladen": "invite", "invite": "invite",
+		"annehmen": "accept", "accept": "accept", "verlassen": "leave", "leave": "leave"}.get(word, "")
+	if net != null:
+		net.send({"t": "guild", "op": op, "arg": arg}, true)
+		return
+	var player := world.get_character(player_id)
+	var text := world.guild_command(player.owner_id, op, arg)
+	hud.show_message(text, 4.0)
+	hud.add_chat_line("[gilde] " + text)
 
 
 ## E neben einem eigenen Schild: Text eingeben. true, wenn ein Schild in Reichweite ist.

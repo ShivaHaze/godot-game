@@ -1783,6 +1783,36 @@ func allied(a: String, b: String) -> bool:
 	return guilds.allied(a, b)
 
 
+## Gildenbefehl eines Besitzers: gründen <Name>, einladen <Spielername>, annehmen, verlassen. Rückgabe: Meldung.
+func guild_command(owner_id: String, op: String, arg: String) -> String:
+	match op:
+		"found":
+			var reason := guilds.found(owner_id, arg)
+			return ("Gilde „%s“ gegründet." % arg.strip_edges()) if reason.is_empty() else "Gilde: %s" % reason
+		"invite":
+			var target := arg.strip_edges()
+			var known := false
+			for c: SimCharacter in characters.values():
+				if c.kind == SimCharacter.Kind.PLAYER and c.owner_id == target:
+					known = true
+			if not known:
+				return "Gilde: Spieler „%s“ ist unbekannt" % target
+			var reason := guilds.invite(owner_id, target)
+			return ("%s eingeladen (er antwortet mit /gilde annehmen)." % target) if reason.is_empty() else "Gilde: %s" % reason
+		"accept":
+			var reason := guilds.accept(owner_id)
+			return ("Willkommen in der Gilde „%s“." % guilds.name_of(owner_id)) if reason.is_empty() else "Gilde: %s" % reason
+		"leave":
+			var name := guilds.name_of(owner_id)
+			var reason := guilds.leave(owner_id)
+			return ("Du hast „%s“ verlassen." % name) if reason.is_empty() else "Gilde: %s" % reason
+	return "Gilde: unbekannter Befehl (gründen <Name>, einladen <Spieler>, annehmen, verlassen)"
+
+
+## Client-Spiegel: Name der Gilde, die einen gerade einlädt (aus dem Selbstblock).
+var guild_invite_name: String = ""
+
+
 ## Kennt `observer` den Namen von `other`? Eigene Leute und Tiere immer, fremde Menschen nur in unmittelbarer Nähe.
 func knows_name(observer: SimCharacter, other: SimCharacter) -> bool:
 	if observer == null or other == null or observer == other:
