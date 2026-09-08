@@ -18,6 +18,7 @@ const DepotPanelScript := preload("res://game/depot_panel.gd")
 const CaravanPanelScript := preload("res://game/caravan_panel.gd")
 
 const MAX_TICKS_PER_FRAME: int = 5      # Schutz gegen Aufholspiralen bei Rucklern
+const CONNECT_TIMEOUT_MSEC: int = 8000  # Ohne Antwort des Servers zurück zum Startbildschirm anbieten
 const SKIP_BUDGET_MSEC: int = 14        # Echtzeit pro Frame für den Zeitsprung (Fortschritt bleibt sichtbar)
 const SAVE_PATH: String = "user://save.dat"
 const HINT_LIVE: String = "WASD · Maus · Linksklick angreifen · E sammeln/plündern/handeln · F essen · H Verband · Q Waffe · C Herstellen · B Bauen · M Marker · Esc Ausloggen"
@@ -32,6 +33,7 @@ var player_id: int = -1
 var mode: Mode = Mode.LIVE
 var skip_hours: float = 8.0
 var save_path: String = SAVE_PATH   # leer = nicht speichern/laden (Tests, Werkzeuge)
+var connect_target: Dictionary = {}  # {host, port, name, password} vom Startbildschirm (game/boot.gd); leer = Einzelspieler oder Argumente
 
 var view: Node2D
 var hud: CanvasLayer
@@ -55,6 +57,8 @@ var _build_part: String = ""
 var _build_rot: int = 0
 var _build_click: bool = false
 var _sign_edit: SimBuilding = null      # Schild, das gerade beschriftet wird
+var _connection_lost: bool = false      # Online: Hinweis und Rückweg zum Startbildschirm nur einmal anbieten
+var _connect_started_msec: int = 0
 var depot_panel: CanvasLayer
 var caravan_panel: CanvasLayer
 
@@ -70,12 +74,12 @@ func _ready() -> void:
 		hud.set_hint("Datenfehler, siehe Konsole: " + data.errors[0])
 		return
 	skip_hours = data.balf("time_skip_hours")
-	var net_target := _parse_connect_args()
+	var net_target := connect_target if not connect_target.is_empty() else _parse_connect_args()
 	var saved: Dictionary = {}
 	var saved_game: Dictionary = {}
 	if not net_target.is_empty():
 		net = NetClient.new()
-		var err := net.connect_to(data, String(net_target["host"]), int(net_target["port"]), String(net_target["name"]))
+		var err := net.connect_to(data, String(net_target["host"]), int(net_target["port"]), String(net_target["name"]), String(net_target.get("password", "")))
 		if err != OK:
 			hud.set_hint("Verbindung zu %s fehlgeschlagen: %s" % [net_target["host"], error_string(err)])
 			net = null
@@ -146,26 +150,27 @@ func _ready() -> void:
 	hud.player_id = player_id
 	if net != null:
 		_enter_live()
+		_connect_started_msec = Time.get_ticks_msec()
 		hud.mode_text = "Online – verbinde …"
 		hud.set_hint("Verbinde mit dem Server …")
+		hud.add_button("Zum Startbildschirm", _back_to_start)
 	else:
 		_restore_mode(saved_game)
 
 
-## Liest `--connect host[:port]` und `--name X` aus den Programmargumenten (nach `--`).
+## Liest `--connect host[:port]`, `--name X` und `--password P` aus den Programmargumenten (nach `--`); Werkzeuge
+## und Bots starten die Szene so direkt, das Spiel selbst kommt über den Startbildschirm (game/boot.gd).
 func _parse_connect_args() -> Dictionary:
-	var args := OS.get_cmdline_user_args()
-	var result := {}
-	for i in args.size():
-		if args[i] == "--connect" and i + 1 < args.size():
-			var parts := String(args[i + 1]).split(":")
-			result["host"] = parts[0]
-			result["port"] = int(parts[1]) if parts.size() > 1 else 7777
-		if args[i] == "--name" and i + 1 < args.size():
-			result["name"] = args[i + 1]
-	if result.has("host") and not result.has("name"):
-		result["name"] = "Spieler%d" % (Time.get_ticks_msec() % 1000)
-	return result
+	var options: Dictionary = preload("res://game/boot.gd").parse_args(OS.get_cmdline_user_args())
+	return options.get("target", {}) if String(options["mode"]) == "connect" else {}
+
+
+## Zurück zum Startbildschirm (nach Verbindungsverlust oder auf Wunsch).
+func _back_to_start() -> void:
+	if net != null:
+		net.disconnect_from_server()
+		net = null
+	get_tree().change_scene_to_file("res://game/boot.tscn")
 
 
 func _process_net(delta: float) -> void:
@@ -196,9 +201,18 @@ func _process_net(delta: float) -> void:
 				if caravan_panel.visible:
 					caravan_panel.show_status(String(msg.get("text", "")))
 	net.messages.clear()
-	if not net.connected and player_id >= 0:
+	if not net.connected and player_id >= 0 and not _connection_lost:
+		_connection_lost = true
 		hud.mode_text = "Verbindung verloren"
 		hud.set_hint("Verbindung zum Server verloren. Dein Charakter handelt dort nach seinen Regeln weiter.")
+		hud.clear_buttons()
+		hud.add_button("Zum Startbildschirm", _back_to_start)
+	elif not net.connected and player_id < 0 and Time.get_ticks_msec() - _connect_started_msec > CONNECT_TIMEOUT_MSEC and not _connection_lost:
+		_connection_lost = true
+		hud.mode_text = "Keine Verbindung"
+		hud.set_hint("Der Server antwortet nicht. Läuft er, und ist Port 7777 (UDP) erreichbar?")
+		hud.clear_buttons()
+		hud.add_button("Zum Startbildschirm", _back_to_start)
 	var player := world.get_character(player_id)
 	match mode:
 		Mode.LIVE:

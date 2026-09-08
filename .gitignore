@@ -1,7 +1,8 @@
 # Godot
 .godot/
 *.import
-export_presets.cfg
+# Exportierte Programme (tools/build.ps1, GitHub Actions)
+build/
 # GUT (Editor-Zustand)
 .gut_editor_config.json
 .gut_editor_shortcuts.cfg

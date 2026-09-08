@@ -6,8 +6,9 @@ config_version=5
 
 [application]
 
-config/name="Phase0-Prototyp"
-run/main_scene="res://game/main.tscn"
+config/name="Prototyp"
+config/version="0.50"
+run/main_scene="res://game/boot.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")
 
 [display]

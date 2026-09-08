@@ -19,10 +19,12 @@ var chars_in_last_snapshot: int = 0
 
 var _enet: ENetConnection
 var _peer: ENetPacketPeer
+var _password: String = ""             # geht nur mit dem Beitritt raus (Konten: Schritt 51)
 
 
-func connect_to(data: SimData, host: String, port: int, name: String) -> Error:
+func connect_to(data: SimData, host: String, port: int, name: String, password: String = "") -> Error:
 	player_name = name
+	_password = password
 	var own_data := SimData.load_from_dir("res://data")  # eigene Kopie: die Karte kommt vom Server
 	if not own_data.is_valid():
 		own_data = data
@@ -62,7 +64,7 @@ func poll() -> void:
 		match kind:
 			ENetConnection.EVENT_CONNECT:
 				connected = true
-				send({"t": "join", "name": player_name}, true)
+				send({"t": "join", "name": player_name, "password": _password}, true)
 			ENetConnection.EVENT_DISCONNECT:
 				connected = false
 				joined = false

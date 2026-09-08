@@ -1,0 +1,77 @@
+# Baut bei jedem Push auf main die Tests und danach Client und Server als Programme.
+# Ergebnis: Artefakt "builds" am Lauf und der Release "latest" (https://github.com/<repo>/releases/tag/latest).
+name: Build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GODOT_VERSION: "4.7.2"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Godot und Export-Vorlagen aus dem Cache
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: ~/godot
+          key: godot-${{ env.GODOT_VERSION }}-v1
+
+      - name: Godot und Export-Vorlagen laden
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          set -e
+          mkdir -p ~/godot/templates
+          curl -sSL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip -d ~/godot
+          mv ~/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 ~/godot/godot
+          chmod +x ~/godot/godot
+          curl -sSL -o templates.tpz "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -q -j templates.tpz templates/windows_release_x86_64.exe templates/windows_release_x86_64_console.exe templates/linux_release.x86_64 templates/version.txt -d ~/godot/templates
+          rm -f godot.zip templates.tpz
+
+      - name: Export-Vorlagen einhängen
+        run: |
+          mkdir -p ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          cp ~/godot/templates/* ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable/
+
+      - name: Import
+        run: ~/godot/godot --headless --path . --import
+
+      - name: Tests (GUT, headless)
+        run: ~/godot/godot --headless --path . -s addons/gut/gut_cmdln.gd
+
+      - name: Export
+        run: |
+          set -e
+          mkdir -p build
+          ~/godot/godot --headless --path . --export-release "Windows Client" build/Prototyp-Client.exe
+          ~/godot/godot --headless --path . --export-release "Windows Server" build/Prototyp-Server.exe
+          ~/godot/godot --headless --path . --export-release "Linux Server" build/prototyp-server.x86_64
+          cp tools/dist/* build/
+          echo "Build $(git rev-parse --short HEAD) vom $(date -u +%Y-%m-%dT%H:%MZ)" > build/VERSION.txt
+          ls -la build
+
+      - name: Artefakt hochladen
+        uses: actions/upload-artifact@v4
+        with:
+          name: builds
+          path: build/
+
+      - name: Release "latest" aktualisieren
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Aktueller Build
+          prerelease: true
+          body: "Automatischer Build von main. Client: Prototyp-Client.exe. Server: Prototyp-Server.exe (Windows) oder prototyp-server.x86_64 (Linux) mit Server-starten.bat bzw. install-server.sh."
+          files: build/*
