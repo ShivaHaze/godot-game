@@ -117,7 +117,7 @@ Server speichert alle 60 s nach `user://server_save.dat`. Trennen macht den Char
 - **Code und Identifier Englisch** (Dateien, Klassen, Variablen, JSON-Schlüssel). **UI-Texte und Chronik Deutsch. Kommentare Deutsch.**
 - GDScript: Tabs, `snake_case` für Variablen/Funktionen, `PascalCase` für `class_name`, statische Typisierung überall. Sim-Klassen erben von `RefCounted`. Enum `SimCharacter.Controller` (nicht `Control`: kollidiert mit der Godot-Klasse).
 - `.gd.uid`-Dateien werden mit eingecheckt (erzeugt `--import`).
-- Heiße Pfade der Sim (Bewegung, Sichtlinie, Wegsuche) laufen zehntausende Male je Zeitsprung: dort keine `range()`-Schleifen, Dictionary-Suchen oder `balf()`-Aufrufe ohne Vorab-Check (Beispiel: `SimMap.built_tiles` vor `built_half`). Bei Änderungen an der Sim die Laufzeit mit `tools/balance_report.gd -- 1 8` vergleichen (Spalte ms Ø, Stand: ≈ 11 s je 8 h).
+- Heiße Pfade der Sim (Bewegung, Sichtlinie, Wegsuche) laufen zehntausende Male je Zeitsprung: dort keine `range()`-Schleifen, Dictionary-Suchen oder `balf()`-Aufrufe ohne Vorab-Check (Beispiel: `SimMap.built_tiles` vor `built_half`). Bei Änderungen an der Sim die Laufzeit mit `tools/balance_report.gd -- 1 8` vergleichen (Spalte ms Ø, Stand: ≈ 11 s je 8 h auf dem Rechner „Shiva“, ≈ 22 s auf „linux“; gemessen 2026-09-08 vor und nach Schritt 40–43 gleich).
 - Chronik-Zeilen im Format `HH:MM – <Auslöser>, Regel <n>: <Aktion> (<Details>)`, z. B. `05:02 – hungrig, Regel 1: gegessen (Beeren 4→3)`. Texte kommen aus den `log`-Vorlagen in conditions.json/actions.json.
 - Commits: ein Commit pro Arbeitsschritt, aussagekräftige Messages auf Deutsch.
 
