@@ -59,12 +59,11 @@ func test_gather_fibers_and_craft_bandage() -> void:
 		world.set_intent(player.id, intent)
 		world.tick()
 	assert_gte(int(player.inventory["fibers"]), 3, "Fasern gesammelt (auf der Pflanze stehend)")
-	assert_false(world.can_use(player, data.action_def("heal_self")), "Aktion vorher gesperrt")
 	assert_eq(world.craft(player, "bandage"), "zu wenig Stoff (1 nötig)", "Verband braucht die Zwischenstufe Stoff")
 	assert_eq(world.craft(player, "cloth"), "")
 	assert_eq(world.craft(player, "bandage"), "")
 	assert_eq(int(player.inventory["bandage"]), 1)
-	assert_true(world.can_use(player, data.action_def("heal_self")), "Verband schaltet 'verbinde dich' frei")
+	assert_true(world.can_use(player, data.action_def("heal_self")), "'verbinde dich' ist immer verfügbar")
 	player.inventory["fibers"] = 0
 	player.inventory["cloth"] = 0
 	assert_eq(world.craft(player, "bandage"), "zu wenig Stoff (1 nötig)")
@@ -110,7 +109,6 @@ func test_heal_is_channeled_and_cancelled_by_attack() -> void:
 
 
 func test_npc_heals_itself_when_rule_says_so() -> void:
-	world.unlock("p1", "owned_bandage")
 	player.inventory["bandage"] = 1
 	player.hp = 12.0
 	var rules := data.normalize_rule_list([
@@ -129,7 +127,6 @@ func test_npc_heals_itself_when_rule_says_so() -> void:
 
 
 func test_npc_without_bandage_falls_through() -> void:
-	world.unlock("p1", "owned_bandage")
 	player.hp = 12.0
 	var rules := data.normalize_rule_list([
 		{"if": {"condition": "health_below", "params": {"percent": 50}}, "then": {"action": "heal_self"}},

@@ -31,9 +31,9 @@ func _sensor(origin: Vector2i = Vector2i(46, 11)) -> SimBuilding:
 
 
 func test_sensor_triggers_on_stranger_and_holds() -> void:
-	assert_false(world.can_use(player, data.condition_def("sensor_triggered")), "vorher gesperrt")
+	assert_false(world.can_use(player, data.condition_def("sensor_triggered")), "ohne Sensor nicht verfügbar")
 	var s := _sensor()
-	assert_true(world.can_use(player, data.condition_def("sensor_triggered")), "erster Sensor schaltet frei")
+	assert_true(world.can_use(player, data.condition_def("sensor_triggered")), "mit Sensor verfügbar")
 	assert_eq(s.label, "Sensor 1")
 	assert_eq(player.extra_places["b%d" % s.id]["name"], "Sensor 1", "Sensor ist ein Ort")
 	assert_eq(player.marker_name("b%d" % s.id), "Sensor 1")

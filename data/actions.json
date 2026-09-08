@@ -1,5 +1,5 @@
 {
-  "_doc": "Aktionen des Regelsystems (Startvokabular, 6 Stück). 'greife an' ist im Start gesperrt ('unlock'): der Offline-Charakter wehrt sich, schlägt nie zuerst zu, bis der Spieler selbst einmal von einem fremden Offline-Charakter angegriffen wurde. Freischaltungen sind an den Besitzer gebunden und überleben den Tod. Parameter-Typen: 'place' = Ort (nur 'here' oder live gesetzte Marker), 'radius' = Leine in Kacheln um den Ort (Voreinstellung aus balance.json npc.default_leash_radius), 'resource' = Rohstoff aus resources.json. 'label' ist der UI-Text, 'log' der Text in der Chronik. Die Ausführung jeder Aktion steckt in sim/npc_controller.gd; die Regelmaschine selbst kennt nur die Kennung. 'verlange Zoll' (frei ab dem ersten Anker): Fremde im eigenen Claim bekommen die Forderung und balance.json toll.grace_seconds Zeit, per E beim Zöllner zu zahlen; die unbezahlte Zeit im Claim wird je Fremdem als Zollschuld gemerkt (Durchrennen zahlt sich nicht aus), danach greift der Zöllner an, solange der Fremde im Claim steht. Wer zahlt, hat toll.pass_hours Freigang.",
+  "_doc": "Aktionen des Regelsystems. Alle Bausteine sind von Anfang an verfügbar, auch 'greife an' (Entscheidung 2026-09-08: keine Freischaltungen, wer angreift, entscheidet der Spieler per Regel). Optional 'requires' {fact, label}: Voraussetzung, die gerade in der Welt existieren muss ('verlange Zoll' braucht einen eigenen Claim). Parameter-Typen: 'place' = Ort (nur 'here' oder live gesetzte Marker), 'radius' = Leine in Kacheln um den Ort (Voreinstellung aus balance.json npc.default_leash_radius), 'resource' = Rohstoff aus resources.json. 'label' ist der UI-Text, 'log' der Text in der Chronik. Die Ausführung jeder Aktion steckt in sim/npc_controller.gd; die Regelmaschine selbst kennt nur die Kennung. 'verlange Zoll': Fremde im eigenen Claim bekommen die Forderung und balance.json toll.grace_seconds Zeit, per E beim Zöllner zu zahlen; die unbezahlte Zeit im Claim wird je Fremdem als Zollschuld gemerkt (Durchrennen zahlt sich nicht aus), danach greift der Zöllner an, solange der Fremde im Claim steht. Wer zahlt, hat toll.pass_hours Freigang.",
   "actions": [
     {
       "id": "flee_to",
@@ -83,10 +83,6 @@
       "id": "attack",
       "label": "greife an ({radius} Kacheln)",
       "log": "angegriffen: Fremde im Umkreis {radius}",
-      "unlock": {
-        "fact": "attacked_by_npc",
-        "label": "Frei, nachdem dich zum ersten Mal ein fremder Offline-Charakter angegriffen hat."
-      },
       "params": [
         {
           "name": "radius",
@@ -103,20 +99,12 @@
       "id": "heal_self",
       "label": "verbinde dich",
       "log": "verbunden",
-      "unlock": {
-        "fact": "owned_bandage",
-        "label": "Frei, sobald du je einen Verband hattest."
-      },
       "params": []
     },
     {
       "id": "craft",
       "label": "stelle {product} her",
       "log": "hergestellt: {product}",
-      "unlock": {
-        "fact": "crafted_consumable",
-        "label": "Frei, sobald du selbst einmal etwas hergestellt hast (Werkbank, C)."
-      },
       "params": [
         {
           "name": "product",
@@ -130,10 +118,6 @@
       "id": "deliver",
       "label": "liefere {resource} zu {place}",
       "log": "geliefert: {resource} zu {place}",
-      "unlock": {
-        "fact": "owned_container",
-        "label": "Frei, sobald du einen Claim-Anker oder Handelstisch gebaut oder ein Markt-Depot benutzt hast."
-      },
       "params": [
         {
           "name": "resource",
@@ -158,10 +142,6 @@
       "id": "toll",
       "label": "verlange Zoll: {amount} {resource}",
       "log": "Zoll verlangt: {amount} {resource}",
-      "unlock": {
-        "fact": "owned_anchor",
-        "label": "Frei, sobald du einen Claim-Anker gesetzt hast."
-      },
       "params": [
         {
           "name": "resource",
@@ -178,7 +158,11 @@
           "max": 20,
           "step": 1
         }
-      ]
+      ],
+      "requires": {
+        "fact": "own_claim",
+        "label": "braucht einen eigenen Claim (Anker)"
+      }
     }
   ]
 }

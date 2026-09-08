@@ -136,7 +136,6 @@ func test_npc_delivers_shot_to_turret_and_depot_refuses_raid_goods() -> void:
 	var turret := _turret()
 	player.pos = Vector2(18.5, 5.5)
 	player.inventory["shot"] = 6
-	world.unlock("p1", "owned_container", player)
 	var rules := data.normalize_rule_list([
 		{"if": {"condition": "else"}, "then": {"action": "deliver", "params": {"resource": "shot", "place": "b%d" % turret.id, "radius": 4}}},
 	], "Test")

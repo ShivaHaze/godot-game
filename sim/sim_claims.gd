@@ -102,7 +102,6 @@ func on_anchor_placed(world: SimWorld, b: SimBuilding) -> SimClaim:
 	claims[claim.id] = claim
 	tile_owner[tile] = claim.id
 	world.events.append({"type": "claim_created", "claim": claim.id, "owner": b.owner_id, "tile": tile})
-	world.unlock(b.owner_id, "owned_anchor")
 	return claim
 
 

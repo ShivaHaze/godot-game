@@ -1,5 +1,5 @@
 {
-  "_doc": "Bedingungen des Regelsystems (Startvokabular, 5 Stück + 'Sonst'). Jede Bedingung vergleicht einen Sensorwert ('fact', berechnet in sim/sensors.gd) per 'op' mit einem Parameter ('param', vom Spieler einstellbar) oder einer Konstante ('value'). Die Regelmaschine kennt keine einzelne Bedingung – eine neue Bedingung ist ein neuer Eintrag hier (plus ggf. ein neuer Sensorwert). 'label' ist der UI-Text, 'log' der Auslöser-Text in der Chronik; {name} wird durch den Parameterwert ersetzt.",
+  "_doc": "Bedingungen des Regelsystems (Startvokabular, 5 Stück + 'Sonst'). Jede Bedingung vergleicht einen Sensorwert ('fact', berechnet in sim/sensors.gd) per 'op' mit einem Parameter ('param', vom Spieler einstellbar) oder einer Konstante ('value'). Die Regelmaschine kennt keine einzelne Bedingung – eine neue Bedingung ist ein neuer Eintrag hier (plus ggf. ein neuer Sensorwert). 'label' ist der UI-Text, 'log' der Auslöser-Text in der Chronik; {name} wird durch den Parameterwert ersetzt. Optional 'requires' {fact, label}: Voraussetzung, die gerade in der Welt existieren muss (own_claim = eigener Claim, own_sensor = eigener Sensor); sonst ist der Baustein im Editor ausgegraut und eine Regel damit fällt mit Grund durch. Bausteine werden nie freigeschaltet (Entscheidung 2026-09-08).",
   "_facts": {
     "health_percent": "Leben in Prozent (0-100)",
     "is_hungry": "true, wenn Hunger unter hunger.hungry_threshold",
@@ -107,25 +107,21 @@
       "id": "stranger_in_claim",
       "label": "Fremder im eigenen Claim",
       "log": "Fremder im Claim",
-      "unlock": {
-        "fact": "owned_anchor",
-        "label": "Frei, sobald du einen Claim-Anker gesetzt hast."
-      },
       "params": [],
       "check": {
         "fact": "stranger_in_claim",
         "op": "==",
         "value": true
+      },
+      "requires": {
+        "fact": "own_claim",
+        "label": "braucht einen eigenen Claim (Anker)"
       }
     },
     {
       "id": "sensor_triggered",
       "label": "Sensor {sensor} ausgelöst",
       "log": "Sensor {sensor} ausgelöst",
-      "unlock": {
-        "fact": "owned_sensor",
-        "label": "Frei, sobald du einen Sensor gebaut hast."
-      },
       "params": [
         {
           "name": "sensor",
@@ -137,16 +133,16 @@
         "fact": "triggered_sensors",
         "op": "has",
         "param": "sensor"
+      },
+      "requires": {
+        "fact": "own_sensor",
+        "label": "braucht einen eigenen Sensor"
       }
     },
     {
       "id": "bleeding",
       "label": "blutet",
       "log": "blutet",
-      "unlock": {
-        "fact": "owned_bandage",
-        "label": "Frei, sobald du einen Verband hergestellt hast."
-      },
       "params": [],
       "check": {
         "fact": "is_bleeding",
@@ -158,10 +154,6 @@
       "id": "poisoned",
       "label": "vergiftet",
       "log": "vergiftet",
-      "unlock": {
-        "fact": "owned_antidote",
-        "label": "Frei, sobald du ein Gegenmittel hergestellt hast."
-      },
       "params": [],
       "check": {
         "fact": "is_poisoned",
@@ -173,10 +165,6 @@
       "id": "sick",
       "label": "krank",
       "log": "krank",
-      "unlock": {
-        "fact": "owned_medicine",
-        "label": "Frei, sobald du Medizin hergestellt hast."
-      },
       "params": [],
       "check": {
         "fact": "is_sick",

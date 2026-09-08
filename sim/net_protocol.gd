@@ -189,7 +189,7 @@ static func self_block(viewer: SimCharacter) -> Dictionary:
 		"logout_pos": [viewer.logout_pos.x, viewer.logout_pos.y],
 		"leash": [viewer.leash_center.x, viewer.leash_center.y, viewer.leash_radius],
 		"chronicle_total": viewer.chronicle.size(),
-		"unlocks": {},
+		"reqs": {},
 		"places": viewer.extra_places.duplicate(true),
 		"guild": _guild_block(viewer),
 	}
@@ -395,6 +395,7 @@ static func apply_self(mirror: SimWorld, you_id: int, block: Dictionary) -> void
 		var place: Dictionary = block["places"][pid]
 		var pos: Variant = place.get("pos", Vector2.ZERO)
 		you.extra_places[String(pid)] = {"name": String(place.get("name", pid)), "pos": pos if pos is Vector2 else Vector2(pos[0], pos[1])}
-	mirror.unlocks_by_owner[you.owner_id] = {}
-	for fact: Variant in block.get("unlocks", {}):
-		mirror.unlocks_by_owner[you.owner_id][String(fact)] = true
+	var reqs := {}
+	for fact: Variant in block.get("reqs", {}):
+		reqs[String(fact)] = bool(block["reqs"][fact])
+	mirror.prereqs_override[you.owner_id] = reqs  # Voraussetzungen der Bausteine kennt der Server

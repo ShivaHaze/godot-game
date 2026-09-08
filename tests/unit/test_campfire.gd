@@ -63,7 +63,6 @@ func test_cooking_needs_campfire_and_is_better_food() -> void:
 func test_npc_cooks_at_a_fire_and_eats_when_hungry() -> void:
 	player.inventory["meat"] = 3
 	player.inventory["wood"] = 4
-	world.unlock("p1", "crafted_consumable", player)
 	var fire := world.place_building(player, "campfire", Vector2i(43, 11), 0)
 	assert_not_null(fire)
 	var rules := data.normalize_rule_list([

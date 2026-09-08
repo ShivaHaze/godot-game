@@ -344,7 +344,7 @@ func _send_snapshots() -> void:
 		_send(peer, snap, false)
 		# Eigene Details nur, wenn sich etwas geändert hat
 		var block := NetProtocol.self_block_for(world, world.get_character(char_id))
-		block["unlocks"] = world.unlocks_of(world.get_character(char_id).owner_id).duplicate()
+		block["reqs"] = world.prerequisites_of(world.get_character(char_id).owner_id)
 		var h := block.hash()
 		if h != int(info["self_hash"]):
 			info["self_hash"] = h

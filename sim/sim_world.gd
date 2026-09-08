@@ -17,7 +17,6 @@ var tick_count: int = 0
 var tick_dt: float = 0.05
 var rng := RandomNumberGenerator.new()
 
-var unlocks_by_owner: Dictionary = {}    # Besitzer -> {fact: true}: freigeschaltete Regel-Bausteine (todesfest)
 var claims := SimClaims.new()            # Land: Anker, Kacheln, Unterhalt
 var guilds := SimGuilds.new()            # Gilden: Verbündete teilen Claims, Türen und Alarm
 
@@ -377,36 +376,27 @@ static func _pos_text(pos: Vector2) -> String:
 	return "(%d, %d)" % [int(pos.x), int(pos.y)]
 
 
-# --- Freischaltungen ------------------------------------------------------
+# --- Voraussetzungen für Regel-Bausteine ----------------------------------
+## Bausteine werden nie freigeschaltet (Entscheidung 2026-09-08). Manche brauchen etwas in der Welt: einen eigenen
+## Claim ("Fremder im eigenen Claim", "verlange Zoll") oder einen eigenen Sensor ("Sensor … ausgelöst"). Der Editor
+## graut sie sonst aus, ein NPC überspringt die Regel mit Grund. Der Client-Spiegel bekommt den Stand vom Server.
 
-func unlocks_of(owner_id: String) -> Dictionary:
-	return unlocks_by_owner.get(owner_id, {})
-
-
-## Schaltet einen Baustein-Grundstein für einen Besitzer frei (einmalig) und meldet es.
-func unlock(owner_id: String, fact: String, witness: SimCharacter = null) -> bool:
-	if not unlocks_by_owner.has(owner_id):
-		unlocks_by_owner[owner_id] = {}
-	if unlocks_by_owner[owner_id].has(fact):
-		return false
-	unlocks_by_owner[owner_id][fact] = true
-	var labels: PackedStringArray = []
-	for id: String in data.action_order:
-		if data.unlock_of(data.actions[id]).get("fact", "") == fact:
-			labels.append(data.format_template(String(data.actions[id]["label"]), data.actions[id]["params"], {}))
-	for id: String in data.condition_order:
-		if data.unlock_of(data.conditions[id]).get("fact", "") == fact:
-			labels.append(String(data.conditions[id]["label"]))
-	var label := ", ".join(labels) if not labels.is_empty() else fact
-	events.append({"type": "unlock", "id": witness.id if witness != null else -1, "owner": owner_id, "fact": fact, "label": label})
-	if witness != null and witness.control == SimCharacter.Controller.RULES:
-		SimChronicle.add(self, witness, "neuer Regel-Baustein freigeschaltet: %s" % label)
-	return true
+var prereqs_override: Dictionary = {}    # Besitzer -> {fact: bool}; nur im Client-Spiegel gesetzt (Selbstblock)
 
 
-## Ist ein Baustein für den Besitzer dieses Charakters nutzbar?
+## Aktueller Stand der Voraussetzungen eines Besitzers (Gildenbauteile zählen mit).
+func prerequisites_of(owner_id: String) -> Dictionary:
+	if prereqs_override.has(owner_id):
+		return prereqs_override[owner_id]
+	return {
+		"own_claim": claims.claim_of_owner(owner_id) != null,
+		"own_sensor": not sensors_of(owner_id, true).is_empty(),
+	}
+
+
+## Ist ein Baustein für den Besitzer dieses Charakters gerade verfügbar?
 func can_use(c: SimCharacter, def: Dictionary) -> bool:
-	return data.is_unlocked(def, unlocks_of(c.owner_id))
+	return data.is_available(def, prerequisites_of(c.owner_id))
 
 
 # --- Ausrüstung -----------------------------------------------------------
@@ -593,14 +583,6 @@ func _craft_consumable(c: SimCharacter, rid: String) -> String:
 	for need: String in cost:
 		c.inventory[need] = int(c.inventory[need]) - int(cost[need])
 	c.inventory[rid] = int(c.inventory.get(rid, 0)) + produced
-	if def.has("heal"):
-		unlock(c.owner_id, "owned_bandage", c)
-	if def.get("cures", []).has("poison"):
-		unlock(c.owner_id, "owned_antidote", c)
-	if def.get("cures", []).has("sick"):
-		unlock(c.owner_id, "owned_medicine", c)
-	if c.control == SimCharacter.Controller.PLAYER:
-		unlock(c.owner_id, "crafted_consumable", c)
 	events.append({"type": "craft", "id": c.id, "item": rid})
 	return ""
 
@@ -886,15 +868,12 @@ func place_building(c: SimCharacter, part_id: String, origin: Vector2i, rotation
 		claims.on_anchor_placed(self, b)
 	if is_sensor(b):
 		b.label = "Sensor %d" % sensors_of(c.owner_id).size()
-		unlock(c.owner_id, "owned_sensor", c)
 	if is_turret(b):
 		var count := 0
 		for other: SimBuilding in map.buildings.values():
 			if is_turret(other) and other.owner_id == c.owner_id:
 				count += 1
 		b.label = "Turret %d" % count
-	if is_container(b):
-		unlock(c.owner_id, "owned_container", c)
 	if is_sensor(b) or is_container(b):
 		refresh_places(c.owner_id)
 	return b
@@ -1384,8 +1363,6 @@ func depot_deposit(c: SimCharacter, b: SimBuilding, rid: String, amount: int, al
 		b.stores[c.owner_id] = {}
 	b.stores[c.owner_id][rid] = int(b.stores[c.owner_id].get(rid, 0)) + kept
 	c.inventory[rid] = int(c.inventory[rid]) - amount
-	if c.control == SimCharacter.Controller.PLAYER:
-		unlock(c.owner_id, "owned_container", c)
 	events.append({"type": "depot_deposit", "id": c.id, "building": b.id, "resource": rid, "amount": amount, "kept": kept, "fee": amount - kept})
 	return ""
 
@@ -1857,9 +1834,6 @@ func _loot(c: SimCharacter) -> bool:
 					items_taken.append(item_id)
 		if taken.is_empty() and items_taken.is_empty():
 			continue
-		for rid: String in taken:
-			if data.resources[rid].has("heal"):
-				unlock(c.owner_id, "owned_bandage", c)
 		refresh_equipment(c)
 		refresh_equipment(other)
 		events.append({"type": "loot", "id": c.id, "from": other.id, "items": taken, "equipment": items_taken})
@@ -2020,9 +1994,6 @@ func apply_damage(victim: SimCharacter, base_damage: float, hit_dir: Vector2, at
 	var attacker := get_character(attacker_id)
 	var event := {"type": "hit", "id": victim.id, "attacker": attacker_id, "damage": amount, "side": side, "pos": victim.pos, "known": attacker != null and knows_name(victim, attacker)}
 	events.append(event)
-	if attacker != null and attacker.kind == SimCharacter.Kind.PLAYER and attacker.control == SimCharacter.Controller.RULES \
-			and victim.kind == SimCharacter.Kind.PLAYER and not allied(victim.owner_id, attacker.owner_id):
-		unlock(victim.owner_id, "attacked_by_npc", victim)
 	if victim.hp <= 0.0:
 		_kill(victim, attacker_id, "", attacker_label)
 	elif not effect.is_empty():

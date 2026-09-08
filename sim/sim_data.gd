@@ -166,15 +166,16 @@ func condition_def(id: String) -> Dictionary:
 	return conditions.get(id, {})
 
 
-## Freischalt-Bedingung eines Bausteins (Bedingung oder Aktion); leer = immer verfügbar.
-func unlock_of(def: Dictionary) -> Dictionary:
-	return def.get("unlock", {})
+## Voraussetzung eines Bausteins (Bedingung oder Aktion): {fact, label}; leer = immer verfügbar.
+## Bausteine werden nie freigeschaltet – sie sind verfügbar, sobald die Voraussetzung in der Welt existiert.
+func requirement_of(def: Dictionary) -> Dictionary:
+	return def.get("requires", {})
 
 
-## Ist ein Baustein für einen Besitzer mit diesen Freischaltungen (fact -> true) nutzbar?
-func is_unlocked(def: Dictionary, unlocks: Dictionary) -> bool:
-	var unlock := unlock_of(def)
-	return unlock.is_empty() or unlocks.has(unlock["fact"])
+## Ist ein Baustein bei diesen Voraussetzungen (fact -> bool, siehe SimWorld.prerequisites_of) verfügbar?
+func is_available(def: Dictionary, prereqs: Dictionary) -> bool:
+	var requirement := requirement_of(def)
+	return requirement.is_empty() or bool(prereqs.get(requirement["fact"], false))
 
 
 func action_def(id: String) -> Dictionary:
@@ -474,7 +475,7 @@ func _parse_conditions(raw: Dictionary) -> void:
 			continue
 		if not entry.has("log"):
 			entry["log"] = entry["label"]
-		if entry.has("unlock") and not _require_fields(entry["unlock"], {"fact": TYPE_STRING, "label": TYPE_STRING}, context + " unlock"):
+		if entry.has("requires") and not _require_fields(entry["requires"], {"fact": TYPE_STRING, "label": TYPE_STRING}, context + " requires"):
 			continue
 		if entry.get("is_else", false) == true:
 			if not else_condition_id.is_empty():
@@ -504,7 +505,7 @@ func _parse_actions(raw: Dictionary) -> void:
 			continue
 		if not entry.has("log"):
 			entry["log"] = entry["label"]
-		if entry.has("unlock") and not _require_fields(entry["unlock"], {"fact": TYPE_STRING, "label": TYPE_STRING}, context + " unlock"):
+		if entry.has("requires") and not _require_fields(entry["requires"], {"fact": TYPE_STRING, "label": TYPE_STRING}, context + " requires"):
 			continue
 		actions[id] = entry
 		action_order.append(id)

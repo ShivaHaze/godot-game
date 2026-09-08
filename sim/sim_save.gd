@@ -50,7 +50,6 @@ static func world_to_dict(world: SimWorld) -> Dictionary:
 		"wolf_respawn_timer": world._wolf_respawn_timer,
 		"rng_seed": str(world.rng.seed),
 		"rng_state": str(world.rng.state),
-		"unlocks": world.unlocks_by_owner.duplicate(true),
 		"characters": characters,
 		"projectiles": projectiles,
 		"nodes": nodes,
@@ -81,11 +80,6 @@ static func world_from_dict(data: SimData, dict: Dictionary) -> SimWorld:
 	world.next_boss_time = float(dict.get("next_boss_time", world.next_boss_time))
 	world.rng.seed = String(dict["rng_seed"]).to_int()
 	world.rng.state = String(dict["rng_state"]).to_int()
-	world.unlocks_by_owner = {}
-	for owner: Variant in dict.get("unlocks", {}):
-		world.unlocks_by_owner[String(owner)] = {}
-		for fact: Variant in dict["unlocks"][owner]:
-			world.unlocks_by_owner[String(owner)][String(fact)] = true
 	world.guilds.load_dict(dict.get("guilds", {}))
 	world.letters = {}
 	for owner: Variant in dict.get("letters", {}):

@@ -64,11 +64,11 @@ func _tick(n: int, stranger: SimCharacter = null, intent: SimIntent = null, kind
 	return collected
 
 
-func test_toll_action_unlocks_with_anchor() -> void:
+func test_toll_action_needs_own_claim() -> void:
 	assert_true(data.actions.has("toll"))
-	assert_false(world.can_use(player, data.action_def("toll")), "vor dem Anker gesperrt")
+	assert_false(world.can_use(player, data.action_def("toll")), "ohne Claim nicht verfügbar")
 	world.place_building(player, "anchor", Vector2i(44, 10), 0)
-	assert_true(world.can_use(player, data.action_def("toll")), "Anker schaltet Zoll frei")
+	assert_true(world.can_use(player, data.action_def("toll")), "mit Claim verfügbar")
 	var def := data.action_def("toll")
 	assert_eq(data.format_template(String(def["label"]), def["params"], {"resource": "wood", "amount": 2}), "verlange Zoll: 2 Holz")
 

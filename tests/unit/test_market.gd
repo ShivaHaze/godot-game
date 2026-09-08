@@ -80,11 +80,9 @@ func test_depot_fee_capacity_and_withdraw() -> void:
 	var depot := _depot()
 	player.pos = Vector2(25.5, 25.5)
 	player.inventory["berries"] = 10
-	assert_false(world.can_use(player, data.action_def("deliver")))
 	assert_eq(world.depot_deposit(player, depot, "berries", 10), "")
 	assert_eq(int(player.inventory["berries"]), 0)
 	assert_eq(int(world.depot_stock(depot, "p1")["berries"]), 8, "20 % Gebühr")
-	assert_true(world.can_use(player, data.action_def("deliver")), "Depot benutzt schaltet 'liefere' frei")
 	player.inventory["wood"] = 1
 	assert_eq(world.depot_deposit(player, depot, "wood", 1), "zu wenig, die Gebühr frisst alles")
 	assert_eq(world.depot_withdraw(player, depot, "berries", 3), "")
@@ -112,7 +110,6 @@ func test_npc_delivers_to_depot_and_is_safe_there() -> void:
 	var depot := _depot()
 	player.pos = Vector2(22.5, 23.5)
 	player.inventory["berries"] = 10
-	world.unlock("p1", "owned_container", player)
 	assert_true(player.extra_places.has("b%d" % depot.id), "Depot ist ein Ort für alle")
 	assert_eq(player.marker_name("b%d" % depot.id), "Markt-Depot 1")
 	var rules := data.normalize_rule_list([

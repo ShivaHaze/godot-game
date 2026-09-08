@@ -30,7 +30,6 @@ func test_chain_fibers_cloth_bandage_and_armor() -> void:
 	assert_eq(int(player.inventory["fibers"]), 0)
 	assert_eq(world.craft(player, "bandage"), "")
 	assert_eq(int(player.inventory["bandage"]), 1)
-	assert_true(world.can_use(player, data.action_def("craft")), "erstes Herstellen schaltet 'stelle her' frei")
 	player.inventory["cloth"] = 4
 	world.spawn_building("workbench", Vector2i(20, 6), "p1")  # Station in Reichweite
 	assert_eq(world.craft(player, "cloth_armor"), "")
@@ -45,7 +44,6 @@ func test_chain_fibers_cloth_bandage_and_armor() -> void:
 
 func test_npc_crafts_cloth_then_bandages_and_logs() -> void:
 	player.inventory["fibers"] = 6
-	world.unlock("p1", "crafted_consumable", player)
 	var rules := data.normalize_rule_list([
 		{"if": {"condition": "else"}, "then": {"action": "craft", "params": {"product": "bandage"}}},
 	], "Test")

@@ -74,8 +74,9 @@ static func _evaluate(world: SimWorld, c: SimCharacter) -> void:
 static func blocked_reason(world: SimWorld, c: SimCharacter, rule: Dictionary) -> String:
 	var data := world.data
 	var params: Dictionary = rule["then"]["params"]
-	if not world.can_use(c, data.action_def(String(rule["then"]["action"]))) or not world.can_use(c, data.condition_def(String(rule["if"]["condition"]))):
-		return "Baustein nicht freigeschaltet"
+	for def: Dictionary in [data.action_def(String(rule["then"]["action"])), data.condition_def(String(rule["if"]["condition"]))]:
+		if not world.can_use(c, def):
+			return String(data.requirement_of(def).get("label", "Voraussetzung fehlt"))
 	for param_def: Dictionary in data.action_def(String(rule["then"]["action"])).get("params", []):
 		if String(param_def["type"]) == "place":
 			var place := String(params.get(param_def["name"], SimData.PLACE_HERE))

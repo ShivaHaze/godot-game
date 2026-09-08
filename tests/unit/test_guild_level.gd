@@ -71,7 +71,6 @@ func test_allied_buildings_are_places() -> void:
 	assert_eq(mate.extra_places["b%d" % anchor.id]["name"], "Anker", "eigener Anker ohne Zusatz")
 	# Lieferung in den Gildenanker per Regel
 	player.inventory["wood"] = 8
-	world.unlock("p1", "owned_container", player)
 	var rules := data.normalize_rule_list([
 		{"if": {"condition": "else"}, "then": {"action": "deliver", "params": {"resource": "wood", "place": "b%d" % anchor.id, "radius": 4}}},
 	], "Test")

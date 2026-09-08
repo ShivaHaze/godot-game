@@ -71,7 +71,6 @@ func test_bandage_stops_bleeding_even_at_full_health() -> void:
 
 func test_npc_rule_bleeding_heals_itself() -> void:
 	victim.inventory["bandage"] = 1
-	world.unlock("p2", "owned_bandage", victim)
 	var rules := data.normalize_rule_list([
 		{"if": {"condition": "bleeding"}, "then": {"action": "heal_self"}},
 		{"if": {"condition": "else"}, "then": {"action": "stay_at", "params": {"place": "here", "radius": 2}}},

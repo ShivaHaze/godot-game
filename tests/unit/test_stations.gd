@@ -103,7 +103,6 @@ func test_station_is_built_live_and_is_a_raid_target() -> void:
 
 func test_npc_walks_to_workbench_in_leash_and_crafts() -> void:
 	player.inventory["copper"] = 2
-	world.unlock("p1", "crafted_consumable", player)
 	var bench := world.spawn_building("workbench", Vector2i(24, 5), "p1")  # 4 Kacheln östlich, in der Standardleine (6)
 	var rules := data.normalize_rule_list([
 		{"if": {"condition": "else"}, "then": {"action": "craft", "params": {"product": "wire"}}},
@@ -123,7 +122,6 @@ func test_npc_walks_to_workbench_in_leash_and_crafts() -> void:
 
 func test_npc_reports_station_outside_leash() -> void:
 	player.inventory["copper"] = 2
-	world.unlock("p1", "crafted_consumable", player)
 	world.spawn_building("workbench", Vector2i(30, 5), "p1")  # 10 Kacheln: außerhalb der Leine
 	var rules := data.normalize_rule_list([
 		{"if": {"condition": "else"}, "then": {"action": "craft", "params": {"product": "wire"}}},

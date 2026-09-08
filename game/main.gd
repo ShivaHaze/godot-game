@@ -804,7 +804,7 @@ func _open_menu() -> void:
 	var player := world.get_character(player_id)
 	mode = Mode.MENU
 	craft_panel.close()
-	menu.open(data, player, player.rules, player.role_id, world.unlocks_of(player.owner_id))
+	menu.open(data, player, player.rules, player.role_id, world.prerequisites_of(player.owner_id))
 
 
 func _close_menu() -> void:
@@ -994,8 +994,6 @@ func _handle_events() -> void:
 				for rid: String in event["items"]:
 					parts.append("%s %d" % [data.resources[rid]["name"], event["items"][rid]])
 				hud.show_message("Geplündert: " + ", ".join(parts), 2.0)
-			"unlock":
-				hud.show_message("Neuer Regel-Baustein freigeschaltet: %s" % event["label"], 5.0)
 			"deposit":
 				hud.show_message("%d Holz am Anker abgeliefert, Vorrat %d." % [event["amount"], int(event["stock"])], 2.0)
 			"explosion":

@@ -29,8 +29,8 @@ func _anchor() -> SimBuilding:
 	return b
 
 
-func test_anchor_founds_claim_and_unlocks_condition() -> void:
-	assert_false(world.can_use(player, data.condition_def("stranger_in_claim")), "Bedingung vorher gesperrt")
+func test_anchor_founds_claim_and_makes_condition_available() -> void:
+	assert_false(world.can_use(player, data.condition_def("stranger_in_claim")), "ohne Claim nicht verfügbar")
 	var b := _anchor()
 	var claim := world.claims.claim_of_owner("p1")
 	assert_not_null(claim)
@@ -39,7 +39,7 @@ func test_anchor_founds_claim_and_unlocks_condition() -> void:
 	assert_eq(claim.tiles.size(), 1)
 	assert_eq(world.claims.claim_at(Vector2i(22, 5)), claim)
 	assert_eq(int(player.inventory["wood"]), 10)
-	assert_true(world.can_use(player, data.condition_def("stranger_in_claim")), "Anker schaltet 'Fremder im Claim' frei")
+	assert_true(world.can_use(player, data.condition_def("stranger_in_claim")), "mit Claim verfügbar")
 	assert_eq(world.can_place(player, "anchor", Vector2i(46, 10), 0), "du hast schon einen Anker (Solo: einer)")
 
 

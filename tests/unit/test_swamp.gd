@@ -42,9 +42,8 @@ func test_swamp_poisons_and_wears_off_after_leaving() -> void:
 func test_antidote_and_medicine_and_heal_choice() -> void:
 	player.inventory["herbs"] = 5
 	player.inventory["cloth"] = 1
-	assert_false(world.can_use(player, data.condition_def("poisoned")))
 	assert_eq(world.craft(player, "antidote"), "")
-	assert_true(world.can_use(player, data.condition_def("poisoned")), "Gegenmittel schaltet 'vergiftet' frei")
+	assert_true(world.can_use(player, data.condition_def("poisoned")), "'vergiftet' ist immer verfügbar")
 	assert_eq(world.craft(player, "medicine"), "Werkbank nicht in Reichweite", "Medizin braucht die Werkbank")
 	world.spawn_building("workbench", Vector2i(20, 6), "p1")  # Station in Reichweite
 	assert_eq(world.craft(player, "medicine"), "")
@@ -77,7 +76,6 @@ func test_antidote_and_medicine_and_heal_choice() -> void:
 
 func test_npc_rule_poisoned_uses_antidote_and_gathers_herbs() -> void:
 	player.inventory["antidote"] = 1
-	world.unlock("p1", "owned_antidote", player)
 	player.pos = Vector2(30.5, 9.5)  # neben den Kräutern (31, 9)
 	var rules := data.normalize_rule_list([
 		{"if": {"condition": "poisoned"}, "then": {"action": "heal_self"}},

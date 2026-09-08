@@ -23,11 +23,10 @@ func before_each() -> void:
 			c.control = SimCharacter.Controller.NONE
 
 
-func test_anchor_and_table_are_places_and_unlock_deliver() -> void:
-	assert_false(world.can_use(player, data.action_def("deliver")))
+func test_anchor_and_table_are_places() -> void:
+	assert_true(world.can_use(player, data.action_def("deliver")), "'liefere' ist von Anfang an verfügbar (Markt-Depots gibt es immer)")
 	var anchor := world.place_building(player, "anchor", Vector2i(44, 10), 0)
 	assert_not_null(anchor)
-	assert_true(world.can_use(player, data.action_def("deliver")), "Anker schaltet 'liefere' frei")
 	assert_eq(player.extra_places["b%d" % anchor.id]["name"], "Anker")
 	player.pos = Vector2(18.5, 5.5)
 	var table := world.place_building(player, "trade_table", Vector2i(34, 10), 0)

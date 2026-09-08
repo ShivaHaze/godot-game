@@ -113,7 +113,6 @@ func test_boss_leaves_after_lifetime_and_returns_on_interval() -> void:
 
 
 func test_offline_character_fights_back_but_never_attacks_the_boss_first() -> void:
-	world.unlock("p1", "attacked_by_npc", player)
 	var rules := data.normalize_rule_list([
 		{"if": {"condition": "under_attack"}, "then": {"action": "fight_back"}},
 		{"if": {"condition": "else"}, "then": {"action": "attack", "params": {"radius": 8}}},

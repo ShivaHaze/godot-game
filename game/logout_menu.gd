@@ -11,7 +11,7 @@ signal marker_removed(marker_id: String)
 
 var data: SimData
 var character: SimCharacter
-var unlocks: Dictionary = {}    # Freischaltungen des Besitzers (fact -> true)
+var prereqs: Dictionary = {}    # Voraussetzungen des Besitzers (fact -> bool), siehe SimWorld.prerequisites_of
 var rules: Array = []          # Arbeitskopie, normalisierte Regeln
 var role_id: String = ""
 
@@ -35,10 +35,10 @@ func _ready() -> void:
 	_build()
 
 
-func open(p_data: SimData, p_character: SimCharacter, current_rules: Array, current_role: String, p_unlocks: Dictionary = {}) -> void:
+func open(p_data: SimData, p_character: SimCharacter, current_rules: Array, current_role: String, p_prereqs: Dictionary = {}) -> void:
 	data = p_data
 	character = p_character
-	unlocks = p_unlocks
+	prereqs = p_prereqs
 	rules = current_rules.duplicate(true)
 	role_id = current_role
 	_build_role_buttons()
@@ -328,7 +328,7 @@ func _option_button(ids: Array[String], label_of: Callable, selected_id: String,
 	for i in ids.size():
 		var text: String = label_of.call(ids[i])
 		if locked.has(ids[i]):
-			text += " (gesperrt)"
+			text += " (nicht verfügbar)"
 		button.add_item(text, i)
 		if locked.has(ids[i]):
 			button.set_item_disabled(i, true)
@@ -338,12 +338,12 @@ func _option_button(ids: Array[String], label_of: Callable, selected_id: String,
 	return button
 
 
-## Gesperrte Bausteine einer Liste: id -> Hinweistext.
+## Nicht verfügbare Bausteine einer Liste (Voraussetzung fehlt gerade): id -> Hinweistext.
 func _locked(ids: Array[String], defs: Dictionary) -> Dictionary:
 	var result := {}
 	for id: String in ids:
-		if not data.is_unlocked(defs[id], unlocks):
-			result[id] = String(data.unlock_of(defs[id])["label"])
+		if not data.is_available(defs[id], prereqs):
+			result[id] = String(data.requirement_of(defs[id])["label"])
 	return result
 
 
