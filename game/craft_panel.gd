@@ -120,6 +120,8 @@ func _describe(def: Dictionary) -> String:
 		var cure_text := ""
 		if cures.has("poison"):
 			cure_text = ", heilt Vergiftung"
+		elif cures.has("sick"):
+			cure_text = ", stoppt Blutung und Krankheit"
 		elif cures.has("bleeding"):
 			cure_text = ", stoppt Blutung"
 		return "Verbrauchsgut: +%d Leben nach %.0f s (H)%s" % [int(def["heal"]), float(def["heal_time"]), cure_text]

@@ -94,7 +94,7 @@ func _ready() -> void:
 	chat_input.offset_top = -58
 	chat_input.offset_right = 520
 	chat_input.offset_bottom = -34
-	chat_input.placeholder_text = "Nah-Chat … (/g global, /gi Gilde, /gilde gründen|einladen|annehmen|verlassen, Esc bricht ab)"
+	chat_input.placeholder_text = "Nah-Chat … (/g global, /gi Gilde, /gilde …, /brief <Spieler> <Text>, Esc bricht ab)"
 	chat_input.max_length = 160
 	chat_input.visible = false
 	add_child(chat_input)
@@ -188,6 +188,8 @@ func refresh() -> void:
 		state += "\nBLUTET – Verband anlegen (H)"
 	if not c.dead and world.has_effect(c, "poison"):
 		state += "\nVERGIFTET – Gegenmittel nehmen (H), raus aus dem Sumpf"
+	if not c.dead and world.has_effect(c, "sick"):
+		state += "\nKRANK – langsam und hungrig; Medizin (H) hilft, sonst 30 min"
 	var here := world.claims.claim_at_pos(c.pos)
 	var mine := world.claims.claim_of_owner(c.owner_id)
 	if mine != null:

@@ -19,7 +19,8 @@ const FLAG_DEAD: int = 1
 const FLAG_HIDDEN: int = 2
 const FLAG_BLEEDING: int = 4
 const FLAG_POISONED: int = 8
-const CONTROL_SHIFT: int = 4
+const FLAG_SICK: int = 16
+const CONTROL_SHIFT: int = 5
 
 
 static func encode(msg: Dictionary) -> PackedByteArray:
@@ -75,7 +76,7 @@ static func character_intro(c: SimCharacter, named: bool = true, guild: String =
 
 ## Bewegliche Daten eines Charakters, kompakt.
 static func character_dynamic(c: SimCharacter) -> Array:
-	var flags := (FLAG_DEAD if c.dead else 0) | (FLAG_HIDDEN if c.hidden else 0) | (FLAG_BLEEDING if c.effects.has("bleeding") else 0) | (FLAG_POISONED if c.effects.has("poison") else 0) | (int(c.control) << CONTROL_SHIFT)
+	var flags := (FLAG_DEAD if c.dead else 0) | (FLAG_HIDDEN if c.hidden else 0) | (FLAG_BLEEDING if c.effects.has("bleeding") else 0) | (FLAG_POISONED if c.effects.has("poison") else 0) | (FLAG_SICK if c.effects.has("sick") else 0) | (int(c.control) << CONTROL_SHIFT)
 	return [c.id, PackedFloat32Array([c.pos.x, c.pos.y, c.facing.x, c.facing.y, c.hp, c.gather_progress, c.heal_progress]), flags]
 
 
@@ -261,6 +262,10 @@ static func apply_snapshot(mirror: SimWorld, snap: Dictionary) -> void:
 			c.effects["poison"] = 1e18
 		else:
 			c.effects.erase("poison")
+		if (flags & FLAG_SICK) != 0:
+			c.effects["sick"] = 1e18
+		else:
+			c.effects.erase("sick")
 		c.control = (flags >> CONTROL_SHIFT) as SimCharacter.Controller
 	for id: int in mirror.characters.keys():
 		if not seen.has(id):

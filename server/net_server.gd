@@ -177,6 +177,12 @@ func _on_message(peer: ENetPacketPeer, msg: Dictionary) -> void:
 		"chat":
 			if c != null:
 				_relay_chat(c, String(msg.get("text", "")).strip_edges().substr(0, CHAT_MAX_LENGTH), String(msg.get("scope", "near")))
+		"letter":
+			if c != null:
+				var reason := world.send_letter(c.owner_id, String(msg.get("to", "")), String(msg.get("text", "")))
+				_send(peer, {"t": "info", "text": ("Brief an %s hinterlegt." % String(msg.get("to", "")).strip_edges()) if reason.is_empty() else "Brief: %s" % reason}, true)
+				if reason.is_empty():
+					_deliver_letters_to(String(msg.get("to", "")).strip_edges())  # ist der Empfänger online, bekommt er ihn sofort
 		"guild":
 			if c != null:
 				var text := world.guild_command(c.owner_id, String(msg.get("op", "")), String(msg.get("arg", "")))
@@ -261,6 +267,16 @@ func _on_join(peer: ENetPacketPeer, name: String) -> void:
 	info["claims"] = {}
 	info["self_hash"] = 0
 	_send(peer, {"t": "welcome", "id": int(info["char_id"]), "time": world.time, "map": data.map_dict()}, true)
+	_deliver_letters_to(name)
+
+
+## Hinterlegte Briefe an einen eingeloggten Empfänger ausliefern.
+func _deliver_letters_to(owner_name: String) -> void:
+	for peer: ENetPacketPeer in peers:
+		if String(peers[peer].get("name", "")) != owner_name:
+			continue
+		for letter: Dictionary in world.take_letters(owner_name):
+			_send(peer, {"t": "chat", "from": String(letter["from"]), "text": String(letter["text"]), "scope": "letter", "clock": world.clock_string(float(letter["time"]))}, true)
 
 
 ## Trennung: der Charakter wird zum NPC mit seinen aktuellen Regeln (Übergang läuft, kein sofortiger Schutz).

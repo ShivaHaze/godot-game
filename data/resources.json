@@ -218,7 +218,8 @@
       "heal": 30,
       "heal_time": 2.0,
       "cures": [
-        "bleeding"
+        "bleeding",
+        "sick"
       ]
     }
   ]

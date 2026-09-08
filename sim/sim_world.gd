@@ -494,6 +494,8 @@ func _craft_consumable(c: SimCharacter, rid: String) -> String:
 		unlock(c.owner_id, "owned_bandage", c)
 	if def.get("cures", []).has("poison"):
 		unlock(c.owner_id, "owned_antidote", c)
+	if def.get("cures", []).has("sick"):
+		unlock(c.owner_id, "owned_medicine", c)
 	if c.control == SimCharacter.Controller.PLAYER:
 		unlock(c.owner_id, "crafted_consumable", c)
 	events.append({"type": "craft", "id": c.id, "item": rid})
@@ -590,7 +592,24 @@ func has_effect(c: SimCharacter, effect: String) -> bool:
 	return float(c.effects.get(effect, -1e9)) > time
 
 
-const EFFECT_NAMES: Dictionary = {"bleeding": "blutet", "poison": "vergiftet"}
+const EFFECT_NAMES: Dictionary = {"bleeding": "blutet", "poison": "vergiftet", "sick": "erkrankt"}
+
+
+## Verlangsamung durch laufende Effekte (Krankheit), zusätzlich zur Rüstung.
+func effect_slow(c: SimCharacter) -> float:
+	var slow := 0.0
+	for effect: String in c.effects:
+		if has_effect(c, effect):
+			slow = maxf(slow, float(data.balance["effects"][effect].get("slow", 0.0)))
+	return slow
+
+
+func effect_hunger_multiplier(c: SimCharacter) -> float:
+	var factor := 1.0
+	for effect: String in c.effects:
+		if has_effect(c, effect):
+			factor *= float(data.balance["effects"][effect].get("hunger_multiplier", 1.0))
+	return factor
 
 
 ## Effekt anlegen oder verlängern; ignoriert Rüstung. Ereignis und Chronik nur beim Beginn.
@@ -1452,7 +1471,7 @@ func _apply_intent(c: SimCharacter, intent: SimIntent, dt: float) -> void:
 	if move.length_squared() > 1.0:
 		move = move.normalized()
 	if move != Vector2.ZERO:
-		var speed := c.move_speed * (1.0 - c.armor_slow)
+		var speed := c.move_speed * (1.0 - c.armor_slow) * (1.0 - (effect_slow(c) if not c.effects.is_empty() else 0.0))
 		if c.is_weakened():
 			speed *= data.balf("character.weakened_speed_multiplier")
 		c.pos = map.resolve_move(c.pos, move * speed * dt, c.collision_radius, c.owner_id, data)
@@ -1812,6 +1831,44 @@ func guild_command(owner_id: String, op: String, arg: String) -> String:
 ## Client-Spiegel: Name der Gilde, die einen gerade einlädt (aus dem Selbstblock).
 var guild_invite_name: String = ""
 
+# --- Briefe ---------------------------------------------------------------
+
+var letters: Dictionary = {}  # Empfänger (owner_id) -> [{from, text, time}]; liegen, bis der Empfänger sie abholt
+
+
+## Kennt die Welt diesen Besitzer (irgendein Charakter, auch tot, oder Gildenmitglied)?
+func knows_owner(owner_id: String) -> bool:
+	if guilds.guild_of(owner_id) >= 0 or letters.has(owner_id):
+		return true
+	for c: SimCharacter in characters.values():
+		if c.kind == SimCharacter.Kind.PLAYER and c.owner_id == owner_id:
+			return true
+	return false
+
+
+## Brief hinterlegen. Rückgabe: Grund oder leer.
+func send_letter(from_owner: String, to_owner: String, text: String) -> String:
+	to_owner = to_owner.strip_edges()
+	text = text.strip_edges().substr(0, data.bali("letters.max_length"))
+	if to_owner.is_empty() or text.is_empty():
+		return "Empfänger und Text nötig"
+	if to_owner == from_owner:
+		return "an dich selbst?"
+	if not knows_owner(to_owner):
+		return "Empfänger „%s“ unbekannt" % to_owner
+	if not letters.has(to_owner):
+		letters[to_owner] = []
+	letters[to_owner].append({"from": from_owner, "text": text, "time": time})
+	events.append({"type": "letter", "from": from_owner, "to": to_owner})
+	return ""
+
+
+## Briefe eines Empfängers abholen (werden dabei entfernt).
+func take_letters(owner_id: String) -> Array:
+	var result: Array = letters.get(owner_id, [])
+	letters.erase(owner_id)
+	return result
+
 
 ## Kennt `observer` den Namen von `other`? Eigene Leute und Tiere immer, fremde Menschen nur in unmittelbarer Nähe.
 func knows_name(observer: SimCharacter, other: SimCharacter) -> bool:
@@ -1866,7 +1923,12 @@ func _update_hunger(dt: float) -> void:
 		if c.dead or c.kind != SimCharacter.Kind.PLAYER:
 			continue
 		var rate := live_rate if c.control == SimCharacter.Controller.PLAYER else offline_rate
+		if not c.effects.is_empty():
+			rate *= effect_hunger_multiplier(c)
 		c.hunger = maxf(0.0, c.hunger - rate * dt)
+		# Krankheit als Ereignis: trifft zufällig, live wie offline
+		if rng.randf() < data.balf("effects.sick.chance_per_hour") * dt / 3600.0:
+			apply_effect(c, "sick", -1)
 
 
 func _update_nodes(dt: float) -> void:

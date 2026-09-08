@@ -59,6 +59,7 @@ static func world_to_dict(world: SimWorld) -> Dictionary:
 		"claims": world.claims.to_list(),
 		"next_claim_id": world.claims.next_id(),
 		"guilds": world.guilds.to_dict(),
+		"letters": world.letters.duplicate(true),
 	}
 
 
@@ -84,6 +85,12 @@ static func world_from_dict(data: SimData, dict: Dictionary) -> SimWorld:
 		for fact: Variant in dict["unlocks"][owner]:
 			world.unlocks_by_owner[String(owner)][String(fact)] = true
 	world.guilds.load_dict(dict.get("guilds", {}))
+	world.letters = {}
+	for owner: Variant in dict.get("letters", {}):
+		var list := []
+		for entry: Dictionary in dict["letters"][owner]:
+			list.append({"from": String(entry["from"]), "text": String(entry["text"]), "time": float(entry["time"])})
+		world.letters[String(owner)] = list
 	for entry: Dictionary in dict["characters"]:
 		var c := character_from_dict(data, entry)
 		world.characters[c.id] = c

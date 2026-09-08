@@ -154,7 +154,15 @@
     "poison": {
       "duration": 6.0,
       "damage_per_second": 0.5
-    }
+    },
+    "sick": {
+      "duration": 1800.0,
+      "damage_per_second": 0.0,
+      "slow": 0.25,
+      "hunger_multiplier": 2.0,
+      "chance_per_hour": 0.02
+    },
+    "_sick": "Krankheit als Ereignis (Design): trifft jeden Menschen zufällig (chance_per_hour), macht langsam (slow) und hungrig (hunger_multiplier), klingt nach duration ab; Medizin heilt sofort."
   },
   "wear": {
     "_doc": "Verschleiß (Design-Senke): jede Nutzung kostet 1 Haltbarkeit, bei 0 zerbricht der Gegenstand. Reparatur an der Werkbank kostet repair_cost_fraction der Baukosten (aufgerundet) und senkt das Maximum je Reparatur um repair_max_loss der ursprünglichen Haltbarkeit – nie wieder 100 %, irgendwann nicht mehr reparierbar (Maximum < 1).",
@@ -192,5 +200,9 @@
       "build_reason": "im Sumpf versinkt jedes Bauteil",
       "claim_reason": "Sumpfland gehört niemandem"
     }
+  },
+  "letters": {
+    "_doc": "Briefe (Design: Kommunikation neben Chat und Schildern): Text bis max_length Zeichen, liegen beim Server, bis der Empfänger sich einloggt.",
+    "max_length": 200
   }
 }

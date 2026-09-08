@@ -170,6 +170,21 @@
       }
     },
     {
+      "id": "sick",
+      "label": "krank",
+      "log": "krank",
+      "unlock": {
+        "fact": "owned_medicine",
+        "label": "Frei, sobald du Medizin hergestellt hast."
+      },
+      "params": [],
+      "check": {
+        "fact": "is_sick",
+        "op": "==",
+        "value": true
+      }
+    },
+    {
       "id": "else",
       "label": "Sonst",
       "log": "sonst",

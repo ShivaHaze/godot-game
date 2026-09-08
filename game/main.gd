@@ -174,7 +174,10 @@ func _process_net(delta: float) -> void:
 				hud.set_hint(HINT_LIVE)
 				hud.show_message("Verbunden. Dein Charakter wartet auf dem Server.", 3.0)
 			"chat":
-				hud.add_chat_line("[%s] %s: %s" % [{"global": "global", "guild": "gilde"}.get(String(msg.get("scope", "")), "nah"), msg.get("from", "?"), msg.get("text", "")])
+				if msg.get("scope", "") == "letter":
+					hud.add_chat_line("[Brief von %s, %s] %s" % [msg.get("from", "?"), msg.get("clock", ""), msg.get("text", "")])
+				else:
+					hud.add_chat_line("[%s] %s: %s" % [{"global": "global", "guild": "gilde"}.get(String(msg.get("scope", "")), "nah"), msg.get("from", "?"), msg.get("text", "")])
 			"info":
 				hud.show_message(String(msg.get("text", "")), 2.0)
 				craft_panel.show_status(String(msg.get("text", "")))
@@ -426,6 +429,18 @@ func _on_chat_submitted(text: String) -> void:
 		return
 	if line.begins_with("/gilde") or line.begins_with("/guild"):
 		_guild_command_line(line)
+		_close_chat()
+		return
+	if line.begins_with("/brief "):
+		var parts := line.split(" ", false, 2)
+		if parts.size() < 3:
+			hud.show_message("Brief: /brief <Spieler> <Text>", 3.0)
+		elif net != null:
+			net.send({"t": "letter", "to": parts[1], "text": parts[2]}, true)
+		else:
+			var player := world.get_character(player_id)
+			var reason := world.send_letter(player.owner_id, parts[1], parts[2])
+			hud.show_message(("Brief an %s hinterlegt (liest ihn beim nächsten Einloggen)." % parts[1]) if reason.is_empty() else "Brief: %s" % reason, 3.0)
 		_close_chat()
 		return
 	var scope := "near"
