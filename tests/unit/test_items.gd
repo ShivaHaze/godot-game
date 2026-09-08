@@ -44,7 +44,7 @@ func _tick(ticks: int, intent: SimIntent = null, collect_type: String = "") -> A
 
 func test_items_data_loaded() -> void:
 	assert_true(data.is_valid(), "Fehler: %s" % data.errors)
-	assert_eq(data.item_order, ["sling", "bow", "club", "stone_axe", "copper_spear", "iron_axe", "cloth_armor", "wood_armor", "iron_armor"] as Array[String])
+	assert_eq(data.item_order, ["sling", "bow", "club", "stone_axe", "copper_spear", "iron_axe", "cloth_armor", "hide_armor", "wood_armor", "iron_armor"] as Array[String])
 	assert_true(player.items.has("sling"), "Startausrüstung")
 	assert_eq(player.active_weapon, "sling")
 	assert_eq(player.armor, data.balf("character.armor"))
@@ -77,6 +77,10 @@ func test_armor_is_worn_explicitly() -> void:
 	assert_eq(world.craft(player, "cloth_armor"), "")
 	assert_eq(world.armor_item_of(player), "", "besitzen allein trägt nichts")
 	assert_eq(world.owned_armors(player), ["cloth_armor", "wood_armor"] as Array[String])
+	player.inventory["hide"] = 2
+	player.inventory["cloth"] = 2
+	assert_eq(world.craft(player, "hide_armor"), "", "Fellrüstung aus Wolfsbeute")
+	assert_eq(world.owned_armors(player), ["cloth_armor", "hide_armor", "wood_armor"] as Array[String])
 	assert_eq(world.equip_armor(player, "cloth_armor"), "")
 	assert_eq(world.armor_item_of(player), "cloth_armor")
 	assert_eq(player.armor, data.balf("character.armor") + 2.0)

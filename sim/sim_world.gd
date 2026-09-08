@@ -125,7 +125,9 @@ func spawn_wolf(pos: Vector2) -> SimCharacter:
 	c.kind = SimCharacter.Kind.WOLF
 	c.control = SimCharacter.Controller.WOLF_AI
 	c.owner_id = "wild"
-	c.inventory["meat"] = data.bali("wolf.meat") if data.balance.get("wolf", {}).has("meat") else 2
+	for rid: Variant in data.balance.get("wolf", {}).get("loot", {"meat": 2}):
+		if data.resources.has(rid):
+			c.inventory[String(rid)] = int(data.balance["wolf"]["loot"][rid])  # Beute der Leiche: Fleisch und Fell
 	c.pos = pos
 	c.prev_pos = pos
 	c.home_pos = pos

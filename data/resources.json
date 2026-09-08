@@ -1,5 +1,5 @@
 {
-  "_doc": "Rohstoffe und Verbrauchsgüter. 'nutrition' = Hunger, den ein Stück beim Essen zurückgibt (nur bei edible). 'cost' = an der Werkbank herstellbar (Verbrauchsgut, stapelbar), 'heal'/'heal_time' = Verband: Kanalisierung heal_time Sekunden ohne Angriff, dann +heal Leben. Farben nur für die Rechteck-Darstellung. Kette: Fasern → Stoff (2 Fasern) → Verband (1 Stoff) und Stoffrüstung (items.json). 'yield' = Stück je Herstellung (Standard 1). Pfeile sind Munition für den Bogen (items.json 'ammo'). Kette: Kupfererz (Rand) → Kupfer (2 Erz + 1 Holz als Brennstoff) → Draht (2 je Kupfer) für Sensoren und Kupferspeer (items.json). Kette: Eisenerz + Kohle (Mitte, offline nur mit Mine) → Eisen (2 Erz + 1 Kohle) → Eisenaxt, Eisenrüstung (items.json). Kette: Schwefel (Zentrum, nur live) + Kohle → Pulver (2) → Kugeln (4, mit Eisen) als Turret-Munition. 'raid_good' = Raidware: am neutralen Markt nicht einlagerbar. Sprengsatz (2 Pulver + 1 Eisen): im Baumodus legen (Bauteil 'bomb'), zündet nach der Lunte. Heilmittel: 'heal' Leben nach 'heal_time' Sekunden Anlegen, 'cures' = Zustandseffekte, die dabei enden (Verband/Medizin: Blutung; Gegenmittel: Vergiftung). H nimmt das passendste Mittel. 'needs_building' = Bauteil (Station), das beim Herstellen in Reichweite stehen muss: Lagerfeuer zum Braten, Schmelzofen für Kupfer und Eisen, Werkbank für Draht, Pulver und Medizin, Schmiede für Kugeln und Sprengsatz. Von Hand: Stoff, Verband, Pfeile, Gegenmittel. Essen nimmt das nahrhafteste Stück.",
+  "_doc": "Rohstoffe und Verbrauchsgüter. 'nutrition' = Hunger, den ein Stück beim Essen zurückgibt (nur bei edible). 'cost' = an der Werkbank herstellbar (Verbrauchsgut, stapelbar), 'heal'/'heal_time' = Verband: Kanalisierung heal_time Sekunden ohne Angriff, dann +heal Leben. Farben nur für die Rechteck-Darstellung. Kette: Fasern → Stoff (2 Fasern) → Verband (1 Stoff) und Stoffrüstung (items.json). 'yield' = Stück je Herstellung (Standard 1). Pfeile sind Munition für den Bogen (items.json 'ammo'). Kette: Kupfererz (Rand) → Kupfer (2 Erz + 1 Holz als Brennstoff) → Draht (2 je Kupfer) für Sensoren und Kupferspeer (items.json). Kette: Eisenerz + Kohle (Mitte, offline nur mit Mine) → Eisen (2 Erz + 1 Kohle) → Eisenaxt, Eisenrüstung (items.json). Kette: Schwefel (Zentrum, nur live) + Kohle → Pulver (2) → Kugeln (4, mit Eisen) als Turret-Munition. 'raid_good' = Raidware: am neutralen Markt nicht einlagerbar. Sprengsatz (2 Pulver + 1 Eisen): im Baumodus legen (Bauteil 'bomb'), zündet nach der Lunte. Heilmittel: 'heal' Leben nach 'heal_time' Sekunden Anlegen, 'cures' = Zustandseffekte, die dabei enden (Verband/Medizin: Blutung; Gegenmittel: Vergiftung). H nimmt das passendste Mittel. 'needs_building' = Bauteil (Station), das beim Herstellen in Reichweite stehen muss: Lagerfeuer zum Braten, Schmelzofen für Kupfer und Eisen, Werkbank für Draht, Pulver und Medizin, Schmiede für Kugeln und Sprengsatz. Von Hand: Stoff, Verband, Pfeile, Gegenmittel. Essen nimmt das nahrhafteste Stück. Fell: Wölfe (1) und der Leitwolf (3) tragen es; Fellrüstung (items.json) an der Werkbank.",
   "resources": [
     {
       "id": "wood",
@@ -21,6 +21,13 @@
       "edible": true,
       "nutrition": 15,
       "color": "#c05050"
+    },
+    {
+      "id": "hide",
+      "name": "Fell",
+      "edible": false,
+      "nutrition": 0,
+      "color": "#8a6a4a"
     },
     {
       "id": "cooked_meat",

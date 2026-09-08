@@ -24,7 +24,8 @@ func before_each() -> void:
 func test_wolf_corpse_gives_meat() -> void:
 	var wolf := world.spawn_wolf(OPEN + Vector2(0.8, 0))
 	wolf.control = SimCharacter.Controller.NONE
-	assert_eq(int(wolf.inventory["meat"]), data.bali("wolf.meat"))
+	assert_eq(int(wolf.inventory["meat"]), int(data.bal("wolf.loot")["meat"]))
+	assert_eq(int(wolf.inventory["hide"]), 1, "Fell")
 	world.apply_damage(wolf, 1000.0, Vector2.RIGHT, player.id)
 	assert_true(wolf.dead)
 	world.spatial.rebuild(world.characters)
@@ -33,7 +34,8 @@ func test_wolf_corpse_gives_meat() -> void:
 	for i in 20:
 		world.set_intent(player.id, intent)
 		world.tick()
-	assert_eq(int(player.inventory.get("meat", 0)), data.bali("wolf.meat"), "Fleisch geplündert")
+	assert_eq(int(player.inventory.get("meat", 0)), int(data.bal("wolf.loot")["meat"]), "Fleisch geplündert")
+	assert_eq(int(player.inventory.get("hide", 0)), 1, "Fell geplündert")
 
 
 func test_cooking_needs_campfire_and_is_better_food() -> void:

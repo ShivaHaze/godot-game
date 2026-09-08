@@ -43,7 +43,9 @@ func test_boss_appears_in_the_center_after_first_hours_and_is_stronger() -> void
 	assert_eq(boss.kind, SimCharacter.Kind.WOLF)
 	assert_eq(boss.max_hp, data.balf("events.boss.max_hp"))
 	assert_eq(boss.melee_damage, data.balf("events.boss.bite_damage"))
-	assert_eq(int(boss.inventory.get("sulfur", 0)), 3, "Beute im Bauch")
+	assert_eq(int(boss.inventory.get("hide", 0)), 3, "Beute: Fell")
+	assert_eq(int(boss.inventory.get("meat", 0)), 8, "Beute: Fleisch")
+	assert_false(boss.inventory.has("sulfur"), "kein Schwefel aus einem Wolf")
 	# Am Wolf-Spawn, der der Mitte am nächsten liegt
 	var center := Vector2(world.map.width * 0.5, world.map.height * 0.5)
 	for cell: Vector2i in data.wolf_spawns:
@@ -78,8 +80,8 @@ func test_boss_never_flees_and_leaves_loot_only_for_live_looters() -> void:
 	intent.interact = true
 	world.set_intent(player.id, intent)
 	world.tick()
-	assert_eq(int(player.inventory.get("sulfur", 0)), 3, "Schwefel geplündert: %s" % [player.inventory])
-	assert_eq(int(player.inventory.get("meat", 0)), 6)
+	assert_eq(int(player.inventory.get("hide", 0)), 3, "Fell geplündert: %s" % [player.inventory])
+	assert_eq(int(player.inventory.get("meat", 0)), 8)
 	# Nach corpse_rot_hours verrottet auch die Leitwolf-Leiche
 	boss.death_time = world.time - data.balf("combat.corpse_rot_hours") * 3600.0 + 1.0
 	world.advance(2.0)

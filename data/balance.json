@@ -80,8 +80,11 @@
     "respawn_time": 300.0,
     "_respawn_time": "Sekunden, bis ein toter Wolf an einem Wolf-Spawn ersetzt wird.",
     "max_alive": 3,
-    "meat": 2,
-    "_meat": "Fleisch, das eine Wolfsleiche beim Plündern hergibt (roh essbar, gebraten am Lagerfeuer nahrhafter)."
+    "loot": {
+      "meat": 2,
+      "hide": 1
+    },
+    "_loot": "Was eine Wolfsleiche beim Plündern hergibt: Fleisch (roh essbar, gebraten am Lagerfeuer nahrhafter) und Fell (Fellrüstung an der Werkbank)."
   },
   "logout": {
     "_doc": "Ausloggen macht nie sofort sicher (Design [E]). Während des Übergangs kann sich der Charakter nicht verstecken.",
@@ -218,7 +221,7 @@
     "forget_hours": 6
   },
   "events": {
-    "_doc": "Ereignisse (Design PvE: Zentrum wertvoll/tödlich; Ereignisse: Karawanen, Bossspawns). boss = Leitwolf: erscheint first_after_hours nach Spielstart und dann alle interval_hours am Wolf-Spawn, der der Kartenmitte am nächsten liegt; stärker als ein Wolf (max_hp, armor, bite_damage, move_speed), streunt nur wander_radius um seinen Spawn, flieht nie und zieht nach lifetime_hours weiter, wenn ihn niemand erlegt. Beute (loot) liegt in seiner Leiche – nur wer live da ist, plündert sie (Schwefel ist Raidware). Offline-Charaktere sind eingeschränkt beteiligt: sie kämpfen zurück, wenn er sie beißt, aber 'greife an' meidet ihn. Alle Spieler bekommen die Meldung ohne Ortsangabe.",
+    "_doc": "Ereignisse (Design PvE: Zentrum wertvoll/tödlich; Ereignisse: Karawanen, Bossspawns). boss = Leitwolf: erscheint first_after_hours nach Spielstart und dann alle interval_hours am Wolf-Spawn, der der Kartenmitte am nächsten liegt; stärker als ein Wolf (max_hp, armor, bite_damage, move_speed), streunt nur wander_radius um seinen Spawn, flieht nie und zieht nach lifetime_hours weiter, wenn ihn niemand erlegt. Beute (loot: viel Fleisch und Fell, was zu einem Wolf passt) liegt in seiner Leiche – nur wer live da ist, plündert sie. Offline-Charaktere sind eingeschränkt beteiligt: sie kämpfen zurück, wenn er sie beißt, aber 'greife an' meidet ihn. Alle Spieler bekommen die Meldung ohne Ortsangabe.",
     "boss": {
       "name": "Leitwolf",
       "interval_hours": 4,
@@ -230,8 +233,8 @@
       "move_speed": 4.2,
       "wander_radius": 6.0,
       "loot": {
-        "sulfur": 3,
-        "meat": 6
+        "meat": 8,
+        "hide": 3
       }
     }
   }

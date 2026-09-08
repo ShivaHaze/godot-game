@@ -119,6 +119,20 @@
       "needs_building": "workbench"
     },
     {
+      "id": "hide_armor",
+      "name": "Fellrüstung",
+      "kind": "armor",
+      "armor": 3,
+      "starting": false,
+      "cost": {
+        "hide": 2,
+        "cloth": 2
+      },
+      "durability": 90,
+      "needs_building": "workbench",
+      "_doc": "Beute der Wölfe verarbeitet: so viel Schutz wie der Holzpanzer, haltbarer, ohne Gewicht. Später warm (Kälte)."
+    },
+    {
       "id": "wood_armor",
       "name": "Holzpanzer",
       "kind": "armor",
