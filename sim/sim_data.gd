@@ -25,6 +25,7 @@ const SYMBOLIC_PLACES: Dictionary = {
 	"own_table": {"name": "eigener Handelstisch", "missing": "kein eigener Handelstisch"},
 	"own_anchor": {"name": "eigener Anker", "missing": "kein eigener Anker"},
 	"nearest_depot": {"name": "nächstes Depot", "missing": "kein Depot auf der Karte"},
+	"nearest_market": {"name": "nächster Markt", "missing": "kein Markt auf der Karte"},
 }
 
 ## Pflichtschlüssel in balance.json als Punktpfade. Tippfehler fallen so beim Laden auf.
@@ -54,6 +55,7 @@ const REQUIRED_BALANCE: Array[String] = [
 	"claim.shrink_interval_hours", "claim.grace_hours", "claim.min_anchor_distance", "claim.foreign_decay_multiplier",
 	"toll.grace_seconds", "toll.pass_hours", "toll.forget_hours",
 	"events.boss.interval_hours", "events.boss.first_after_hours", "events.boss.lifetime_hours", "events.boss.max_hp", "events.boss.bite_damage",
+	"events.caravan.first_after_hours", "events.caravan.interval_hours", "events.caravan.rest_minutes", "events.caravan.markup",
 ]
 
 var balance: Dictionary = {}

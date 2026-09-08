@@ -99,7 +99,7 @@ static func update_turrets(world: SimWorld, _dt: float) -> void:
 		var target: SimCharacter = null
 		var best := radius * radius
 		for other: SimCharacter in world.spatial.query(center, radius):
-			if other.dead or other.hidden or world.allied(other.owner_id, b.owner_id) or world.in_peace_zone(other.pos) or SimToll.has_toll_pass_at(world, b, other.owner_id):
+			if other.dead or other.hidden or other.kind == SimCharacter.Kind.CARAVAN or world.allied(other.owner_id, b.owner_id) or world.in_peace_zone(other.pos) or SimToll.has_toll_pass_at(world, b, other.owner_id):
 				continue
 			var d := other.pos.distance_squared_to(center)
 			# Sichtlinie ab dem Rand des eigenen Bauteils (sonst blockiert sich das Turret selbst), Bauteile zählen
@@ -135,7 +135,7 @@ static func update_sensors_and_traps(world: SimWorld, dt: float) -> void:
 				break
 		elif def.has("trap_damage"):
 			for other: SimCharacter in world.spatial.query(b.center(), 1.5):
-				if other.dead or world.allied(other.owner_id, b.owner_id) or SimToll.has_toll_pass_at(world, b, other.owner_id):
+				if other.dead or other.kind == SimCharacter.Kind.CARAVAN or world.allied(other.owner_id, b.owner_id) or SimToll.has_toll_pass_at(world, b, other.owner_id):
 					continue
 				var half := SimBuilding.half_cell_of(other.pos)
 				if not b.cells.has(half):

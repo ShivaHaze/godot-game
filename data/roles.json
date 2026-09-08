@@ -1,5 +1,5 @@
 {
-  "_doc": "Rollen-Presets für das Ausloggen-Menü. Jede Rolle ist eine vorausgefüllte Regelliste (Priorität von oben nach unten, erste zutreffende Regel gewinnt, letzte Zeile ist immer 'Sonst'). Fehlende Parameter werden beim Laden mit den Voreinstellungen aus conditions.json / actions.json ergänzt. 'default_rules' gilt, wenn der Spieler nie ins Menü geht (Design [E]). Welche Regeln die Rollen genau haben, ist im Design offen [O] – das hier ist der Vorschlag für Phase 0. Orte in Presets: 'here' oder symbolische Orte (own_table, own_anchor, nearest_depot; siehe SimData.SYMBOLIC_PLACES), die beim Ausloggen aus der Welt aufgelöst werden.",
+  "_doc": "Rollen-Presets für das Ausloggen-Menü. Jede Rolle ist eine vorausgefüllte Regelliste (Priorität von oben nach unten, erste zutreffende Regel gewinnt, letzte Zeile ist immer 'Sonst'). Fehlende Parameter werden beim Laden mit den Voreinstellungen aus conditions.json / actions.json ergänzt. 'default_rules' gilt, wenn der Spieler nie ins Menü geht (Design [E]). Welche Regeln die Rollen genau haben, ist im Design offen [O] – das hier ist der Vorschlag für Phase 0. Orte in Presets: 'here' oder symbolische Orte (own_table, own_anchor, nearest_depot, nearest_market; siehe SimData.SYMBOLIC_PLACES), die beim Ausloggen aus der Welt aufgelöst werden.",
   "default_rules": [
     {
       "if": {
@@ -183,23 +183,8 @@
     {
       "id": "trader",
       "name": "Händler",
-      "tip": "Sammelt Beeren, bringt volle Ladungen zum eigenen Handelstisch – ohne Tisch zum nächsten Markt-Depot (Gebühr). Der Weg ist das Risiko, der Erlös wartet im Tisch oder Depot.",
+      "tip": "Sammelt Beeren, bringt volle Ladungen zum eigenen Handelstisch – ohne Tisch zum nächsten kampffreien Markt (Gebühr). Der Weg ist das Risiko: gegen Wölfe hilft nur Zurückkämpfen, Flucht nicht.",
       "rules": [
-        {
-          "if": {
-            "condition": "health_below",
-            "params": {
-              "percent": 40
-            }
-          },
-          "then": {
-            "action": "flee_to",
-            "params": {
-              "place": "here",
-              "radius": 2
-            }
-          }
-        },
         {
           "if": {
             "condition": "under_attack"
@@ -243,7 +228,7 @@
             "action": "deliver",
             "params": {
               "resource": "berries",
-              "place": "nearest_depot",
+              "place": "nearest_market",
               "radius": 3
             }
           }

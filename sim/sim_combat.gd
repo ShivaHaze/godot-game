@@ -103,13 +103,13 @@ static func melee(world: SimWorld, c: SimCharacter) -> void:
 	SimCrafting.wear(world, c, c.active_weapon)
 
 
-## Nächster lebender, sichtbarer Charakter eines anderen Besitzers im Radius. ignore_boss: den Leitwolf auslassen
-## (Offline-Charaktere greifen ihn nie zuerst an – eingeschränkte Teilnahme am Ereignis).
-static func nearest_enemy(world: SimWorld, c: SimCharacter, radius: float, ignore_boss: bool = false) -> SimCharacter:
+## Nächster lebender, sichtbarer Charakter eines anderen Besitzers im Radius. ignore_events: Leitwolf und Karawane
+## auslassen (Offline-Charaktere greifen Ereignisse nie zuerst an – eingeschränkte Teilnahme).
+static func nearest_enemy(world: SimWorld, c: SimCharacter, radius: float, ignore_events: bool = false) -> SimCharacter:
 	var best: SimCharacter = null
 	var best_d := radius * radius
 	for other: SimCharacter in world.spatial.query(c.pos, radius):
-		if other == c or other.dead or other.hidden or world.allied(other.owner_id, c.owner_id) or (ignore_boss and other.boss):
+		if other == c or other.dead or other.hidden or world.allied(other.owner_id, c.owner_id) or (ignore_events and (other.boss or other.kind == SimCharacter.Kind.CARAVAN)):
 			continue
 		var d := other.pos.distance_squared_to(c.pos)
 		if d <= best_d:
@@ -145,9 +145,14 @@ static func update_projectiles(world: SimWorld, dt: float) -> void:
 			i += 1
 
 
+## Wen ein Projektil trifft. Verbündete des Schützen (gleicher Besitzer, Gilde, Karawane) lässt es passieren –
+## wie der Nahkampf, der nie Verbündete anvisiert; Querschläger auf Fremde bleiben legitime Treffer (Design).
 static func _projectile_victim(world: SimWorld, p: SimProjectile) -> SimCharacter:
+	var shooter := world.get_character(p.owner_id)
 	for c: SimCharacter in world.spatial.query(p.pos, 1.0):
 		if c.dead or c.hidden or c.id == p.owner_id:
+			continue
+		if shooter != null and world.allied(c.owner_id, shooter.owner_id):
 			continue
 		var r := c.collision_radius + 0.1
 		if c.pos.distance_squared_to(p.pos) < r * r:

@@ -18,8 +18,9 @@ const CHARACTER_FLOATS: Array[String] = [
 ]
 const CHARACTER_INTS: Array[String] = [
 	"id", "kind", "control", "last_attacker_id", "active_rule_index", "last_logged_rule_index", "marker_counter",
+	"caravan_id", "caravan_leader_id",
 ]
-const CHARACTER_STRINGS: Array[String] = ["name", "owner_id", "role_id", "ai_state", "active_weapon", "worn_armor"]
+const CHARACTER_STRINGS: Array[String] = ["name", "owner_id", "role_id", "ai_state", "active_weapon", "worn_armor", "caravan_role"]
 const CHARACTER_BOOLS: Array[String] = ["dead", "hidden", "transition_logged", "boss"]
 const CHARACTER_VECTORS: Array[String] = ["pos", "prev_pos", "facing", "logout_pos", "leash_center", "ai_target_pos", "home_pos"]
 
@@ -60,6 +61,8 @@ static func world_to_dict(world: SimWorld) -> Dictionary:
 		"guilds": world.guilds.to_dict(),
 		"letters": world.letters.duplicate(true),
 		"next_boss_time": world.next_boss_time,
+		"next_caravan_time": world.next_caravan_time,
+		"caravans": SimEvents.caravans_to_list(world),
 	}
 
 
@@ -78,6 +81,7 @@ static func world_from_dict(data: SimData, dict: Dictionary) -> SimWorld:
 	world._next_id = int(dict["next_id"])
 	world._wolf_respawn_timer = float(dict.get("wolf_respawn_timer", 0.0))
 	world.next_boss_time = float(dict.get("next_boss_time", world.next_boss_time))
+	world.next_caravan_time = float(dict.get("next_caravan_time", world.next_caravan_time))
 	world.rng.seed = String(dict["rng_seed"]).to_int()
 	world.rng.state = String(dict["rng_state"]).to_int()
 	world.guilds.load_dict(dict.get("guilds", {}))
@@ -132,6 +136,7 @@ static func world_from_dict(data: SimData, dict: Dictionary) -> SimWorld:
 			b.offers.append({"sell": String(offer["sell"]), "sell_amount": int(offer["sell_amount"]), "price": String(offer["price"]), "price_amount": int(offer["price_amount"])})
 		world.map.add_building(b)
 	world.claims.load_list(dict.get("claims", []), int(dict.get("next_claim_id", 1)))
+	SimEvents.caravans_from_list(world, dict.get("caravans", []))
 	var owners := {}
 	for c: SimCharacter in world.characters.values():
 		owners[c.owner_id] = true

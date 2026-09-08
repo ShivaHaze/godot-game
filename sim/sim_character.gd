@@ -3,8 +3,8 @@ extends RefCounted
 ## Ein Körper in der Welt: Spielercharakter (live oder als Offline-NPC) oder Wolf.
 ## Reine Daten plus kleine Abfragen. Verändert wird er nur von SimWorld.
 
-enum Kind { PLAYER, WOLF }
-enum Controller { PLAYER, RULES, WOLF_AI, NONE }
+enum Kind { PLAYER, WOLF, CARAVAN }
+enum Controller { PLAYER, RULES, WOLF_AI, NONE, CARAVAN_AI }
 
 var id: int = 0
 var name: String = ""
@@ -12,6 +12,9 @@ var kind: Kind = Kind.PLAYER
 var control: Controller = Controller.NONE
 var owner_id: String = ""            # Gleicher Besitzer = kein Fremder. Tiere: "wild"
 var boss: bool = false               # Ereignis-Tier (Leitwolf): stärker, flieht nie, Beute in der Leiche
+var caravan_id: int = -1             # Karawane (Ereignis), zu der der Charakter gehört; -1 = keine
+var caravan_leader_id: int = -1      # Händler, dem Lasttiere und Wachen folgen
+var caravan_role: String = ""        # trader | guard | animal
 
 var pos: Vector2 = Vector2.ZERO
 var prev_pos: Vector2 = Vector2.ZERO # Position vor dem letzten Tick (für weiche Darstellung)

@@ -51,7 +51,7 @@ func test_boss_appears_in_the_center_after_first_hours_and_is_stronger() -> void
 	for cell: Vector2i in data.wolf_spawns:
 		assert_true(SimMap.cell_center(cell).distance_to(center) >= boss.home_pos.distance_to(center) - 0.01, "zentralster Spawn")
 	assert_eq(world.count_alive_wolves(), 3, "der Leitwolf zählt nicht als normaler Wolf")
-	assert_eq(SimEvents.boss_event_text({"type": "boss_spawned", "name": "Leitwolf"}), "Ein Leitwolf streift durchs Zentrum.")
+	assert_eq(SimEvents.event_text({"type": "boss_spawned", "name": "Leitwolf"}), "Ein Leitwolf streift durchs Zentrum.")
 
 
 func test_boss_never_flees_and_leaves_loot_only_for_live_looters() -> void:

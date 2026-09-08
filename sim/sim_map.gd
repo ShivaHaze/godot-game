@@ -247,6 +247,29 @@ func nearest_walkable_cell(cell: Vector2i, max_ring: int = 3) -> Vector2i:
 	return Vector2i(-1, -1)
 
 
+## Nächste Zelle, auf der dieser Besitzer stehen kann (Ringsuche bis max_ring): Boden frei und kein blockierendes
+## Bauteil. Für Wegziele auf Bauteilen (Anker, Depot, Werkbank): die Nachbarzelle daneben.
+func nearest_free_cell(cell: Vector2i, owner_id: String, data: SimData, max_ring: int = 3) -> Vector2i:
+	if is_walkable_for(cell, owner_id, data):
+		return cell
+	for ring in range(1, max_ring + 1):
+		var best := Vector2i(-1, -1)
+		var best_d := 1e9
+		for dy in range(-ring, ring + 1):
+			for dx in range(-ring, ring + 1):
+				if maxi(absi(dx), absi(dy)) != ring:
+					continue
+				var candidate := cell + Vector2i(dx, dy)
+				if is_walkable_for(candidate, owner_id, data):
+					var d := Vector2(dx, dy).length_squared()
+					if d < best_d:
+						best_d = d
+						best = candidate
+		if best.x >= 0:
+			return best
+	return Vector2i(-1, -1)
+
+
 ## Begehbar für einen Besitzer: Kachel frei und kein blockierendes Bauteil darin (Türen des Besitzers zählen nicht).
 func is_walkable_for(cell: Vector2i, owner_id: String, data: SimData) -> bool:
 	if not is_walkable(cell):

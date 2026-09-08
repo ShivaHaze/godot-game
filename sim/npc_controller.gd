@@ -167,9 +167,9 @@ static func _execute(world: SimWorld, c: SimCharacter, rule: Dictionary, intent:
 			_gather(world, c, String(params["resource"]), c.place_pos(String(params["place"])), float(params["radius"]), intent, dt)
 			return true
 		"fight_back":
-			_fight_back(world, c, intent, dt)
+			return _fight_back(world, c, intent, dt)  # im Gefecht zählt die Kampfstellung, nicht der Rückweg zur Leine
 		"attack":
-			_attack_nearby(world, c, float(params["radius"]), intent, dt)
+			return _attack_nearby(world, c, float(params["radius"]), intent, dt)
 		"hide":
 			intent.hide = true
 		"heal_self":
@@ -298,21 +298,25 @@ static func _find_gather_node(world: SimWorld, c: SimCharacter, resource: String
 
 ## Zurückkämpfen: Angreifer (oder nächsten Feind) anvisieren, aktuelle Position beschießen,
 ## vorsichtig Abstand halten. Nie über die Leine hinaus verfolgen (siehe _apply_leash).
-static func _fight_back(world: SimWorld, c: SimCharacter, intent: SimIntent, dt: float) -> void:
+## Rückgabe true, wenn ein Ziel da ist: dann übersteuert die Leine die Kampfstellung nicht (innerhalb des Kreises
+## kürzt sie Schritte trotzdem, außerhalb – etwa unterwegs zu einem Lieferziel – kämpft er, wo er steht).
+static func _fight_back(world: SimWorld, c: SimCharacter, intent: SimIntent, dt: float) -> bool:
 	var target := world.get_character(c.last_attacker_id)
 	if target == null or target.dead or target.hidden:
 		target = SimCombat.nearest_enemy(world, c, world.data.balf("offline.hot_radius"))
 	if target == null:
-		return
+		return false
 	_engage(world, c, target, intent, dt)
+	return true
 
 
 ## Angreifen (freigeschaltet): nächsten sichtbaren Fremden im Radius angreifen, ohne selbst angegriffen zu sein.
-static func _attack_nearby(world: SimWorld, c: SimCharacter, radius: float, intent: SimIntent, dt: float) -> void:
-	var target := SimCombat.nearest_enemy(world, c, radius, true)  # Offline nur eingeschränkt am Ereignis beteiligt: den Leitwolf greift er nie zuerst an
+static func _attack_nearby(world: SimWorld, c: SimCharacter, radius: float, intent: SimIntent, dt: float) -> bool:
+	var target := SimCombat.nearest_enemy(world, c, radius, true)  # Offline nur eingeschränkt an Ereignissen beteiligt: Leitwolf und Karawane greift er nie zuerst an
 	if target == null:
-		return
+		return false
 	_engage(world, c, target, intent, dt)
+	return true
 
 
 ## Gemeinsame Kampfausführung: Waffenwahl, Abstand, Schuss auf die aktuelle Position.

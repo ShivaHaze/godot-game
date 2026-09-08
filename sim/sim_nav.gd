@@ -20,7 +20,11 @@ static func direction_toward(world: SimWorld, c: SimCharacter, goal: Vector2, dt
 		c.path.clear()
 		return _capped(to_goal, c, dt)
 	c.path_age += dt
-	var goal_cell := map.nearest_walkable_cell(SimMap.cell_of(goal))
+	# Zielzelle, auf der der Charakter stehen kann: liegt das Ziel in einem Bauteil (Anker, Depot, Werkbank),
+	# führt der Weg zur Nachbarzelle – sonst scheitert die Wegsuche und der Charakter bleibt am ersten Hindernis hängen
+	var goal_cell := map.nearest_free_cell(SimMap.cell_of(goal), c.owner_id, world.data)
+	if goal_cell.x < 0:
+		goal_cell = map.nearest_walkable_cell(SimMap.cell_of(goal))
 	if goal_cell != c.path_goal or c.path_age >= REPLAN_INTERVAL or c.path.is_empty():
 		c.path = map.find_path(SimMap.cell_of(c.pos), goal_cell, 4000, c.owner_id, world.data)
 		c.path_goal = goal_cell

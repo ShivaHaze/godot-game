@@ -8,13 +8,14 @@ extends RefCounted
 ## Leitet Rüstung und Nahkampfwerte aus der getragenen Rüstung und der aktiven Waffe ab (nur Spielercharaktere).
 ## Rüstung zählt nur, wenn sie angelegt ist (equip_armor); besitzen allein schützt nicht.
 static func refresh_equipment(world: SimWorld, c: SimCharacter) -> void:
-	if c.kind != SimCharacter.Kind.PLAYER:
+	if c.kind == SimCharacter.Kind.WOLF:
 		return
-	if not c.worn_armor.is_empty() and (not c.items.has(c.worn_armor) or world.data.items.get(c.worn_armor, {}).get("kind", "") != "armor"):
-		c.worn_armor = ""  # zerbrochen, geplündert oder unbekannt
-	var worn: Dictionary = world.data.items.get(c.worn_armor, {})
-	c.armor = world.data.balf("character.armor") + float(worn.get("armor", 0.0))
-	c.armor_slow = float(worn.get("slow", 0.0))  # schwere Rüstung verlangsamt, solange sie getragen wird
+	if c.kind == SimCharacter.Kind.PLAYER:  # Karawanenleute tragen ihre Rüstung als festen Wert
+		if not c.worn_armor.is_empty() and (not c.items.has(c.worn_armor) or world.data.items.get(c.worn_armor, {}).get("kind", "") != "armor"):
+			c.worn_armor = ""  # zerbrochen, geplündert oder unbekannt
+		var worn: Dictionary = world.data.items.get(c.worn_armor, {})
+		c.armor = world.data.balf("character.armor") + float(worn.get("armor", 0.0))
+		c.armor_slow = float(worn.get("slow", 0.0))  # schwere Rüstung verlangsamt, solange sie getragen wird
 	if not c.items.has(c.active_weapon):
 		c.active_weapon = ""
 		for item_id: String in c.items:

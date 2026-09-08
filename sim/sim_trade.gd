@@ -291,3 +291,138 @@ static func loot_table(world: SimWorld, b: SimBuilding, attacker_id: int) -> voi
 	if not taken.is_empty():
 		world.events.append({"type": "loot", "id": taker.id, "from": -1, "items": taken, "equipment": [], "table": b.id})
 	b.contents.clear()
+
+
+# --- Karawane -------------------------------------------------------------
+## Die Karawane handelt nur bei der Rast: sie kauft Waren aus events.caravan.prices (lot Stück für pay Kupfer) und
+## verkauft ihre Fracht zu pay × markup. Fracht liegt auf den Lasttieren, die Kasse beim Händler – beides Beute.
+
+static func caravan_currency(world: SimWorld) -> String:
+	return String(world.data.balance["events"]["caravan"].get("currency", "copper"))
+
+
+## Karawanenhändler in Interaktionsreichweite, sonst null.
+static func caravan_trader_near(world: SimWorld, c: SimCharacter) -> SimCharacter:
+	var reach := world.data.balf("character.interact_range") + 0.5
+	for other: SimCharacter in world.spatial.query(c.pos, reach):
+		if other.dead or other.kind != SimCharacter.Kind.CARAVAN or other.caravan_role != "trader":
+			continue
+		if other.pos.distance_to(c.pos) <= reach:
+			return other
+	return null
+
+
+static func caravan_resting(world: SimWorld, trader: SimCharacter) -> bool:
+	return String(world.caravans.get(trader.caravan_id, {}).get("leg", "")) == "rest"
+
+
+## Kasse der Karawane (im Client-Spiegel aus dem Snapshot).
+static func caravan_copper(world: SimWorld, trader: SimCharacter) -> int:
+	var caravan: Dictionary = world.caravans.get(trader.caravan_id, {})
+	if caravan.has("copper"):
+		return int(caravan["copper"])
+	return int(trader.inventory.get(caravan_currency(world), 0))
+
+
+## Fracht aller lebenden Lasttiere (im Client-Spiegel aus dem Snapshot).
+static func caravan_cargo(world: SimWorld, trader: SimCharacter) -> Dictionary:
+	var caravan: Dictionary = world.caravans.get(trader.caravan_id, {})
+	if caravan.has("cargo"):
+		return caravan["cargo"]
+	var cargo := {}
+	for member_id: int in caravan.get("members", []):
+		var member := world.get_character(member_id)
+		if member == null or member.dead or member.caravan_role != "animal":
+			continue
+		for rid: String in member.inventory:
+			cargo[rid] = int(cargo.get(rid, 0)) + int(member.inventory[rid])
+	return cargo
+
+
+## Verkaufspreis der Karawane je Los: Einkaufspreis × Aufschlag, aufgerundet.
+static func caravan_ask_price(world: SimWorld, rid: String) -> int:
+	var spec: Dictionary = world.data.balance["events"]["caravan"]
+	var price: Dictionary = spec["prices"].get(rid, {})
+	return int(ceilf(float(price.get("pay", 1)) * float(spec.get("markup", 2.0))))
+
+
+static func _caravan_reason(world: SimWorld, c: SimCharacter, trader: SimCharacter, rid: String) -> String:
+	if trader == null or trader.dead or trader.kind != SimCharacter.Kind.CARAVAN or trader.caravan_role != "trader":
+		return "kein Karawanenhändler"
+	if c.control != SimCharacter.Controller.PLAYER or c.dead:
+		return "nur live"
+	if trader.pos.distance_to(c.pos) > world.data.balf("character.interact_range") + 0.5:
+		return "zu weit weg"
+	if not caravan_resting(world, trader):
+		return "die Karawane handelt nur bei der Rast"
+	if not world.data.resources.has(rid) or rid == caravan_currency(world) or not world.data.balance["events"]["caravan"]["prices"].has(rid):
+		return "das handelt die Karawane nicht"
+	if bool(world.data.resources[rid].get("raid_good", false)):
+		return "Raidware handelt die Karawane nicht"
+	return ""
+
+
+## Lasttier mit Platz für ein Los, sonst null.
+static func _animal_with_room(world: SimWorld, trader: SimCharacter, lot: int) -> SimCharacter:
+	var capacity := int(world.data.balance["events"]["caravan"]["animal"].get("cargo_capacity", 40))
+	for member_id: int in world.caravans.get(trader.caravan_id, {}).get("members", []):
+		var member := world.get_character(member_id)
+		if member != null and not member.dead and member.caravan_role == "animal" and member.inventory_count() + lot <= capacity:
+			return member
+	return null
+
+
+## Spieler verkauft ein Los an die Karawane: Ware aufs Lasttier, Kupfer aus der Kasse. Rückgabe: Grund oder leer.
+static func caravan_sell(world: SimWorld, c: SimCharacter, trader: SimCharacter, rid: String) -> String:
+	var reason := _caravan_reason(world, c, trader, rid)
+	if not reason.is_empty():
+		return reason
+	var price: Dictionary = world.data.balance["events"]["caravan"]["prices"][rid]
+	var lot := int(price["lot"])
+	var pay := int(price["pay"])
+	var currency := caravan_currency(world)
+	if int(c.inventory.get(rid, 0)) < lot:
+		return "zu wenig %s (%d nötig)" % [world.data.resources[rid]["name"], lot]
+	if int(trader.inventory.get(currency, 0)) < pay:
+		return "die Kasse der Karawane ist leer"
+	var animal := _animal_with_room(world, trader, lot)
+	if animal == null:
+		return "die Lasttiere sind voll oder tot"
+	if c.inventory_count() - lot + pay > world.data.bali("inventory.capacity"):
+		return "Inventar voll"
+	c.inventory[rid] = int(c.inventory[rid]) - lot
+	c.inventory[currency] = int(c.inventory.get(currency, 0)) + pay
+	trader.inventory[currency] = int(trader.inventory[currency]) - pay
+	animal.inventory[rid] = int(animal.inventory.get(rid, 0)) + lot
+	world.events.append({"type": "caravan_trade", "id": c.id, "kind": "sell", "resource": rid, "amount": lot, "copper": pay})
+	return ""
+
+
+## Spieler kauft ein Los aus der Fracht zum Aufschlag. Rückgabe: Grund oder leer.
+static func caravan_buy(world: SimWorld, c: SimCharacter, trader: SimCharacter, rid: String) -> String:
+	var reason := _caravan_reason(world, c, trader, rid)
+	if not reason.is_empty():
+		return reason
+	var lot := int(world.data.balance["events"]["caravan"]["prices"][rid]["lot"])
+	var ask := caravan_ask_price(world, rid)
+	var currency := caravan_currency(world)
+	if int(caravan_cargo(world, trader).get(rid, 0)) < lot:
+		return "die Karawane hat davon nicht genug"
+	if int(c.inventory.get(currency, 0)) < ask:
+		return "zu wenig %s (%d nötig)" % [world.data.resources[currency]["name"], ask]
+	if c.inventory_count() - ask + lot > world.data.bali("inventory.capacity"):
+		return "Inventar voll"
+	var left := lot
+	for member_id: int in world.caravans[trader.caravan_id]["members"]:
+		var member := world.get_character(member_id)
+		if member == null or member.dead or member.caravan_role != "animal" or left <= 0:
+			continue
+		var take := mini(left, int(member.inventory.get(rid, 0)))
+		if take > 0:
+			member.inventory[rid] = int(member.inventory[rid]) - take
+			left -= take
+	c.inventory[currency] = int(c.inventory[currency]) - ask
+	c.inventory[rid] = int(c.inventory.get(rid, 0)) + lot
+	trader.inventory[currency] = int(trader.inventory.get(currency, 0)) + ask
+	world.events.append({"type": "caravan_trade", "id": c.id, "kind": "buy", "resource": rid, "amount": lot, "copper": ask})
+	return ""

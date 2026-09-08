@@ -71,7 +71,7 @@ static func _safe_vector(value: Variant) -> Vector2:
 
 ## Stammdaten eines Charakters (einmal je Empfänger, solange er in Sicht bleibt).
 static func character_intro(c: SimCharacter, named: bool = true, guild: String = "") -> Dictionary:
-	return {"i": c.id, "n": c.name if named else "", "k": c.kind, "o": c.owner_id, "mh": c.max_hp, "g": guild, "b": c.boss}
+	return {"i": c.id, "n": c.name if named else "", "k": c.kind, "o": c.owner_id, "mh": c.max_hp, "g": guild, "b": c.boss, "cr": c.caravan_role, "ci": c.caravan_id}
 
 
 ## Bewegliche Daten eines Charakters, kompakt.
@@ -167,6 +167,15 @@ static func snapshot(world: SimWorld, viewer_id: int, known: Dictionary, node_st
 		snap["clm"] = claim_rows
 	if not claims_removed.is_empty():
 		snap["clm_rm"] = claims_removed
+	# Karawanen in Sicht: Rast, Kasse und Fracht für die Handelstafel
+	var caravan_rows := []
+	for caravan: Dictionary in world.caravans.values():
+		var leader := world.get_character(int(caravan["leader"]))
+		if leader == null or leader.dead or leader.pos.distance_squared_to(center) > r2:
+			continue
+		caravan_rows.append([int(caravan["id"]), leader.id, String(caravan["leg"]), SimTrade.caravan_copper(world, leader), SimTrade.caravan_cargo(world, leader)])
+	if not caravan_rows.is_empty():
+		snap["cv"] = caravan_rows
 	return snap
 
 
@@ -227,6 +236,8 @@ static func apply_snapshot(mirror: SimWorld, snap: Dictionary) -> void:
 			c.name = name  # leer = Name noch unbekannt (zu weit weg); ein bekannter Name bleibt
 		c.kind = int(intro["k"]) as SimCharacter.Kind
 		c.boss = bool(intro.get("b", false))
+		c.caravan_role = String(intro.get("cr", ""))
+		c.caravan_id = int(intro.get("ci", -1))
 		c.owner_id = String(intro["o"])
 		mirror.guilds.register(c.owner_id, String(intro.get("g", "")))
 		c.max_hp = float(intro["mh"])
@@ -338,6 +349,9 @@ static func apply_snapshot(mirror: SimWorld, snap: Dictionary) -> void:
 			for tile: Vector2i in claim.tiles.keys():
 				mirror.claims.tile_owner.erase(tile)
 			mirror.claims.claims.erase(id)
+	mirror.caravans = {}
+	for row: Array in snap.get("cv", []):
+		mirror.caravans[int(row[0])] = {"id": int(row[0]), "leader": int(row[1]), "leg": String(row[2]), "copper": int(row[3]), "cargo": row[4], "members": []}
 	var you := mirror.get_character(int(snap.get("you", -1)))
 	var me: PackedFloat32Array = snap.get("me", PackedFloat32Array())
 	if you != null and me.size() >= 2:

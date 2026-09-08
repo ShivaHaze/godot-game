@@ -177,6 +177,12 @@ func _on_message(peer: ENetPacketPeer, msg: Dictionary) -> void:
 						reason = SimTrade.table_buy(world, c, b, int(msg.get("index", -1)))
 				if not reason.is_empty():
 					_send(peer, {"t": "info", "text": "Handel: %s" % reason}, true)
+		"caravan_sell", "caravan_buy":
+			if c != null:
+				var trader := world.get_character(int(msg.get("id", -1)))
+				var reason := SimTrade.caravan_sell(world, c, trader, String(msg.get("res", ""))) if String(msg["t"]) == "caravan_sell" else SimTrade.caravan_buy(world, c, trader, String(msg.get("res", "")))
+				if not reason.is_empty():
+					_send(peer, {"t": "info", "text": "Karawane: %s" % reason}, true)
 		"sign_text":
 			if c != null:
 				var b: SimBuilding = world.map.buildings.get(int(msg.get("id", -1)))
@@ -248,9 +254,9 @@ func _forward_events() -> void:
 			"toll_short":
 				recipient = int(event["id"])
 				text = "Zoll: %s" % event["reason"]
-			"boss_spawned", "boss_killed", "boss_left":
+			"boss_spawned", "boss_killed", "boss_left", "caravan_spawned", "caravan_rest", "caravan_raided", "caravan_left":
 				# Ereignis für alle, ohne Ortsangabe (Design: global keine Positionsdaten)
-				var line := SimEvents.boss_event_text(event)
+				var line := SimEvents.event_text(event)
 				for peer: ENetPacketPeer in peers:
 					_send(peer, {"t": "chat", "from": "Welt", "text": line, "scope": "global"}, true)
 				continue

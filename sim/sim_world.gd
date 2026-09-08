@@ -65,6 +65,9 @@ var _wolf_respawn_timer: float = 0.0
 
 
 var next_boss_time: float = -1.0         # Sim-Zeit, zu der der nächste Leitwolf erscheint (Ereignis); < 0 = keine Ereignisse
+var next_caravan_time: float = -1.0      # Sim-Zeit, zu der die nächste Karawane aufbricht
+var caravans: Dictionary = {}            # Karawanen (SimEvents): id -> {leader, members, stop, leg, goal, target, rest_until, raided_at}
+var next_caravan_id: int = 1
 
 
 func _init(p_data: SimData, seed: int = 12345) -> void:
@@ -75,6 +78,7 @@ func _init(p_data: SimData, seed: int = 12345) -> void:
 	tick_dt = 1.0 / data.balf("tick_rate")
 	rng.seed = seed
 	next_boss_time = data.balf("events.boss.first_after_hours") * 3600.0
+	next_caravan_time = data.balf("events.caravan.first_after_hours") * 3600.0
 
 
 # --- Aufbau ---------------------------------------------------------------
@@ -218,6 +222,13 @@ func count_alive_wolves() -> int:
 
 func get_character(id: int) -> SimCharacter:
 	return characters.get(id)
+
+
+## Nächste freie Charakter-Kennung (für Module, die Charaktere erzeugen).
+func allocate_id() -> int:
+	var id := _next_id
+	_next_id += 1
+	return id
 
 
 func alive_characters() -> Array[SimCharacter]:
@@ -394,7 +405,7 @@ func _update_corpses() -> void:
 	var rot_after := data.balf("combat.corpse_rot_hours") * 3600.0
 	for id: int in characters.keys():
 		var c: SimCharacter = characters[id]
-		if c.dead and (c.kind == SimCharacter.Kind.PLAYER or c.boss) and time - c.death_time >= rot_after:
+		if c.dead and (c.kind != SimCharacter.Kind.WOLF or c.boss) and time - c.death_time >= rot_after:  # Menschen, Karawane, Leitwolf
 			characters.erase(id)
 			events.append({"type": "corpse_rotted", "id": id, "owner": c.owner_id, "name": c.name})
 
@@ -447,10 +458,13 @@ func _resolve_symbolic_places(c: SimCharacter) -> void:
 		c.extra_places["own_anchor"] = {"name": SimData.SYMBOLIC_PLACES["own_anchor"]["name"], "pos": anchor.center()}
 	var table: SimBuilding = null
 	var depot: SimBuilding = null
+	var market: SimBuilding = null  # Depot in einer kampffreien Zone: der sichere Lieferort
 	for b: SimBuilding in map.buildings.values():
 		if SimTrade.is_depot(self, b):
 			if depot == null or b.center().distance_squared_to(from) < depot.center().distance_squared_to(from):
 				depot = b
+			if in_peace_zone(b.center()) and (market == null or b.center().distance_squared_to(from) < market.center().distance_squared_to(from)):
+				market = b
 		elif SimTrade.is_trade_table(self, b) and allied(b.owner_id, c.owner_id):
 			if table == null or b.center().distance_squared_to(from) < table.center().distance_squared_to(from):
 				table = b
@@ -458,6 +472,8 @@ func _resolve_symbolic_places(c: SimCharacter) -> void:
 		c.extra_places["own_table"] = {"name": SimData.SYMBOLIC_PLACES["own_table"]["name"], "pos": table.center()}
 	if depot != null:
 		c.extra_places["nearest_depot"] = {"name": SimData.SYMBOLIC_PLACES["nearest_depot"]["name"], "pos": depot.center()}
+	if market != null:
+		c.extra_places["nearest_market"] = {"name": SimData.SYMBOLIC_PLACES["nearest_market"]["name"], "pos": market.center()}
 
 
 # --- Neutraler Markt und Depot --------------------------------------------
@@ -523,6 +539,8 @@ func step(dt: float) -> void:
 				intent = WolfAI.decide(self, c, step_dt)
 			SimCharacter.Controller.RULES:
 				intent = NpcController.decide(self, c, step_dt)
+			SimCharacter.Controller.CARAVAN_AI:
+				intent = CaravanAI.decide(self, c, step_dt)
 		_apply_intent(c, intent if intent != null else SimIntent.new(), step_dt)
 	_intents.clear()
 	spatial.rebuild(characters)
@@ -537,6 +555,7 @@ func step(dt: float) -> void:
 	claims.update(self, dt)
 	_update_wolves(dt)
 	SimEvents.update(self)
+	SimEvents.update_caravans(self)
 
 
 ## Ist ein lebender Online-Spieler (vom Spieler gesteuert oder beobachtet) in Reichweite?

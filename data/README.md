@@ -4,7 +4,7 @@ Kein Code nötig, um hier etwas zu ändern. Schlüssel, die mit `_` beginnen, si
 
 | Datei | Inhalt |
 |---|---|
-| `balance.json` | Alle Tuning-Zahlen (Geschwindigkeit, Schaden, Hungerrate, Leinenradius, Tickrate, Wolf, Zeitsprung, Claims, Zonen, `toll` = Zoll-Frist/Freigang/Verjährung, `events.boss` = Leitwolf). |
+| `balance.json` | Alle Tuning-Zahlen (Geschwindigkeit, Schaden, Hungerrate, Leinenradius, Tickrate, Wolf, Zeitsprung, Claims, Zonen, `toll` = Zoll-Frist/Freigang/Verjährung, `events.boss` = Leitwolf, `events.caravan` = Karawane mit Preisliste). |
 | `resources.json` | Rohstoffe (Holz, Beeren, Stein, Fasern …) und Verbrauchsgüter mit `cost` (Stoff aus Fasern; Verband aus Stoff: `heal`, `heal_time`); `needs_building` = Station, die beim Herstellen in Reichweite stehen muss (Lagerfeuer, Werkbank, Schmelzofen, Schmiede). |
 | `tiles.json` | Kacheltypen und ihr Zeichen in der Karte; Quellen mit Rohstoff und Vorrat (`offline_needs`: Bauteil, das Offline-Charaktere daneben brauchen, z. B. Mine); `zone` (Marktboden). |
 | `map.json` | Die Karte als Zeichenraster plus Spawn-Zeichen (`P` Spieler, `W` Wolf, `D` Markt-Depot auf Marktboden `M`). |

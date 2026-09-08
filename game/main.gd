@@ -15,6 +15,7 @@ const LogoutMenuScript := preload("res://game/logout_menu.gd")
 const CraftPanelScript := preload("res://game/craft_panel.gd")
 const TradePanelScript := preload("res://game/trade_panel.gd")
 const DepotPanelScript := preload("res://game/depot_panel.gd")
+const CaravanPanelScript := preload("res://game/caravan_panel.gd")
 
 const MAX_TICKS_PER_FRAME: int = 5      # Schutz gegen Aufholspiralen bei Rucklern
 const SKIP_BUDGET_MSEC: int = 14        # Echtzeit pro Frame für den Zeitsprung (Fortschritt bleibt sichtbar)
@@ -55,6 +56,7 @@ var _build_rot: int = 0
 var _build_click: bool = false
 var _sign_edit: SimBuilding = null      # Schild, das gerade beschriftet wird
 var depot_panel: CanvasLayer
+var caravan_panel: CanvasLayer
 
 
 func _ready() -> void:
@@ -133,6 +135,11 @@ func _ready() -> void:
 	depot_panel.withdraw_requested.connect(func(id: int, rid: String, amount: int) -> void: _depot_action("depot_withdraw", {"id": id, "res": rid, "amount": amount}))
 	depot_panel.closed.connect(func() -> void: depot_panel.close())
 	add_child(depot_panel)
+	caravan_panel = CaravanPanelScript.new()
+	caravan_panel.sell_requested.connect(func(id: int, rid: String) -> void: _caravan_action("caravan_sell", {"id": id, "res": rid}))
+	caravan_panel.buy_requested.connect(func(id: int, rid: String) -> void: _caravan_action("caravan_buy", {"id": id, "res": rid}))
+	caravan_panel.closed.connect(func() -> void: caravan_panel.close())
+	add_child(caravan_panel)
 	hud.chat_input.text_submitted.connect(_on_chat_submitted)
 
 	hud.world = world
@@ -186,6 +193,8 @@ func _process_net(delta: float) -> void:
 					trade_panel.show_status(String(msg.get("text", "")))
 				if depot_panel.visible:
 					depot_panel.show_status(String(msg.get("text", "")))
+				if caravan_panel.visible:
+					caravan_panel.show_status(String(msg.get("text", "")))
 	net.messages.clear()
 	if not net.connected and player_id >= 0:
 		hud.mode_text = "Verbindung verloren"
@@ -223,6 +232,7 @@ func _process_net(delta: float) -> void:
 		else:
 			depot_panel.building = depot
 			depot_panel.rebuild()
+	_refresh_caravan_panel(player)
 	if trade_panel.visible:
 		var table: SimBuilding = world.map.buildings.get(trade_panel.building.id) if trade_panel.building != null else null
 		if table == null or table.center().distance_to(player.pos) > data.balf("character.interact_range") + 0.5:
@@ -339,6 +349,7 @@ func _refresh_view(player: SimCharacter) -> void:
 	hud.refresh()
 	if craft_panel.visible:
 		craft_panel.refresh()
+	_refresh_caravan_panel(player)
 
 
 func _process_live_input(player: SimCharacter) -> void:
@@ -382,7 +393,7 @@ func _process_live_input(player: SimCharacter) -> void:
 		hud.chat_input.grab_focus()
 		return
 	if Input.is_action_just_pressed("interact") and not player.dead and not _build_mode:
-		if not _toggle_sign_edit(player) and not _toggle_depot_panel(player):
+		if not _toggle_sign_edit(player) and not _toggle_depot_panel(player) and not _toggle_caravan_panel(player):
 			_toggle_trade_panel(player)
 	if Input.is_action_just_pressed("build_mode") and not player.dead:
 		_toggle_build_mode(player)
@@ -400,7 +411,7 @@ func _build_player_intent(player: SimCharacter) -> SimIntent:
 	intent.move = Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	intent.aim = view.mouse_world_pos() - player.pos
 	intent.shoot = Input.is_action_pressed("shoot") and not craft_panel.visible and not _build_mode
-	intent.interact = Input.is_action_pressed("interact") and not trade_panel.visible and not depot_panel.visible
+	intent.interact = Input.is_action_pressed("interact") and not trade_panel.visible and not depot_panel.visible and not caravan_panel.visible
 	intent.eat = _eat_pressed
 	_eat_pressed = false
 	if intent.shoot or player.hp >= player.max_hp:
@@ -538,6 +549,56 @@ func _depot_action(kind: String, payload: Dictionary) -> void:
 	var reason := SimTrade.depot_deposit(world, player, b, String(payload["res"]), int(payload["amount"])) if kind == "depot_deposit" else SimTrade.depot_withdraw(world, player, b, String(payload["res"]), int(payload["amount"]))
 	depot_panel.show_status("" if reason.is_empty() else "Geht nicht: %s" % reason)
 	depot_panel.rebuild()
+
+
+## E neben einem rastenden Karawanenhändler: kaufen und verkaufen in Kupfer. true, wenn ein Händler in Reichweite ist.
+func _toggle_caravan_panel(player: SimCharacter) -> bool:
+	if caravan_panel.visible:
+		caravan_panel.close()
+		return true
+	var trader := SimTrade.caravan_trader_near(world, player)
+	if trader == null:
+		return false
+	if not SimTrade.caravan_resting(world, trader):
+		hud.show_message("Die Karawane handelt nur bei der Rast.", 2.0)
+		return true
+	craft_panel.close()
+	trade_panel.close()
+	caravan_panel.open(data, world, player, trader)
+	return true
+
+
+## Tafel folgt dem Stand (lokal und im Spiegel); schließt, wenn der Händler weg ist oder weiterzieht.
+func _refresh_caravan_panel(player: SimCharacter) -> void:
+	if not caravan_panel.visible or player == null:
+		return
+	var trader: SimCharacter = world.get_character(caravan_panel.trader.id) if caravan_panel.trader != null else null
+	if trader == null or trader.dead or trader.pos.distance_to(player.pos) > data.balf("character.interact_range") + 0.5 or not SimTrade.caravan_resting(world, trader):
+		caravan_panel.close()
+		return
+	caravan_panel.trader = trader
+	var signature := [SimTrade.caravan_cargo(world, trader), SimTrade.caravan_copper(world, trader), player.inventory].hash()
+	if signature != _caravan_last_signature:
+		_caravan_last_signature = signature
+		caravan_panel.rebuild()
+
+
+var _caravan_last_signature: int = 0
+
+
+func _caravan_action(kind: String, payload: Dictionary) -> void:
+	var player := world.get_character(player_id)
+	if player == null:
+		return
+	if net != null:
+		var msg := payload.duplicate()
+		msg["t"] = kind
+		net.send(msg, true)
+		return
+	var trader := world.get_character(int(payload["id"]))
+	var reason := SimTrade.caravan_sell(world, player, trader, String(payload["res"])) if kind == "caravan_sell" else SimTrade.caravan_buy(world, player, trader, String(payload["res"]))
+	caravan_panel.show_status("" if reason.is_empty() else "Geht nicht: %s" % reason)
+	caravan_panel.rebuild()
 
 
 func _toggle_trade_panel(player: SimCharacter) -> void:
@@ -942,8 +1003,8 @@ func _respawn_player() -> void:
 func _handle_events() -> void:
 	for event: Dictionary in world.events:
 		var id := int(event.get("id", -1))
-		if ["boss_spawned", "boss_killed", "boss_left"].has(String(event.get("type", ""))):
-			var line := SimEvents.boss_event_text(event)
+		if SimEvents.GLOBAL_EVENTS.has(String(event.get("type", ""))):
+			var line := SimEvents.event_text(event)
 			hud.show_message(line, 5.0)
 			hud.add_chat_line("[Welt] " + line)
 			continue
@@ -1028,6 +1089,8 @@ func _handle_events() -> void:
 				hud.show_message("Zoll gezahlt: %d %s. Freigang %d h in diesem Claim." % [event["amount"], data.resources[event["resource"]]["name"], int(event["hours"])], 3.0)
 			"toll_short":
 				hud.show_message("Zoll: %s" % event["reason"], 2.0)
+			"caravan_trade":
+				hud.show_message("%s: %d %s für %d %s." % ["Verkauft" if event["kind"] == "sell" else "Gekauft", event["amount"], data.resources[event["resource"]]["name"], event["copper"], data.resources[SimTrade.caravan_currency(world)]["name"]], 2.5)
 			"building_hit":
 				pass
 			"death":
