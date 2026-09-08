@@ -25,6 +25,7 @@ var _next_id: int = 1
 var _next_building_id: int = 1
 var _intents: Dictionary = {}            # id -> SimIntent, gilt nur für den nächsten Tick
 var _wolf_respawn_timer: float = 0.0
+var next_boss_time: float = -1.0         # Sim-Zeit, zu der der nächste Leitwolf erscheint (Ereignis); < 0 = keine Ereignisse
 
 
 func _init(p_data: SimData, seed: int = 12345) -> void:
@@ -34,6 +35,7 @@ func _init(p_data: SimData, seed: int = 12345) -> void:
 	claims.guilds = guilds
 	tick_dt = 1.0 / data.balf("tick_rate")
 	rng.seed = seed
+	next_boss_time = data.balf("events.boss.first_after_hours") * 3600.0
 
 
 # --- Aufbau ---------------------------------------------------------------
@@ -167,9 +169,72 @@ func random_player_spawn() -> Vector2:
 func count_alive_wolves() -> int:
 	var n := 0
 	for c: SimCharacter in characters.values():
-		if c.kind == SimCharacter.Kind.WOLF and not c.dead:
+		if c.kind == SimCharacter.Kind.WOLF and not c.dead and not c.boss:
 			n += 1
 	return n
+
+
+## Der lebende Leitwolf (Ereignis), sonst null.
+func boss_alive() -> SimCharacter:
+	for c: SimCharacter in characters.values():
+		if c.boss and not c.dead:
+			return c
+	return null
+
+
+## Ereignis Leitwolf: erscheint am Wolf-Spawn, der der Kartenmitte am nächsten liegt (Zentrum wertvoll/tödlich).
+func spawn_boss() -> SimCharacter:
+	if data.wolf_spawns.is_empty():
+		return null
+	var center := Vector2(map.width * 0.5, map.height * 0.5)
+	var best: Vector2i = data.wolf_spawns[0]
+	for cell: Vector2i in data.wolf_spawns:
+		if SimMap.cell_center(cell).distance_to(center) < SimMap.cell_center(best).distance_to(center):
+			best = cell
+	var spec: Dictionary = data.balance["events"]["boss"]
+	var c := spawn_wolf(SimMap.cell_center(best))
+	c.boss = true
+	c.name = String(spec.get("name", "Leitwolf"))
+	c.max_hp = float(spec["max_hp"])
+	c.hp = c.max_hp
+	c.armor = float(spec.get("armor", 0.0))
+	c.move_speed = float(spec.get("move_speed", c.move_speed))
+	c.melee_damage = float(spec["bite_damage"])
+	c.logout_time = time  # Erscheinungszeit (das Feld ist bei Tieren sonst ungenutzt)
+	c.inventory = {}
+	for rid: Variant in spec.get("loot", {}):
+		if data.resources.has(rid):
+			c.inventory[String(rid)] = int(spec["loot"][rid])
+	events.append({"type": "boss_spawned", "id": c.id, "name": c.name})
+	return c
+
+
+## Ereignisse: der Leitwolf kommt alle interval_hours und zieht nach lifetime_hours weiter, wenn niemand ihn erlegt.
+func _update_events() -> void:
+	if next_boss_time < 0.0:
+		return
+	var boss := boss_alive()
+	if boss != null:
+		if time >= boss.logout_time + data.balf("events.boss.lifetime_hours") * 3600.0:
+			characters.erase(boss.id)
+			events.append({"type": "boss_left", "id": boss.id, "name": boss.name})
+		return
+	if time >= next_boss_time:
+		next_boss_time = time + data.balf("events.boss.interval_hours") * 3600.0
+		spawn_boss()
+
+
+## Meldung eines Leitwolf-Ereignisses für alle (ohne Ortsangabe – Design: global keine Positionsdaten).
+static func boss_event_text(event: Dictionary) -> String:
+	var name := String(event.get("name", "Leitwolf"))
+	match String(event.get("type", "")):
+		"boss_spawned":
+			return "Ein %s streift durchs Zentrum." % name
+		"boss_killed":
+			return "Der %s ist gefallen. Seine Beute liegt bei der Leiche." % name
+		"boss_left":
+			return "Der %s ist weitergezogen." % name
+	return ""
 
 
 func get_character(id: int) -> SimCharacter:
@@ -983,7 +1048,7 @@ func _update_corpses() -> void:
 	var rot_after := data.balf("combat.corpse_rot_hours") * 3600.0
 	for id: int in characters.keys():
 		var c: SimCharacter = characters[id]
-		if c.dead and c.kind == SimCharacter.Kind.PLAYER and time - c.death_time >= rot_after:
+		if c.dead and (c.kind == SimCharacter.Kind.PLAYER or c.boss) and time - c.death_time >= rot_after:
 			characters.erase(id)
 			events.append({"type": "corpse_rotted", "id": id, "owner": c.owner_id, "name": c.name})
 
@@ -1607,6 +1672,7 @@ func step(dt: float) -> void:
 	_update_corpses()
 	claims.update(self, dt)
 	_update_wolves(dt)
+	_update_events()
 
 
 ## Ist ein lebender Online-Spieler (vom Spieler gesteuert oder beobachtet) in Reichweite?
@@ -1884,12 +1950,13 @@ func _melee(c: SimCharacter) -> void:
 	wear(c, c.active_weapon)
 
 
-## Nächster lebender, sichtbarer Charakter eines anderen Besitzers im Radius.
-func nearest_enemy(c: SimCharacter, radius: float) -> SimCharacter:
+## Nächster lebender, sichtbarer Charakter eines anderen Besitzers im Radius. ignore_boss: den Leitwolf auslassen
+## (Offline-Charaktere greifen ihn nie zuerst an – eingeschränkte Teilnahme am Ereignis).
+func nearest_enemy(c: SimCharacter, radius: float, ignore_boss: bool = false) -> SimCharacter:
 	var best: SimCharacter = null
 	var best_d := radius * radius
 	for other: SimCharacter in spatial.query(c.pos, radius):
-		if other == c or other.dead or other.hidden or allied(other.owner_id, c.owner_id):
+		if other == c or other.dead or other.hidden or allied(other.owner_id, c.owner_id) or (ignore_boss and other.boss):
 			continue
 		var d := other.pos.distance_squared_to(c.pos)
 		if d <= best_d:
@@ -1972,6 +2039,8 @@ func _kill(victim: SimCharacter, attacker_id: int, cause: String = "", attacker_
 	var attacker := get_character(attacker_id)
 	var attacker_name := describe(victim, attacker) if attacker != null else (attacker_label if not attacker_label.is_empty() else "Unbekannt")
 	events.append({"type": "death", "id": victim.id, "attacker": attacker_id, "cause": cause})
+	if victim.boss:
+		events.append({"type": "boss_killed", "id": victim.id, "attacker": attacker_id, "name": victim.name})
 	if victim.kind == SimCharacter.Kind.PLAYER:
 		SimChronicle.add(self, victim, ("%s, zuletzt getroffen von %s" % [cause, attacker_name]) if not cause.is_empty() else "gestorben durch %s" % attacker_name)
 	if attacker != null and attacker.kind == SimCharacter.Kind.PLAYER and attacker.control == SimCharacter.Controller.RULES:
@@ -2170,7 +2239,7 @@ func _update_wolves(dt: float) -> void:
 		_wolf_respawn_timer = 0.0
 		for id: int in characters.keys():
 			var c: SimCharacter = characters[id]
-			if c.kind == SimCharacter.Kind.WOLF and c.dead:
+			if c.kind == SimCharacter.Kind.WOLF and c.dead and not c.boss:  # die Leiche des Leitwolfs bleibt als Beute liegen
 				characters.erase(id)
 		var cell: Vector2i = data.wolf_spawns[rng.randi_range(0, data.wolf_spawns.size() - 1)]
 		spawn_wolf(SimMap.cell_center(cell))

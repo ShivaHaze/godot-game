@@ -20,7 +20,7 @@ const CHARACTER_INTS: Array[String] = [
 	"id", "kind", "control", "last_attacker_id", "active_rule_index", "last_logged_rule_index", "marker_counter",
 ]
 const CHARACTER_STRINGS: Array[String] = ["name", "owner_id", "role_id", "ai_state", "active_weapon", "worn_armor"]
-const CHARACTER_BOOLS: Array[String] = ["dead", "hidden", "transition_logged"]
+const CHARACTER_BOOLS: Array[String] = ["dead", "hidden", "transition_logged", "boss"]
 const CHARACTER_VECTORS: Array[String] = ["pos", "prev_pos", "facing", "logout_pos", "leash_center", "ai_target_pos", "home_pos"]
 
 
@@ -60,6 +60,7 @@ static func world_to_dict(world: SimWorld) -> Dictionary:
 		"next_claim_id": world.claims.next_id(),
 		"guilds": world.guilds.to_dict(),
 		"letters": world.letters.duplicate(true),
+		"next_boss_time": world.next_boss_time,
 	}
 
 
@@ -77,6 +78,7 @@ static func world_from_dict(data: SimData, dict: Dictionary) -> SimWorld:
 	world.tick_count = int(dict["tick_count"])
 	world._next_id = int(dict["next_id"])
 	world._wolf_respawn_timer = float(dict.get("wolf_respawn_timer", 0.0))
+	world.next_boss_time = float(dict.get("next_boss_time", world.next_boss_time))
 	world.rng.seed = String(dict["rng_seed"]).to_int()
 	world.rng.state = String(dict["rng_state"]).to_int()
 	world.unlocks_by_owner = {}

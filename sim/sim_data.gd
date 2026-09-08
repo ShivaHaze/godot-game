@@ -46,6 +46,7 @@ const REQUIRED_BALANCE: Array[String] = [
 	"claim.max_tiles_solo", "claim.tile_cost_wood", "claim.upkeep_base", "claim.upkeep_growth", "claim.stock_capacity",
 	"claim.shrink_interval_hours", "claim.grace_hours", "claim.min_anchor_distance", "claim.foreign_decay_multiplier",
 	"toll.grace_seconds", "toll.pass_hours", "toll.forget_hours",
+	"events.boss.interval_hours", "events.boss.first_after_hours", "events.boss.lifetime_hours", "events.boss.max_hp", "events.boss.bite_damage",
 ]
 
 var balance: Dictionary = {}

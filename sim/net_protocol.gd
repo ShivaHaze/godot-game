@@ -71,7 +71,7 @@ static func _safe_vector(value: Variant) -> Vector2:
 
 ## Stammdaten eines Charakters (einmal je Empfänger, solange er in Sicht bleibt).
 static func character_intro(c: SimCharacter, named: bool = true, guild: String = "") -> Dictionary:
-	return {"i": c.id, "n": c.name if named else "", "k": c.kind, "o": c.owner_id, "mh": c.max_hp, "g": guild}
+	return {"i": c.id, "n": c.name if named else "", "k": c.kind, "o": c.owner_id, "mh": c.max_hp, "g": guild, "b": c.boss}
 
 
 ## Bewegliche Daten eines Charakters, kompakt.
@@ -226,6 +226,7 @@ static func apply_snapshot(mirror: SimWorld, snap: Dictionary) -> void:
 		if not name.is_empty() or c.name.is_empty() or c.name == "?":
 			c.name = name  # leer = Name noch unbekannt (zu weit weg); ein bekannter Name bleibt
 		c.kind = int(intro["k"]) as SimCharacter.Kind
+		c.boss = bool(intro.get("b", false))
 		c.owner_id = String(intro["o"])
 		mirror.guilds.register(c.owner_id, String(intro.get("g", "")))
 		c.max_hp = float(intro["mh"])

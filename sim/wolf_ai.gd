@@ -15,7 +15,7 @@ static func decide(world: SimWorld, wolf: SimCharacter, dt: float) -> SimIntent:
 	var search_radius := data.balf("wolf.give_up_radius") if wolf.ai_state == STATE_CHASE else data.balf("wolf.aggro_radius")
 	var target := nearest_prey(world, wolf, search_radius)
 
-	if wolf.ai_state != STATE_FLEE and target != null and wolf.health_percent() < data.balf("wolf.flee_hp_percent"):
+	if wolf.ai_state != STATE_FLEE and target != null and not wolf.boss and wolf.health_percent() < data.balf("wolf.flee_hp_percent"):  # der Leitwolf flieht nie
 		wolf.ai_state = STATE_FLEE
 		wolf.ai_timer = data.balf("wolf.flee_duration")
 
@@ -65,7 +65,7 @@ static func nearest_prey(world: SimWorld, wolf: SimCharacter, radius: float) -> 
 
 
 static func _wander(world: SimWorld, wolf: SimCharacter, intent: SimIntent) -> void:
-	var r := world.data.balf("wolf.wander_radius")
+	var r := world.data.balf("events.boss.wander_radius") if wolf.boss else world.data.balf("wolf.wander_radius")  # der Leitwolf bleibt im Zentrum
 	if wolf.ai_timer <= 0.0 or wolf.pos.distance_to(wolf.ai_target_pos) < 0.4:
 		wolf.ai_target_pos = wolf.home_pos + Vector2(world.rng.randf_range(-r, r), world.rng.randf_range(-r, r))
 		wolf.ai_timer = world.rng.randf_range(2.0, 5.0)

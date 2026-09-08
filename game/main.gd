@@ -940,6 +940,11 @@ func _respawn_player() -> void:
 func _handle_events() -> void:
 	for event: Dictionary in world.events:
 		var id := int(event.get("id", -1))
+		if ["boss_spawned", "boss_killed", "boss_left"].has(String(event.get("type", ""))):
+			var line := SimWorld.boss_event_text(event)
+			hud.show_message(line, 5.0)
+			hud.add_chat_line("[Welt] " + line)
+			continue
 		var player_owner: String = world.get_character(player_id).owner_id if world.get_character(player_id) != null else ""
 		if String(event.get("owner", "")) == player_owner and not player_owner.is_empty():
 			match String(event.get("type", "")):

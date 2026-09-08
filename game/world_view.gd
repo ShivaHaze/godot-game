@@ -209,7 +209,7 @@ func _draw_trail() -> void:
 
 func _character_color(c: SimCharacter) -> Color:
 	if c.kind == SimCharacter.Kind.WOLF:
-		return Color(0.8, 0.3, 0.2)
+		return Color(0.6, 0.1, 0.1) if c.boss else Color(0.8, 0.3, 0.2)
 	match c.control:
 		SimCharacter.Controller.PLAYER:
 			return Color(0.95, 0.95, 0.95)
@@ -221,7 +221,7 @@ func _character_color(c: SimCharacter) -> Color:
 func _draw_characters() -> void:
 	for c: SimCharacter in world.characters.values():
 		var p := c.render_pos(alpha) * TILE
-		var size := TILE * 0.7
+		var size := TILE * (1.1 if c.boss else 0.7)  # der Leitwolf ist größer
 		var top_left := p - Vector2(size, size) * 0.5
 		if c.dead:
 			draw_rect(Rect2(top_left, Vector2(size, size)), Color(0.25, 0.25, 0.25))

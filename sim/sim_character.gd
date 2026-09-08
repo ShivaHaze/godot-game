@@ -11,6 +11,7 @@ var name: String = ""
 var kind: Kind = Kind.PLAYER
 var control: Controller = Controller.NONE
 var owner_id: String = ""            # Gleicher Besitzer = kein Fremder. Tiere: "wild"
+var boss: bool = false               # Ereignis-Tier (Leitwolf): stärker, flieht nie, Beute in der Leiche
 
 var pos: Vector2 = Vector2.ZERO
 var prev_pos: Vector2 = Vector2.ZERO # Position vor dem letzten Tick (für weiche Darstellung)

@@ -306,7 +306,7 @@ static func _fight_back(world: SimWorld, c: SimCharacter, intent: SimIntent, dt:
 
 ## Angreifen (freigeschaltet): nächsten sichtbaren Fremden im Radius angreifen, ohne selbst angegriffen zu sein.
 static func _attack_nearby(world: SimWorld, c: SimCharacter, radius: float, intent: SimIntent, dt: float) -> void:
-	var target := world.nearest_enemy(c, radius)
+	var target := world.nearest_enemy(c, radius, true)  # Offline nur eingeschränkt am Ereignis beteiligt: den Leitwolf greift er nie zuerst an
 	if target == null:
 		return
 	_engage(world, c, target, intent, dt)

@@ -108,8 +108,9 @@ func test_demand_and_payment_give_pass() -> void:
 	world.advance(20.0)
 	assert_eq(stranger.hp, stranger.max_hp, "unversehrt")
 	assert_eq(String(player.rules[player.active_rule_index]["then"]["action"]), "stay_at")
-	# Freigang läuft ab
-	world.advance(data.balf("toll.pass_hours") * 3600.0 + 1.0)
+	# Freigang läuft nach pass_hours ab
+	assert_almost_eq(float(claim.toll["p2"]["paid_until"]), world.time - 20.0 + data.balf("toll.pass_hours") * 3600.0, 1.0)
+	claim.toll["p2"]["paid_until"] = world.time - 1.0
 	assert_false(world.has_toll_pass(claim, "p2"))
 
 
@@ -140,8 +141,8 @@ func test_evader_is_attacked_and_remembered() -> void:
 	world.advance(60.0)
 	assert_eq(String(player.rules[player.active_rule_index]["then"]["action"]), "stay_at")
 	assert_eq(stranger.hp, hp, "draußen kein Schaden mehr")
-	# Wiederkommen nach einer Stunde: die Schuld ist gemerkt, Angriff auf Sicht
-	world.advance(3600.0)
+	# Wiederkommen nach einer Weile: die Schuld ist gemerkt, Angriff auf Sicht
+	world.advance(120.0)
 	stranger.hp = stranger.max_hp
 	stranger.pos = INSIDE
 	world.spatial.rebuild(world.characters)
@@ -151,7 +152,8 @@ func test_evader_is_attacked_and_remembered() -> void:
 	# Nach der Verjährung ohne Besuch: frische Forderung
 	stranger.pos = OUTSIDE
 	world.spatial.rebuild(world.characters)
-	world.advance(data.balf("toll.forget_hours") * 3600.0 + 60.0)
+	world.advance(10.0)
+	claim.toll["p2"]["last_seen"] = world.time - data.balf("toll.forget_hours") * 3600.0 - 60.0  # lange nicht gesehen (Test kürzt ab)
 	stranger.hp = stranger.max_hp
 	stranger.pos = INSIDE
 	world.spatial.rebuild(world.characters)
@@ -168,7 +170,7 @@ func test_running_through_accumulates_debt_across_visits() -> void:
 	assert_false(bool(claim.toll["p2"]["attacking"]), "durchgerannt, noch kein Angriff")
 	stranger.pos = OUTSIDE
 	world.spatial.rebuild(world.characters)
-	world.advance(600.0)
+	world.advance(60.0)
 	assert_almost_eq(float(claim.toll["p2"]["debt"]), 5.0, 0.3, "Schuld bleibt")
 	stranger.pos = INSIDE
 	world.spatial.rebuild(world.characters)

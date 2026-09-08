@@ -216,5 +216,23 @@
     "grace_seconds": 8,
     "pass_hours": 2,
     "forget_hours": 6
+  },
+  "events": {
+    "_doc": "Ereignisse (Design PvE: Zentrum wertvoll/tödlich; Ereignisse: Karawanen, Bossspawns). boss = Leitwolf: erscheint first_after_hours nach Spielstart und dann alle interval_hours am Wolf-Spawn, der der Kartenmitte am nächsten liegt; stärker als ein Wolf (max_hp, armor, bite_damage, move_speed), streunt nur wander_radius um seinen Spawn, flieht nie und zieht nach lifetime_hours weiter, wenn ihn niemand erlegt. Beute (loot) liegt in seiner Leiche – nur wer live da ist, plündert sie (Schwefel ist Raidware). Offline-Charaktere sind eingeschränkt beteiligt: sie kämpfen zurück, wenn er sie beißt, aber 'greife an' meidet ihn. Alle Spieler bekommen die Meldung ohne Ortsangabe.",
+    "boss": {
+      "name": "Leitwolf",
+      "interval_hours": 4,
+      "first_after_hours": 1,
+      "lifetime_hours": 2,
+      "max_hp": 120,
+      "armor": 2,
+      "bite_damage": 10,
+      "move_speed": 4.2,
+      "wander_radius": 6.0,
+      "loot": {
+        "sulfur": 3,
+        "meat": 6
+      }
+    }
   }
 }

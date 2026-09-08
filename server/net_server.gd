@@ -248,6 +248,12 @@ func _forward_events() -> void:
 			"toll_short":
 				recipient = int(event["id"])
 				text = "Zoll: %s" % event["reason"]
+			"boss_spawned", "boss_killed", "boss_left":
+				# Ereignis für alle, ohne Ortsangabe (Design: global keine Positionsdaten)
+				var line := SimWorld.boss_event_text(event)
+				for peer: ENetPacketPeer in peers:
+					_send(peer, {"t": "chat", "from": "Welt", "text": line, "scope": "global"}, true)
+				continue
 		if recipient < 0:
 			continue
 		for peer: ENetPacketPeer in peers:
