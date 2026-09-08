@@ -146,6 +146,9 @@ func _draw_buildings() -> void:
 				var top_left := b.center() * TILE + Vector2(-size.x * 0.5 - 4, -TILE * 0.5 - size.y - 6)
 				draw_rect(Rect2(top_left, size + Vector2(8, 4)), Color(0.1, 0.08, 0.05, 0.8))
 				draw_string(font, top_left + Vector2(4, size.y - 3), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1.0, 0.95, 0.7))
+		if def.get("campfire", false):
+			draw_circle(b.center() * TILE, TILE * 0.22, Color(1.0, 0.75, 0.3))
+			draw_string(ThemeDB.fallback_font, b.center() * TILE + Vector2(8, -6), "%.1f h" % (b.hp / maxf(0.1, float(def["decay_per_hour"]))), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(1.0, 0.8, 0.5))
 		if def.has("bomb"):
 			var left := maxf(0.0, b.placed_time + float(def["bomb"]["fuse"]) - world.time)
 			draw_arc(b.center() * TILE, float(def["bomb"]["radius"]) * TILE, 0.0, TAU, 32, Color(1.0, 0.3, 0.2, 0.5), 1.5)

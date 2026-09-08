@@ -79,7 +79,9 @@
     "_wander_radius": "Streunradius um den Spawn. Groß genug, dass Wölfe auch beim Zeitsprung mal vorbeikommen.",
     "respawn_time": 300.0,
     "_respawn_time": "Sekunden, bis ein toter Wolf an einem Wolf-Spawn ersetzt wird.",
-    "max_alive": 3
+    "max_alive": 3,
+    "meat": 2,
+    "_meat": "Fleisch, das eine Wolfsleiche beim Plündern hergibt (roh essbar, gebraten am Lagerfeuer nahrhafter)."
   },
   "logout": {
     "_doc": "Ausloggen macht nie sofort sicher (Design [E]). Während des Übergangs kann sich der Charakter nicht verstecken.",

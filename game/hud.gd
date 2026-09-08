@@ -170,7 +170,10 @@ func refresh() -> void:
 		return
 	var inventory_parts: PackedStringArray = []
 	for rid: String in world.data.resource_order:
-		inventory_parts.append("%s %d" % [world.data.resources[rid]["name"], int(c.inventory.get(rid, 0))])
+		if int(c.inventory.get(rid, 0)) > 0:  # nur, was man dabeihat (die Liste ist lang geworden)
+			inventory_parts.append("%s %d" % [world.data.resources[rid]["name"], int(c.inventory.get(rid, 0))])
+	if inventory_parts.is_empty():
+		inventory_parts.append("Inventar leer")
 	var hunger_text := "%d" % int(c.hunger)
 	if c.is_weakened():
 		hunger_text += " (geschwächt)"

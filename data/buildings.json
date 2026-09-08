@@ -170,6 +170,24 @@
       "_doc": "Text bis 80 Zeichen, den jeder in der Nähe liest (E daneben zum Beschriften, nur der Besitzer). Die einzige Kommunikation eines Offline-Charakters."
     },
     {
+      "id": "campfire",
+      "name": "Lagerfeuer",
+      "tier": "wood",
+      "cost": {
+        "wood": 4
+      },
+      "hp": 12,
+      "size": [
+        1,
+        1
+      ],
+      "passable": "all",
+      "decay_per_hour": 4.0,
+      "color": "#ff9040",
+      "campfire": true,
+      "_doc": "Brennt etwa 3 Stunden herunter (Verfall). Jeder in Reichweite brät daran Fleisch (C oder NPC-Aktion 'stelle Gebratenes Fleisch her')."
+    },
+    {
       "id": "spawn_anchor",
       "name": "Spawn-Anker",
       "tier": "wood",

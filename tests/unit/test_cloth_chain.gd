@@ -22,7 +22,7 @@ func before_each() -> void:
 
 
 func test_chain_fibers_cloth_bandage_and_armor() -> void:
-	assert_eq(data.craftable_resources(), ["cloth", "bandage", "arrow", "copper", "wire", "iron", "powder", "shot", "explosive", "antidote", "medicine"] as Array[String])
+	assert_eq(data.craftable_resources(), ["cooked_meat", "cloth", "bandage", "arrow", "copper", "wire", "iron", "powder", "shot", "explosive", "antidote", "medicine"] as Array[String])
 	player.inventory["fibers"] = 2
 	assert_eq(world.craft(player, "bandage"), "zu wenig Stoff (1 nötig)")
 	assert_eq(world.craft(player, "cloth"), "")
@@ -85,7 +85,7 @@ func test_product_param_validation_and_display() -> void:
 		{"if": {"condition": "else"}, "then": {"action": "craft", "params": {"product": "wood"}}},
 	], "Test")
 	assert_gt(data.errors.size(), before, "Holz ist kein Erzeugnis")
-	assert_eq(String(rules[0]["then"]["params"]["product"]), "cloth", "auf das erste Erzeugnis zurückgesetzt")
+	assert_eq(String(rules[0]["then"]["params"]["product"]), "cloth", "auf die Voreinstellung der Aktion zurückgesetzt")
 	data.errors.resize(before)
 	var def := data.action_def("craft")
 	assert_eq(data.display_value(def["params"][0], "bandage"), "Verband")

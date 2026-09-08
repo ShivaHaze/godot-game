@@ -111,6 +111,7 @@ func spawn_wolf(pos: Vector2) -> SimCharacter:
 	c.kind = SimCharacter.Kind.WOLF
 	c.control = SimCharacter.Controller.WOLF_AI
 	c.owner_id = "wild"
+	c.inventory["meat"] = data.bali("wolf.meat") if data.balance.get("wolf", {}).has("meat") else 2
 	c.pos = pos
 	c.prev_pos = pos
 	c.home_pos = pos
@@ -474,6 +475,9 @@ func armor_item_of(c: SimCharacter) -> String:
 func _craft_consumable(c: SimCharacter, rid: String) -> String:
 	var def: Dictionary = data.resources[rid]
 	var cost: Dictionary = def["cost"]
+	var needs := String(def.get("needs_building", ""))
+	if not needs.is_empty() and building_part_near(c, needs) == null:
+		return "kein %s in Reichweite" % data.buildings.get(needs, {}).get("name", needs)
 	for need: String in cost:
 		if int(c.inventory.get(need, 0)) < int(cost[need]):
 			return "zu wenig %s (%d nötig)" % [data.resources[need]["name"], int(cost[need])]
@@ -498,12 +502,24 @@ func craft_reason(c: SimCharacter, rid: String) -> String:
 	if not data.resources.has(rid) or not data.resources[rid].has("cost"):
 		return "kein herstellbares Verbrauchsgut"
 	var cost: Dictionary = data.resources[rid]["cost"]
+	var needs := String(data.resources[rid].get("needs_building", ""))
+	if not needs.is_empty() and building_part_near(c, needs) == null:
+		return "kein %s in Reichweite" % data.buildings.get(needs, {}).get("name", needs)
 	for need: String in cost:
 		if int(c.inventory.get(need, 0)) < int(cost[need]):
 			return "zu wenig %s (%d nötig)" % [data.resources[need]["name"], int(cost[need])]
 	if c.inventory_count() - _cost_total(cost) + int(data.resources[rid].get("yield", 1)) > data.bali("inventory.capacity"):
 		return "Inventar voll"
 	return ""
+
+
+## Nächstes Bauteil einer Art (beliebiger Besitzer) in Interaktionsreichweite, sonst null.
+func building_part_near(c: SimCharacter, part: String) -> SimBuilding:
+	var reach := data.balf("character.interact_range") + 0.5
+	for b: SimBuilding in map.buildings.values():
+		if b.part == part and b.center().distance_to(c.pos) <= reach:
+			return b
+	return null
 
 
 ## Munition einer Waffe (Kennung des Verbrauchsguts) oder leer, wenn sie keine braucht.
@@ -1583,10 +1599,13 @@ func eat(c: SimCharacter) -> Dictionary:
 	var hunger_max := data.balf("hunger.max")
 	if c.hunger >= hunger_max:
 		return {}
-	for rid: String in data.resource_order:
+	var best := ""
+	for candidate: String in data.resource_order:
+		var cdef: Dictionary = data.resources[candidate]
+		if cdef.get("edible", false) and int(c.inventory.get(candidate, 0)) > 0 and (best.is_empty() or float(cdef["nutrition"]) > float(data.resources[best]["nutrition"])):
+			best = candidate
+	for rid: String in ([best] if not best.is_empty() else []):
 		var def: Dictionary = data.resources[rid]
-		if not def.get("edible", false) or int(c.inventory.get(rid, 0)) <= 0:
-			continue
 		var before := int(c.inventory[rid])
 		c.inventory[rid] = before - 1
 		c.hunger = minf(hunger_max, c.hunger + float(def["nutrition"]))

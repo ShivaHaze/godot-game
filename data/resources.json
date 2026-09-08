@@ -1,5 +1,5 @@
 {
-  "_doc": "Rohstoffe und Verbrauchsgüter. 'nutrition' = Hunger, den ein Stück beim Essen zurückgibt (nur bei edible). 'cost' = an der Werkbank herstellbar (Verbrauchsgut, stapelbar), 'heal'/'heal_time' = Verband: Kanalisierung heal_time Sekunden ohne Angriff, dann +heal Leben. Farben nur für die Rechteck-Darstellung. Kette: Fasern → Stoff (2 Fasern) → Verband (1 Stoff) und Stoffrüstung (items.json). 'yield' = Stück je Herstellung (Standard 1). Pfeile sind Munition für den Bogen (items.json 'ammo'). Kette: Kupfererz (Rand) → Kupfer (2 Erz + 1 Holz als Brennstoff) → Draht (2 je Kupfer) für Sensoren und Kupferspeer (items.json). Kette: Eisenerz + Kohle (Mitte, offline nur mit Mine) → Eisen (2 Erz + 1 Kohle) → Eisenaxt, Eisenrüstung (items.json). Kette: Schwefel (Zentrum, nur live) + Kohle → Pulver (2) → Kugeln (4, mit Eisen) als Turret-Munition. 'raid_good' = Raidware: am neutralen Markt nicht einlagerbar. Sprengsatz (2 Pulver + 1 Eisen): im Baumodus legen (Bauteil 'bomb'), zündet nach der Lunte. Heilmittel: 'heal' Leben nach 'heal_time' Sekunden Anlegen, 'cures' = Zustandseffekte, die dabei enden (Verband/Medizin: Blutung; Gegenmittel: Vergiftung). H nimmt das passendste Mittel.",
+  "_doc": "Rohstoffe und Verbrauchsgüter. 'nutrition' = Hunger, den ein Stück beim Essen zurückgibt (nur bei edible). 'cost' = an der Werkbank herstellbar (Verbrauchsgut, stapelbar), 'heal'/'heal_time' = Verband: Kanalisierung heal_time Sekunden ohne Angriff, dann +heal Leben. Farben nur für die Rechteck-Darstellung. Kette: Fasern → Stoff (2 Fasern) → Verband (1 Stoff) und Stoffrüstung (items.json). 'yield' = Stück je Herstellung (Standard 1). Pfeile sind Munition für den Bogen (items.json 'ammo'). Kette: Kupfererz (Rand) → Kupfer (2 Erz + 1 Holz als Brennstoff) → Draht (2 je Kupfer) für Sensoren und Kupferspeer (items.json). Kette: Eisenerz + Kohle (Mitte, offline nur mit Mine) → Eisen (2 Erz + 1 Kohle) → Eisenaxt, Eisenrüstung (items.json). Kette: Schwefel (Zentrum, nur live) + Kohle → Pulver (2) → Kugeln (4, mit Eisen) als Turret-Munition. 'raid_good' = Raidware: am neutralen Markt nicht einlagerbar. Sprengsatz (2 Pulver + 1 Eisen): im Baumodus legen (Bauteil 'bomb'), zündet nach der Lunte. Heilmittel: 'heal' Leben nach 'heal_time' Sekunden Anlegen, 'cures' = Zustandseffekte, die dabei enden (Verband/Medizin: Blutung; Gegenmittel: Vergiftung). H nimmt das passendste Mittel. 'needs_building' = Bauteil, das beim Herstellen in Reichweite stehen muss (Lagerfeuer zum Braten). Essen nimmt das nahrhafteste Stück.",
   "resources": [
     {
       "id": "wood",
@@ -14,6 +14,24 @@
       "edible": true,
       "nutrition": 25,
       "color": "#b04ad8"
+    },
+    {
+      "id": "meat",
+      "name": "Fleisch",
+      "edible": true,
+      "nutrition": 15,
+      "color": "#c05050"
+    },
+    {
+      "id": "cooked_meat",
+      "name": "Gebratenes Fleisch",
+      "edible": true,
+      "nutrition": 50,
+      "color": "#8a4a2a",
+      "cost": {
+        "meat": 1
+      },
+      "needs_building": "campfire"
     },
     {
       "id": "stone",
