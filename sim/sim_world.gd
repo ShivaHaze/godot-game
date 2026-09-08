@@ -431,8 +431,33 @@ func _refresh_places_one(owner_id: String) -> void:
 		elif SimDefense.is_turret(self, b):
 			places[place_id_of(b)] = {"name": b.label + suffix, "pos": b.center()}
 	for c: SimCharacter in characters.values():
-		if c.owner_id == owner_id:
-			c.extra_places = places.duplicate(true)
+		if c.owner_id != owner_id:
+			continue
+		c.extra_places = places.duplicate(true)
+		_resolve_symbolic_places(c)
+
+
+## Symbolische Orte (SimData.SYMBOLIC_PLACES) aus Sicht dieses Charakters: eigener Anker, nächster eigener (oder
+## verbündeter) Handelstisch, nächstes Depot – gemessen ab der Ausloggen-Position, live ab dem Standort.
+func _resolve_symbolic_places(c: SimCharacter) -> void:
+	var from := c.logout_pos if c.control == SimCharacter.Controller.RULES else c.pos
+	var claim := claims.claim_of_owner(c.owner_id)
+	if claim != null and claim.anchor_building_id >= 0 and map.buildings.has(claim.anchor_building_id):
+		var anchor: SimBuilding = map.buildings[claim.anchor_building_id]
+		c.extra_places["own_anchor"] = {"name": SimData.SYMBOLIC_PLACES["own_anchor"]["name"], "pos": anchor.center()}
+	var table: SimBuilding = null
+	var depot: SimBuilding = null
+	for b: SimBuilding in map.buildings.values():
+		if SimTrade.is_depot(self, b):
+			if depot == null or b.center().distance_squared_to(from) < depot.center().distance_squared_to(from):
+				depot = b
+		elif SimTrade.is_trade_table(self, b) and allied(b.owner_id, c.owner_id):
+			if table == null or b.center().distance_squared_to(from) < table.center().distance_squared_to(from):
+				table = b
+	if table != null:
+		c.extra_places["own_table"] = {"name": SimData.SYMBOLIC_PLACES["own_table"]["name"], "pos": table.center()}
+	if depot != null:
+		c.extra_places["nearest_depot"] = {"name": SimData.SYMBOLIC_PLACES["nearest_depot"]["name"], "pos": depot.center()}
 
 
 # --- Neutraler Markt und Depot --------------------------------------------

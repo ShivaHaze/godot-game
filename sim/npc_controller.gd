@@ -80,6 +80,8 @@ static func blocked_reason(world: SimWorld, c: SimCharacter, rule: Dictionary) -
 	for param_def: Dictionary in data.action_def(String(rule["then"]["action"])).get("params", []):
 		if String(param_def["type"]) == "place":
 			var place := String(params.get(param_def["name"], SimData.PLACE_HERE))
+			if SimData.SYMBOLIC_PLACES.has(place) and not c.extra_places.has(place):
+				return String(SimData.SYMBOLIC_PLACES[place]["missing"])
 			if place != SimData.PLACE_HERE and place.begins_with("b") and not c.extra_places.has(place):
 				return "Ort existiert nicht mehr"
 	match String(rule["then"]["action"]):

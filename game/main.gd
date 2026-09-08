@@ -804,6 +804,8 @@ func _open_menu() -> void:
 	var player := world.get_character(player_id)
 	mode = Mode.MENU
 	craft_panel.close()
+	if net == null:
+		world.refresh_places(player.owner_id)  # symbolische Orte (nächstes Depot …) ab dem aktuellen Standort
 	menu.open(data, player, player.rules, player.role_id, world.prerequisites_of(player.owner_id))
 
 

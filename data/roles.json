@@ -1,9 +1,36 @@
 {
-  "_doc": "Rollen-Presets für das Ausloggen-Menü. Jede Rolle ist eine vorausgefüllte Regelliste (Priorität von oben nach unten, erste zutreffende Regel gewinnt, letzte Zeile ist immer 'Sonst'). Fehlende Parameter werden beim Laden mit den Voreinstellungen aus conditions.json / actions.json ergänzt. 'default_rules' gilt, wenn der Spieler nie ins Menü geht (Design [E]). Welche Regeln die Rollen genau haben, ist im Design offen [O] – das hier ist der Vorschlag für Phase 0.",
+  "_doc": "Rollen-Presets für das Ausloggen-Menü. Jede Rolle ist eine vorausgefüllte Regelliste (Priorität von oben nach unten, erste zutreffende Regel gewinnt, letzte Zeile ist immer 'Sonst'). Fehlende Parameter werden beim Laden mit den Voreinstellungen aus conditions.json / actions.json ergänzt. 'default_rules' gilt, wenn der Spieler nie ins Menü geht (Design [E]). Welche Regeln die Rollen genau haben, ist im Design offen [O] – das hier ist der Vorschlag für Phase 0. Orte in Presets: 'here' oder symbolische Orte (own_table, own_anchor, nearest_depot; siehe SimData.SYMBOLIC_PLACES), die beim Ausloggen aus der Welt aufgelöst werden.",
   "default_rules": [
-    { "if": { "condition": "hungry" }, "then": { "action": "eat" } },
-    { "if": { "condition": "under_attack" }, "then": { "action": "flee_to", "params": { "place": "here" } } },
-    { "if": { "condition": "else" }, "then": { "action": "stay_at", "params": { "place": "here" } } }
+    {
+      "if": {
+        "condition": "hungry"
+      },
+      "then": {
+        "action": "eat"
+      }
+    },
+    {
+      "if": {
+        "condition": "under_attack"
+      },
+      "then": {
+        "action": "flee_to",
+        "params": {
+          "place": "here"
+        }
+      }
+    },
+    {
+      "if": {
+        "condition": "else"
+      },
+      "then": {
+        "action": "stay_at",
+        "params": {
+          "place": "here"
+        }
+      }
+    }
   ],
   "roles": [
     {
@@ -11,9 +38,30 @@
       "name": "Verstecken",
       "tip": "Kein Risiko, kein Ertrag. Dein Charakter wird unsichtbar, bis jemand über ihn läuft. Wird er entdeckt und angegriffen, wehrt er sich.",
       "rules": [
-        { "if": { "condition": "hungry" }, "then": { "action": "eat" } },
-        { "if": { "condition": "under_attack" }, "then": { "action": "fight_back" } },
-        { "if": { "condition": "else" }, "then": { "action": "hide" } }
+        {
+          "if": {
+            "condition": "hungry"
+          },
+          "then": {
+            "action": "eat"
+          }
+        },
+        {
+          "if": {
+            "condition": "under_attack"
+          },
+          "then": {
+            "action": "fight_back"
+          }
+        },
+        {
+          "if": {
+            "condition": "else"
+          },
+          "then": {
+            "action": "hide"
+          }
+        }
       ]
     },
     {
@@ -21,10 +69,49 @@
       "name": "Wache",
       "tip": "Bleibt sichtbar an Ort und Stelle, wehrt Angriffe ab und zieht sich bei wenig Leben zurück. Risiko mittel, kein Ertrag.",
       "rules": [
-        { "if": { "condition": "health_below", "params": { "percent": 30 } }, "then": { "action": "flee_to", "params": { "place": "here", "radius": 2 } } },
-        { "if": { "condition": "under_attack" }, "then": { "action": "fight_back" } },
-        { "if": { "condition": "hungry" }, "then": { "action": "eat" } },
-        { "if": { "condition": "else" }, "then": { "action": "stay_at", "params": { "place": "here", "radius": 4 } } }
+        {
+          "if": {
+            "condition": "health_below",
+            "params": {
+              "percent": 30
+            }
+          },
+          "then": {
+            "action": "flee_to",
+            "params": {
+              "place": "here",
+              "radius": 2
+            }
+          }
+        },
+        {
+          "if": {
+            "condition": "under_attack"
+          },
+          "then": {
+            "action": "fight_back"
+          }
+        },
+        {
+          "if": {
+            "condition": "hungry"
+          },
+          "then": {
+            "action": "eat"
+          }
+        },
+        {
+          "if": {
+            "condition": "else"
+          },
+          "then": {
+            "action": "stay_at",
+            "params": {
+              "place": "here",
+              "radius": 4
+            }
+          }
+        }
       ]
     },
     {
@@ -32,21 +119,148 @@
       "name": "Sammler",
       "tip": "Sammelt Beeren im Umkreis, wehrt Angriffe ab und zieht sich bei wenig Leben zum Ausgangsort zurück. Sichtbar: Risiko hoch, Ertrag hoch.",
       "rules": [
-        { "if": { "condition": "health_below", "params": { "percent": 40 } }, "then": { "action": "flee_to", "params": { "place": "here", "radius": 2 } } },
-        { "if": { "condition": "under_attack" }, "then": { "action": "fight_back" } },
-        { "if": { "condition": "hungry" }, "then": { "action": "eat" } },
-        { "if": { "condition": "inventory_state", "params": { "state": "full" } }, "then": { "action": "stay_at", "params": { "place": "here", "radius": 2 } } },
-        { "if": { "condition": "else" }, "then": { "action": "gather", "params": { "resource": "berries", "place": "here", "radius": 8 } } }
+        {
+          "if": {
+            "condition": "health_below",
+            "params": {
+              "percent": 40
+            }
+          },
+          "then": {
+            "action": "flee_to",
+            "params": {
+              "place": "here",
+              "radius": 2
+            }
+          }
+        },
+        {
+          "if": {
+            "condition": "under_attack"
+          },
+          "then": {
+            "action": "fight_back"
+          }
+        },
+        {
+          "if": {
+            "condition": "hungry"
+          },
+          "then": {
+            "action": "eat"
+          }
+        },
+        {
+          "if": {
+            "condition": "inventory_state",
+            "params": {
+              "state": "full"
+            }
+          },
+          "then": {
+            "action": "stay_at",
+            "params": {
+              "place": "here",
+              "radius": 2
+            }
+          }
+        },
+        {
+          "if": {
+            "condition": "else"
+          },
+          "then": {
+            "action": "gather",
+            "params": {
+              "resource": "berries",
+              "place": "here",
+              "radius": 8
+            }
+          }
+        }
       ]
     },
     {
       "id": "trader",
       "name": "Händler",
-      "tip": "Platzhalter: Handel kommt erst mit dem Handelstisch (nicht in Phase 0). Verhält sich wie ein vorsichtiger Wächter.",
+      "tip": "Sammelt Beeren, bringt volle Ladungen zum eigenen Handelstisch – ohne Tisch zum nächsten Markt-Depot (Gebühr). Der Weg ist das Risiko, der Erlös wartet im Tisch oder Depot.",
       "rules": [
-        { "if": { "condition": "hungry" }, "then": { "action": "eat" } },
-        { "if": { "condition": "under_attack" }, "then": { "action": "flee_to", "params": { "place": "here", "radius": 2 } } },
-        { "if": { "condition": "else" }, "then": { "action": "stay_at", "params": { "place": "here", "radius": 2 } } }
+        {
+          "if": {
+            "condition": "health_below",
+            "params": {
+              "percent": 40
+            }
+          },
+          "then": {
+            "action": "flee_to",
+            "params": {
+              "place": "here",
+              "radius": 2
+            }
+          }
+        },
+        {
+          "if": {
+            "condition": "under_attack"
+          },
+          "then": {
+            "action": "fight_back"
+          }
+        },
+        {
+          "if": {
+            "condition": "hungry"
+          },
+          "then": {
+            "action": "eat"
+          }
+        },
+        {
+          "if": {
+            "condition": "inventory_state",
+            "params": {
+              "state": "full"
+            }
+          },
+          "then": {
+            "action": "deliver",
+            "params": {
+              "resource": "berries",
+              "place": "own_table",
+              "radius": 3
+            }
+          }
+        },
+        {
+          "if": {
+            "condition": "inventory_state",
+            "params": {
+              "state": "full"
+            }
+          },
+          "then": {
+            "action": "deliver",
+            "params": {
+              "resource": "berries",
+              "place": "nearest_depot",
+              "radius": 3
+            }
+          }
+        },
+        {
+          "if": {
+            "condition": "else"
+          },
+          "then": {
+            "action": "gather",
+            "params": {
+              "resource": "berries",
+              "place": "here",
+              "radius": 8
+            }
+          }
+        }
       ]
     }
   ]

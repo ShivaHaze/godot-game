@@ -117,6 +117,8 @@ func marker_name(place_id: String) -> String:
 			return String(marker["name"])
 	if extra_places.has(place_id):
 		return String(extra_places[place_id]["name"])
+	if SimData.SYMBOLIC_PLACES.has(place_id):
+		return String(SimData.SYMBOLIC_PLACES[place_id]["name"])
 	return place_id
 
 

@@ -390,10 +390,13 @@ func _param_widget(param_def: Dictionary, params: Dictionary) -> Control:
 			box.add_child(button)
 		"place":
 			var values: Array[String] = [SimData.PLACE_HERE]
+			for pid: String in SimData.SYMBOLIC_PLACES:
+				values.append(pid)  # immer wählbar; fehlt der Ort, fällt die Regel mit Grund durch
 			for marker: Dictionary in character.markers:
 				values.append(String(marker["id"]))
 			for pid: String in character.extra_places:
-				values.append(pid)
+				if not values.has(pid):
+					values.append(pid)
 			var current := String(params.get(name, SimData.PLACE_HERE))
 			if not values.has(current):
 				current = SimData.PLACE_HERE

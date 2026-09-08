@@ -19,6 +19,13 @@ const FILE_NAMES: Dictionary = {
 const ALLOWED_OPS: Array[String] = ["<", "<=", ">", ">=", "==", "!=", "has"]
 const PARAM_TYPES: Array[String] = ["int", "float", "choice", "place", "resource", "radius", "sensor", "product"]
 const PLACE_HERE: String = "here"
+## Symbolische Orte: werden beim Ausloggen aus der Welt aufgelöst (Rollen-Presets brauchen Orte, die es bei jedem gibt).
+## Fehlt der Ort, fällt die Regel mit "missing" als Grund durch.
+const SYMBOLIC_PLACES: Dictionary = {
+	"own_table": {"name": "eigener Handelstisch", "missing": "kein eigener Handelstisch"},
+	"own_anchor": {"name": "eigener Anker", "missing": "kein eigener Anker"},
+	"nearest_depot": {"name": "nächstes Depot", "missing": "kein Depot auf der Karte"},
+}
 
 ## Pflichtschlüssel in balance.json als Punktpfade. Tippfehler fallen so beim Laden auf.
 const REQUIRED_BALANCE: Array[String] = [
