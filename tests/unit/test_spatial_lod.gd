@@ -153,3 +153,26 @@ func test_observer_makes_npc_run_fine() -> void:
 	for i in 20:
 		world.tick()
 	assert_eq(npc.lod_fine_steps, 20, "beobachteter NPC läuft fein")
+
+
+func test_fighters_step_fine_without_observers() -> void:
+	var data := SimData.load_from_dir("res://data")
+	var world := SimWorld.new(data, 7)
+	var id := world.setup_new_game()
+	var c := world.get_character(id)
+	c.pos = Vector2(20.5, 5.5)
+	var wolf: SimCharacter = null
+	for other: SimCharacter in world.characters.values():
+		if other.kind == SimCharacter.Kind.WOLF:
+			if wolf == null:
+				wolf = other
+			else:
+				other.dead = true
+	wolf.pos = c.pos + Vector2(6, 0)
+	wolf.home_pos = wolf.pos
+	world.logout(id, data.roles["guard"]["rules"], "Wache")
+	assert_true(world.observer_ids.is_empty(), "niemand schaut zu")
+	world.advance(30.0)
+	assert_gt(c.lod_fine_steps, 20, "im Kampf feine Schritte trotz LOD: %d fein, %d grob" % [c.lod_fine_steps, c.lod_coarse_steps])
+	assert_false(c.dead, "die Wache überlebt einen Wolf: %s" % [SimChronicle.format_all(c)])
+	assert_true(wolf.dead or wolf.ai_state == WolfAI.STATE_FLEE or wolf.pos.distance_to(c.pos) > 8.0, "Wolf tot oder vertrieben")

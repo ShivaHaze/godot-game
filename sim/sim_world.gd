@@ -1408,7 +1408,7 @@ func step(dt: float) -> void:
 		if c.dead:
 			continue
 		var step_dt := dt
-		if lod_enabled and c.control != SimCharacter.Controller.PLAYER and dt < coarse_dt and not _near_online(c, lod_radius):
+		if lod_enabled and c.control != SimCharacter.Controller.PLAYER and dt < coarse_dt and not _needs_fine_step(c) and not _near_online(c, lod_radius):
 			c.lod_accumulator += dt
 			if c.lod_accumulator + 1e-6 < coarse_dt:
 				continue
@@ -1440,6 +1440,19 @@ func step(dt: float) -> void:
 
 
 ## Ist ein lebender Online-Spieler (vom Spieler gesteuert oder beobachtet) in Reichweite?
+## Kämpfende laufen immer fein (Design: "fein bei Kampf"), auch ohne Zuschauer – sonst entscheidet die grobe Stufe
+## das Duell (ein Schuss je Sekunde, veraltete Ziele). Billig: kein Raster, nur Zustand.
+func _needs_fine_step(c: SimCharacter) -> bool:
+	if c.kind == SimCharacter.Kind.WOLF:
+		return c.ai_state != WolfAI.STATE_WANDER
+	if SimSensors.is_under_attack(self, c):
+		return true
+	if c.active_rule_index >= 0 and c.active_rule_index < c.rules.size():
+		var action := String(c.rules[c.active_rule_index]["then"]["action"])
+		return action == "fight_back" or action == "attack"
+	return false
+
+
 func _near_online(c: SimCharacter, radius: float) -> bool:
 	if observer_ids.has(c.id):
 		return true
