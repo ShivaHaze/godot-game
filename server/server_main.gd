@@ -86,7 +86,12 @@ func _fill_npcs() -> void:
 		for x in world.map.width:
 			if world.map.is_walkable(Vector2i(x, y)):
 				walkable.append(Vector2i(x, y))
-	for i in fill_npcs:
+	# Auffüllen bis zur Zielzahl (ein geladener Spielstand bringt seine Siedler schon mit)
+	var existing := 0
+	for other: SimCharacter in world.characters.values():
+		if other.kind == SimCharacter.Kind.PLAYER and not other.dead and other.owner_id.begins_with("füll"):
+			existing += 1
+	for i in range(existing, fill_npcs):
 		var cell: Vector2i = walkable[rng.randi_range(0, walkable.size() - 1)]
 		var c := world.spawn_player(SimMap.cell_center(cell), "füll%d" % i, "Siedler %d" % i)
 		c.inventory["berries"] = 5
