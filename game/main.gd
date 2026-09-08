@@ -186,6 +186,11 @@ func _process_net(delta: float) -> void:
 				hud.mode_text = "Online als %s" % net.player_name
 				hud.set_hint(HINT_LIVE)
 				hud.show_message("Verbunden. Dein Charakter wartet auf dem Server.", 3.0)
+			"reject":
+				# Server lehnt den Beitritt ab (Passwort, Name): zurück zum Startbildschirm mit dem Grund
+				preload("res://game/boot.gd").last_message = "Beitritt abgelehnt: %s" % String(msg.get("reason", "?"))
+				_back_to_start()
+				return
 			"chat":
 				if msg.get("scope", "") == "letter":
 					hud.add_chat_line("[Brief von %s, %s] %s" % [msg.get("from", "?"), msg.get("clock", ""), msg.get("text", "")])

@@ -16,7 +16,7 @@ Unter **Releases → „Aktueller Build“** (Tag `latest`) liegen bei jedem Sta
 
 Steuerung: WASD bewegen, Maus zielen, Linksklick angreifen, E sammeln/plündern/handeln, F essen, H Verband, Q Waffe,
 C Herstellen, B Bauen, M Marker, Enter Chat, Esc Ausloggen-Menü, R neuer Charakter nach dem Tod.
-Mehrspieler: Trennen macht deinen Charakter zum NPC mit deinen Regeln; wer mit demselben Namen wiederkommt, übernimmt ihn.
+Mehrspieler: Beim ersten Beitritt legst du mit Name und Passwort dein Konto an (Passwort mindestens 4 Zeichen, gut merken – es gibt keine Wiederherstellung). Trennen macht deinen Charakter zum NPC mit deinen Regeln; wer mit demselben Namen und Passwort wiederkommt, übernimmt ihn.
 
 ## Aus dem Quelltext
 

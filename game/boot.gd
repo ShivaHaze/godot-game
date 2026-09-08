@@ -10,6 +10,8 @@ const MainScene := preload("res://game/main.tscn")
 const StartMenuScript := preload("res://game/start_menu.gd")
 const BootScenePath: String = "res://game/boot.tscn"
 
+static var last_message: String = ""   # Meldung für den nächsten Startbildschirm (z. B. abgelehnter Beitritt)
+
 var runner: ServerRunner = null
 var menu: CanvasLayer = null
 var main: Node = null
@@ -71,6 +73,9 @@ func _show_menu() -> void:
 	menu.singleplayer_requested.connect(func() -> void: _start_game({}))
 	menu.quit_requested.connect(func() -> void: get_tree().quit())
 	add_child(menu)
+	if not last_message.is_empty():
+		menu.show_status(last_message)
+		last_message = ""
 
 
 ## Hauptszene starten; leeres Ziel = Einzelspieler mit lokalem Spielstand.

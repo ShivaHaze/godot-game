@@ -41,7 +41,7 @@ func connect_to(data: SimData, host: String, port: int, name: String, password: 
 
 
 func disconnect_from_server() -> void:
-	if _peer != null:
+	if _peer != null and connected:
 		_peer.peer_disconnect()
 	if _enet != null:
 		_enet.service(10)
@@ -68,6 +68,7 @@ func poll() -> void:
 			ENetConnection.EVENT_DISCONNECT:
 				connected = false
 				joined = false
+				_peer = null  # vom Server getrennt (auch nach abgelehntem Beitritt): der Peer ist danach ungültig
 			ENetConnection.EVENT_RECEIVE:
 				var packet: PackedByteArray = _peer.get_packet()
 				bytes_in += packet.size()

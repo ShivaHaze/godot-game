@@ -7,6 +7,8 @@ extends RefCounted
 var data: SimData
 var world: SimWorld
 var enet: ENetConnection
+var accounts: Accounts = null        # null = offener Server ohne Passwörter (Tests, Bots); der echte Server setzt Konten
+var rejected: int = 0                # abgelehnte Beitritte (Statistik)
 var peers: Dictionary = {}           # ENetPacketPeer -> {"char_id": int, "name": String, "intent": SimIntent}
 var accumulator: float = 0.0
 var tick_index: int = 0
@@ -94,7 +96,7 @@ func _on_message(peer: ENetPacketPeer, msg: Dictionary) -> void:
 	var c := world.get_character(int(info["char_id"]))
 	match String(msg.get("t", "")):
 		"join":
-			_on_join(peer, String(msg.get("name", "")).strip_edges().substr(0, 24))
+			_on_join(peer, String(msg.get("name", "")).strip_edges().substr(0, Accounts.NAME_MAX), String(msg.get("password", "")))
 		"intent":
 			if c != null:
 				info["intent"] = NetProtocol.msg_to_intent(msg)
@@ -289,21 +291,29 @@ func _relay_chat(sender: SimCharacter, text: String, scope: String) -> void:
 
 
 ## Beitritt: bestehenden lebenden Charakter dieses Namens übernehmen (einloggen), sonst neu am Spawn.
-func _on_join(peer: ENetPacketPeer, name: String) -> void:
-	if name.is_empty():
-		name = "Spieler"
+## Beitritt: mit Konten muss das Passwort stimmen (neuer Name legt das Konto an); der Name ist die Identität.
+## Ein Name kann nur einmal gleichzeitig online sein. Abgelehnte Beitritte bekommen den Grund und werden getrennt.
+func _on_join(peer: ENetPacketPeer, name: String, password: String) -> void:
 	var info: Dictionary = peers[peer]
+	if accounts != null:
+		var reason := accounts.login(name, password)
+		if not reason.is_empty():
+			_reject(peer, reason)
+			return
+		name = accounts.display_name(name)
+	elif name.is_empty():
+		name = "Spieler"
+	for other_info: Dictionary in peers.values():
+		if other_info != info and String(other_info.get("name", "")).to_lower() == name.to_lower():
+			_reject(peer, "„%s“ ist schon eingeloggt" % name)
+			return
 	info["name"] = name
 	var existing: SimCharacter = null
 	for c: SimCharacter in world.characters.values():
 		if c.kind == SimCharacter.Kind.PLAYER and c.owner_id == name and not c.dead:
 			existing = c
 			break
-	var taken := false
-	for other_info: Dictionary in peers.values():
-		if existing != null and int(other_info["char_id"]) == existing.id and other_info != info:
-			taken = true
-	if existing != null and not taken:
+	if existing != null:
 		if existing.control == SimCharacter.Controller.RULES:
 			world.login(existing.id)
 		info["char_id"] = existing.id
@@ -317,6 +327,14 @@ func _on_join(peer: ENetPacketPeer, name: String) -> void:
 	info["self_hash"] = 0
 	_send(peer, {"t": "welcome", "id": int(info["char_id"]), "time": world.time, "map": data.map_dict()}, true)
 	_deliver_letters_to(name)
+
+
+## Beitritt ablehnen: Grund schicken, dann trennen (nach dem Senden, damit die Nachricht ankommt).
+func _reject(peer: ENetPacketPeer, reason: String) -> void:
+	_send(peer, {"t": "reject", "reason": reason}, true)
+	enet.flush()
+	peer.peer_disconnect_later()
+	rejected += 1
 
 
 ## Hinterlegte Briefe an einen eingeloggten Empfänger ausliefern.

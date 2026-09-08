@@ -10,6 +10,7 @@ const SAVE_INTERVAL: float = 60.0
 
 var port: int = 7777
 var save_path: String = SAVE_PATH  # leer = nicht laden und nicht speichern (Tests)
+var accounts_path: String = Accounts.AccountFileStore.PATH  # leer = offener Server ohne Passwörter
 var fill_npcs: int = 0
 var run_seconds: float = 0.0
 var map_arg: String = ""
@@ -25,16 +26,23 @@ var _elapsed: float = 0.0
 
 
 ## Argumente in der Reihenfolge <Port> <NPC-Füllung> <Laufzeit s> <Karte>; Karte = Pfad zu einer map.json oder
-## 'gen:120x90:7' (Generator mit Breite×Höhe:Seed), leer = data/map.json.
+## 'gen:120x90:7' (Generator mit Breite×Höhe:Seed), leer = data/map.json. Das Wort 'open' an beliebiger Stelle
+## macht den Server passwortfrei (Bots, Rauchtests); ohne es braucht jeder Beitritt ein Passwort (Konten).
 func configure(args: PackedStringArray) -> void:
-	if args.size() > 0:
-		port = int(args[0])
-	if args.size() > 1:
-		fill_npcs = int(args[1])
-	if args.size() > 2:
-		run_seconds = float(args[2])
-	if args.size() > 3:
-		map_arg = args[3]
+	var positional := PackedStringArray()
+	for arg: String in args:
+		if arg == "open":
+			accounts_path = ""
+		else:
+			positional.append(arg)
+	if positional.size() > 0:
+		port = int(positional[0])
+	if positional.size() > 1:
+		fill_npcs = int(positional[1])
+	if positional.size() > 2:
+		run_seconds = float(positional[2])
+	if positional.size() > 3:
+		map_arg = positional[3]
 
 
 ## Welt laden oder anlegen und den Port öffnen. Rückgabe OK oder der Fehler (Meldung steht auf der Konsole).
@@ -60,6 +68,11 @@ func start() -> Error:
 		world = saved["world"]
 		print("Welt geladen: Uhr %s, %d Charaktere." % [world.clock_string(), world.characters.size()])
 	_fill_npcs()
+	if not accounts_path.is_empty():
+		server.accounts = Accounts.new(Accounts.AccountFileStore.new(accounts_path))
+		print("Konten: %d bekannt, Passwörter erforderlich." % server.accounts.count())
+	else:
+		print("Offener Server: keine Passwörter (Bots, Tests).")
 	var err := server.start(data, world, port)
 	if err != OK:
 		return err
