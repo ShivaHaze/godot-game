@@ -44,9 +44,11 @@ func is_foreign(tile: Vector2i, owner_id: String) -> bool:
 ## Kachelgrenze eines Claims: solo plus Land je weiterem Gildenmitglied.
 func max_tiles_for(data: SimData, owner_id: String) -> int:
 	var members := 1
+	var level := 1
 	if guilds != null and guilds.guild_of(owner_id) >= 0:
 		members = guilds.members_of(owner_id).size()
-	return data.bali("claim.max_tiles_solo") + data.bali("claim.guild_tiles_per_member") * (members - 1)
+		level = guilds.level_of(owner_id, data.bali("guild.xp_per_level"), data.bali("guild.max_level"))
+	return data.bali("claim.max_tiles_solo") + data.bali("claim.guild_tiles_per_member") * level * (members - 1)
 
 
 ## Unterhalt je Stunde in Holz: base × n × (1 + n / growth) – überproportional.

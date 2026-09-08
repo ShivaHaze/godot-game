@@ -30,6 +30,26 @@ func members_of(owner_id: String) -> Array[String]:
 	return result
 
 
+## Offline-Leistung: Punkte der Gilde eines Besitzers erhöhen (nur Mitglieder).
+func add_xp(owner_id: String, amount: int) -> void:
+	var id := guild_of(owner_id)
+	if id >= 0:
+		guilds[id]["xp"] = int(guilds[id].get("xp", 0)) + amount
+
+
+func xp_of(owner_id: String) -> int:
+	var id := guild_of(owner_id)
+	return int(guilds[id].get("xp", 0)) if id >= 0 else 0
+
+
+## Gildenstufe (1 ohne Punkte); 0 = keine Gilde.
+func level_of(owner_id: String, xp_per_level: int, max_level: int) -> int:
+	var id := guild_of(owner_id)
+	if id < 0:
+		return 0
+	return mini(max_level, 1 + int(guilds[id].get("xp", 0)) / maxi(1, xp_per_level))
+
+
 ## Verbündet: derselbe Besitzer oder dieselbe Gilde.
 func allied(a: String, b: String) -> bool:
 	if a == b:
@@ -49,7 +69,7 @@ func found(owner_id: String, name: String) -> String:
 			return "den Namen gibt es schon"
 	var id := _next_id
 	_next_id += 1
-	guilds[id] = {"name": name, "leader": owner_id, "members": [owner_id]}
+	guilds[id] = {"name": name, "leader": owner_id, "members": [owner_id], "xp": 0}
 	member_of[owner_id] = id
 	invites.erase(owner_id)
 	return ""
@@ -120,7 +140,7 @@ func to_dict() -> Dictionary:
 	var list := []
 	for id: int in guilds:
 		var g: Dictionary = guilds[id]
-		list.append({"id": id, "name": g["name"], "leader": g["leader"], "members": Array(g["members"]).duplicate()})
+		list.append({"id": id, "name": g["name"], "leader": g["leader"], "members": Array(g["members"]).duplicate(), "xp": int(g.get("xp", 0))})
 	var open := {}
 	for owner: String in invites:
 		open[owner] = int(invites[owner])
@@ -137,7 +157,7 @@ func load_dict(dict: Dictionary) -> void:
 		for m: Variant in entry.get("members", []):
 			members.append(String(m))
 			member_of[String(m)] = id
-		guilds[id] = {"name": String(entry["name"]), "leader": String(entry.get("leader", members[0] if not members.is_empty() else "")), "members": members}
+		guilds[id] = {"name": String(entry["name"]), "leader": String(entry.get("leader", members[0] if not members.is_empty() else "")), "members": members, "xp": int(entry.get("xp", 0))}
 	for owner: Variant in dict.get("invites", {}):
 		invites[String(owner)] = int(dict["invites"][owner])
 	_next_id = int(dict.get("next_id", 1))

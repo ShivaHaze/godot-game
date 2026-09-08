@@ -955,24 +955,36 @@ func _update_turrets(_dt: float) -> void:
 
 
 ## Orte aus Bauteilen (Sensoren, Anker, Handelstische) an alle Charaktere des Besitzers verteilen.
+## Orte für einen Besitzer und alle Gildenmitglieder neu aufbauen (Gildenbauteile sind gemeinsame Orte).
 func refresh_places(owner_id: String) -> void:
+	var owners := {owner_id: true}
+	for member: String in guilds.members_of(owner_id):
+		owners[member] = true
+	for owner: String in owners:
+		_refresh_places_one(owner)
+
+
+func _refresh_places_one(owner_id: String) -> void:
 	var places := {}
 	var tables := 0
 	for b: SimBuilding in map.buildings.values():
 		if is_depot(b):
 			places[place_id_of(b)] = {"name": b.label, "pos": b.center()}
 			continue
-		if b.owner_id != owner_id:
+		if not allied(b.owner_id, owner_id):
 			continue
+		# Bauteile der Gildenmitglieder sind Orte mit Besitzerzusatz ("Anker (Ben)")
+		var suffix := "" if b.owner_id == owner_id else " (%s)" % b.owner_id
 		if is_sensor(b):
-			places[place_id_of(b)] = {"name": b.label, "pos": b.center()}
+			places[place_id_of(b)] = {"name": b.label + suffix, "pos": b.center()}
 		elif b.part == "anchor":
-			places[place_id_of(b)] = {"name": "Anker", "pos": b.center()}
+			places[place_id_of(b)] = {"name": "Anker" + suffix, "pos": b.center()}
 		elif is_trade_table(b):
-			tables += 1
-			places[place_id_of(b)] = {"name": "Handelstisch %d" % tables, "pos": b.center()}
+			if b.owner_id == owner_id:
+				tables += 1
+			places[place_id_of(b)] = {"name": ("Handelstisch %d" % tables if b.owner_id == owner_id else "Handelstisch") + suffix, "pos": b.center()}
 		elif is_turret(b):
-			places[place_id_of(b)] = {"name": b.label, "pos": b.center()}
+			places[place_id_of(b)] = {"name": b.label + suffix, "pos": b.center()}
 	for c: SimCharacter in characters.values():
 		if c.owner_id == owner_id:
 			c.extra_places = places.duplicate(true)
@@ -1817,6 +1829,24 @@ func allied(a: String, b: String) -> bool:
 
 ## Gildenbefehl eines Besitzers: gründen <Name>, einladen <Spielername>, annehmen, verlassen. Rückgabe: Meldung.
 func guild_command(owner_id: String, op: String, arg: String) -> String:
+	var text := _guild_command(owner_id, op, arg)
+	# Orte der Beteiligten neu aufbauen (Gildenbauteile kommen dazu oder fallen weg)
+	var owners := {owner_id: true}
+	for member: String in guilds.members_of(owner_id):
+		owners[member] = true
+	for c: SimCharacter in characters.values():
+		if c.kind == SimCharacter.Kind.PLAYER and (owners.has(c.owner_id) or c.owner_id == arg.strip_edges()):
+			owners[c.owner_id] = true
+	for owner: String in owners:
+		refresh_places(owner)
+	return text
+
+
+func guild_level(owner_id: String) -> int:
+	return guilds.level_of(owner_id, data.bali("guild.xp_per_level"), data.bali("guild.max_level"))
+
+
+func _guild_command(owner_id: String, op: String, arg: String) -> String:
 	match op:
 		"found":
 			var reason := guilds.found(owner_id, arg)

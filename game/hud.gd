@@ -200,7 +200,7 @@ func refresh() -> void:
 		state += "\nFremder Claim von %s – Sammeln hier ist Diebstahl" % here.owner_id
 	var guild_name := world.guilds.name_of(c.owner_id)
 	if not guild_name.is_empty():
-		state += "\nGilde: %s (%d Mitglieder)" % [guild_name, world.guilds.members_of(c.owner_id).size()]
+		state += "\nGilde: %s – Stufe %d, %d Mitglieder, %d Punkte" % [guild_name, world.guild_level(c.owner_id), world.guilds.members_of(c.owner_id).size(), world.guilds.xp_of(c.owner_id)]
 	elif not world.guild_invite_name.is_empty():
 		state += "\nEinladung: Gilde „%s“ – Enter, dann /gilde annehmen" % world.guild_invite_name
 	var zone := world.zone_at(c.pos)

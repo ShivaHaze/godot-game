@@ -205,7 +205,7 @@ static func self_block_for(world: SimWorld, viewer: SimCharacter) -> Dictionary:
 	var id := world.guilds.guild_of(viewer.owner_id)
 	if id >= 0:
 		var g: Dictionary = world.guilds.guilds[id]
-		block["guild"] = {"name": g["name"], "leader": g["leader"], "members": Array(g["members"]).duplicate()}
+		block["guild"] = {"name": g["name"], "leader": g["leader"], "members": Array(g["members"]).duplicate(), "xp": int(g.get("xp", 0)), "level": world.guild_level(viewer.owner_id)}
 	var invite_id := int(world.guilds.invites.get(viewer.owner_id, -1))
 	if invite_id >= 0 and world.guilds.guilds.has(invite_id):
 		block["invite"] = String(world.guilds.guilds[invite_id]["name"])
@@ -387,6 +387,7 @@ static func apply_self(mirror: SimWorld, you_id: int, block: Dictionary) -> void
 		var gid := mirror.guilds.guild_of(you.owner_id)
 		if gid >= 0:
 			mirror.guilds.guilds[gid]["leader"] = String(guild.get("leader", you.owner_id))
+			mirror.guilds.guilds[gid]["xp"] = int(guild.get("xp", 0))
 	you.extra_places = {}
 	for pid: Variant in block.get("places", {}):
 		var place: Dictionary = block["places"][pid]

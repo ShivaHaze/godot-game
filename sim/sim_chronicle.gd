@@ -47,4 +47,6 @@ static func rule_text(data: SimData, c: SimCharacter, index: int, rule: Dictiona
 
 ## Protokolliert eine gefeuerte Regel.
 static func log_rule(world: SimWorld, c: SimCharacter, index: int, rule: Dictionary, details: String = "") -> Dictionary:
+	if not details.begins_with("nicht möglich"):
+		world.guilds.add_xp(c.owner_id, world.data.bali("guild.xp_per_rule"))  # gemeinschaftliche Offline-Leistung
 	return add(world, c, rule_text(world.data, c, index, rule, details))

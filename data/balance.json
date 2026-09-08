@@ -204,5 +204,11 @@
   "letters": {
     "_doc": "Briefe (Design: Kommunikation neben Chat und Schildern): Text bis max_length Zeichen, liegen beim Server, bis der Empfänger sich einloggt.",
     "max_length": 200
+  },
+  "guild": {
+    "_doc": "Gildenlevel (Design: steigt durch gemeinschaftliche Offline-Leistung): jede ausgeführte Regel eines Offline-Mitglieds gibt xp_per_rule; Stufe = 1 + Punkte / xp_per_level (max_level). Land je weiterem Mitglied = claim.guild_tiles_per_member × Stufe.",
+    "xp_per_rule": 1,
+    "xp_per_level": 200,
+    "max_level": 10
   }
 }
