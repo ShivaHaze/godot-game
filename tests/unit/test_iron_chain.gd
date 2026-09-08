@@ -88,6 +88,8 @@ func test_offline_mining_needs_a_mine_live_does_not() -> void:
 
 func test_iron_needs_coal_axe_breaks_stone_wall_armor_slows() -> void:
 	player.inventory["iron_ore"] = 6
+	world.spawn_building("furnace", Vector2i(19, 6), "p1")
+	world.spawn_building("forge", Vector2i(21, 6), "p1")
 	assert_eq(world.craft(player, "iron"), "zu wenig Kohle (1 nötig)", "Kohle ist der Engpass")
 	player.inventory["coal"] = 3
 	for i in 3:

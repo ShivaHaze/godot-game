@@ -1,6 +1,7 @@
 extends CanvasLayer
-## Werkbank: baut Ausrüstung aus Rohstoffen. Zeilen kommen aus data/items.json. Liest den Charakter,
-## der Bau selbst läuft über das Signal in die Sim (main.gd -> SimWorld.craft).
+## Herstellen: baut Ausrüstung und Verbrauchsgüter aus Rohstoffen, gruppiert nach Station (von Hand, Werkbank,
+## Schmelzofen, Schmiede, Lagerfeuer). Zeilen kommen aus items.json/resources.json. Liest den Charakter,
+## der Bau selbst läuft über das Signal in die Sim (main.gd -> SimWorld.craft). Rüstung wird hier an- und abgelegt.
 
 signal craft_requested(item_id: String)
 signal repair_requested(item_id: String)
@@ -37,7 +38,7 @@ func _ready() -> void:
 	vbox.add_theme_constant_override("separation", 8)
 	_root.add_child(vbox)
 	var title := Label.new()
-	title.text = "Werkbank – Ausrüstung bauen (C schließt)"
+	title.text = "Herstellen (C schließt) – Werkbank, Schmelzofen und Schmiede sind Bauteile"
 	title.add_theme_font_size_override("font_size", 18)
 	vbox.add_child(title)
 	var scroll := ScrollContainer.new()
@@ -86,41 +87,62 @@ func _build_rows() -> void:
 	var all_ids: Array[String] = []
 	all_ids.assign(data.item_order)
 	all_ids.append_array(data.craftable_resources())
+	# Nach Station gruppiert: von Hand zuerst, dann Werkbank, Schmelzofen, Schmiede, Lagerfeuer (Reihenfolge aus buildings.json)
+	var groups: Dictionary = {"": []}
+	for station: String in data.building_order:
+		groups[station] = []
 	for item_id: String in all_ids:
-		var def: Dictionary = data.items[item_id] if data.items.has(item_id) else data.resources[item_id]
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 10)
-		var name_label := Label.new()
-		name_label.text = String(def["name"])
-		name_label.custom_minimum_size = Vector2(110, 0)
-		row.add_child(name_label)
-		var info := Label.new()
-		info.text = _describe(def)
-		info.custom_minimum_size = Vector2(330, 0)
-		row.add_child(info)
-		_info[item_id] = info
-		var cost := Label.new()
-		cost.text = _cost_text(def)
-		cost.custom_minimum_size = Vector2(120, 0)
-		row.add_child(cost)
-		var button := Button.new()
-		button.text = "Bauen"
-		button.pressed.connect(func() -> void: craft_requested.emit(item_id))
-		row.add_child(button)
-		_buttons[item_id] = button
-		if data.items.has(item_id):
-			var repair := Button.new()
-			repair.text = "Reparieren"
-			repair.pressed.connect(func() -> void: repair_requested.emit(item_id))
-			row.add_child(repair)
-			_repair[item_id] = repair
-			if String(def.get("kind", "")) == "armor":
-				var equip := Button.new()
-				equip.text = "Anlegen"
-				equip.pressed.connect(func() -> void: equip_requested.emit("" if character.worn_armor == item_id else item_id))
-				row.add_child(equip)
-				_equip[item_id] = equip
-		_rows.add_child(row)
+		var station := data.station_of(item_id)
+		if not groups.has(station):
+			groups[station] = []
+		groups[station].append(item_id)
+	for station: String in groups:
+		if groups[station].is_empty():
+			continue
+		var header := Label.new()
+		header.text = "Von Hand (überall)" if station.is_empty() else "%s in Reichweite (Bauteil, B)" % data.buildings[station]["name"]
+		header.add_theme_font_size_override("font_size", 15)
+		header.add_theme_color_override("font_color", Color(0.8, 0.9, 1.0))
+		_rows.add_child(header)
+		for item_id: String in groups[station]:
+			_rows.add_child(_make_row(item_id))
+
+
+func _make_row(item_id: String) -> HBoxContainer:
+	var def: Dictionary = data.items[item_id] if data.items.has(item_id) else data.resources[item_id]
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	var name_label := Label.new()
+	name_label.text = String(def["name"])
+	name_label.custom_minimum_size = Vector2(110, 0)
+	row.add_child(name_label)
+	var info := Label.new()
+	info.text = _describe(def)
+	info.custom_minimum_size = Vector2(330, 0)
+	row.add_child(info)
+	_info[item_id] = info
+	var cost := Label.new()
+	cost.text = _cost_text(def)
+	cost.custom_minimum_size = Vector2(120, 0)
+	row.add_child(cost)
+	var button := Button.new()
+	button.text = "Bauen"
+	button.pressed.connect(func() -> void: craft_requested.emit(item_id))
+	row.add_child(button)
+	_buttons[item_id] = button
+	if data.items.has(item_id):
+		var repair := Button.new()
+		repair.text = "Reparieren"
+		repair.pressed.connect(func() -> void: repair_requested.emit(item_id))
+		row.add_child(repair)
+		_repair[item_id] = repair
+		if String(def.get("kind", "")) == "armor":
+			var equip := Button.new()
+			equip.text = "Anlegen"
+			equip.pressed.connect(func() -> void: equip_requested.emit("" if character.worn_armor == item_id else item_id))
+			row.add_child(equip)
+			_equip[item_id] = equip
+	return row
 
 
 func _describe(def: Dictionary) -> String:
@@ -191,5 +213,7 @@ func refresh() -> void:
 		for rid: String in cost:
 			if int(character.inventory.get(rid, 0)) < int(cost[rid]):
 				affordable = false
+		var station_missing := world != null and not world.station_reason(character, item_id).is_empty()
 		button.text = "Bauen"
-		button.disabled = not affordable
+		button.disabled = not affordable or station_missing
+		button.tooltip_text = world.station_reason(character, item_id) if station_missing else ""

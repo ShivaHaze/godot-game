@@ -156,6 +156,7 @@ func test_stone_axe_and_stone_gathering() -> void:
 		world.tick()
 	assert_gte(int(player.inventory["stone"]), 2, "Stein gesammelt")
 	player.inventory["wood"] = 2
+	world.spawn_building("workbench", SimMap.cell_of(player.pos) + Vector2i(0, 1), "p1")
 	assert_eq(world.craft(player, "stone_axe"), "")
 	world.set_active_weapon(player, "stone_axe")
 	assert_eq(player.melee_damage, 20.0)

@@ -51,6 +51,8 @@ func test_gather_ore_offline_smelt_and_draw_wire() -> void:
 	world.advance(120.0)
 	assert_gte(int(player.inventory.get("copper_ore", 0)), 4, "Erz offline gesammelt: %s" % [player.inventory])
 	world.login(player.id)
+	world.spawn_building("furnace", Vector2i(3, 10), "p1")  # Schmelzofen neben dem Bergmann
+	world.spawn_building("workbench", Vector2i(2, 11), "p1")
 	player.inventory["copper_ore"] = 4
 	player.inventory["wood"] = 0
 	assert_eq(world.craft(player, "copper"), "zu wenig Holz (1 nötig)", "Schmelzen braucht Brennstoff")
@@ -72,6 +74,7 @@ func test_copper_spear_is_a_reach_blade() -> void:
 	player.pos = Vector2(20.5, 5.5)
 	player.inventory["copper"] = 2
 	player.inventory["wood"] = 3
+	world.spawn_building("workbench", Vector2i(20, 6), "p1")  # Station in Reichweite
 	assert_eq(world.craft(player, "copper_spear"), "")
 	assert_true(world.set_active_weapon(player, "copper_spear"))
 	assert_eq(player.melee_range, 1.6, "Speer reicht weiter als Keule und Beil")

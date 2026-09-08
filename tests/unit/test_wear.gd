@@ -46,6 +46,7 @@ func test_shots_wear_sling_until_it_breaks() -> void:
 
 func test_melee_and_armor_wear() -> void:
 	player.inventory["wood"] = 20
+	world.spawn_building("workbench", Vector2i(20, 6), "p1")  # Station in Reichweite
 	assert_eq(world.craft(player, "club"), "")
 	assert_eq(world.craft(player, "wood_armor"), "")
 	world.set_active_weapon(player, "club")

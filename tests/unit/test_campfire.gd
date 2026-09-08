@@ -39,7 +39,7 @@ func test_wolf_corpse_gives_meat() -> void:
 func test_cooking_needs_campfire_and_is_better_food() -> void:
 	player.inventory["meat"] = 2
 	player.inventory["wood"] = 4
-	assert_eq(world.craft(player, "cooked_meat"), "kein Lagerfeuer in Reichweite")
+	assert_eq(world.craft(player, "cooked_meat"), "Lagerfeuer nicht in Reichweite")
 	var fire := world.place_building(player, "campfire", Vector2i(43, 11), 0)
 	assert_not_null(fire, "Feuer: %s" % world.can_place(player, "campfire", Vector2i(43, 11), 0))
 	assert_eq(world.craft(player, "cooked_meat"), "")
@@ -57,7 +57,7 @@ func test_cooking_needs_campfire_and_is_better_food() -> void:
 	assert_true(world.map.buildings.has(fire.id))
 	world.advance(3.5 * 3600.0)
 	assert_false(world.map.buildings.has(fire.id), "nach ~3 h erloschen")
-	assert_eq(world.craft(player, "cooked_meat"), "kein Lagerfeuer in Reichweite")
+	assert_eq(world.craft(player, "cooked_meat"), "Lagerfeuer nicht in Reichweite")
 
 
 func test_npc_cooks_at_a_fire_and_eats_when_hungry() -> void:

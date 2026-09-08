@@ -52,26 +52,36 @@ func setup_new_game() -> int:
 
 ## Neutrales Markt-Depot (Kartenfeature): gehört niemandem, unzerstörbar, für alle ein Ort.
 func spawn_depot(cell: Vector2i) -> SimBuilding:
-	if not data.buildings.has("depot"):
+	var b := spawn_building("depot", cell, "")
+	if b == null:
 		return null
-	var def: Dictionary = data.buildings["depot"]
-	var b := SimBuilding.new()
-	b.id = _next_building_id
-	_next_building_id += 1
-	b.part = "depot"
-	b.owner_id = ""
-	b.origin = cell * 2
-	b.max_hp = float(def["hp"])
-	b.hp = b.max_hp
-	b.placed_time = time
-	b.cells = SimBuilding.cells_for(def["size"], b.origin, 0)
-	map.add_building(b)
 	var zone := zone_def(map.zone(cell))
 	var count := 0
 	for other: SimBuilding in depots():
 		if map.zone(SimMap.cell_of(other.center())) == map.zone(cell):
 			count += 1
 	b.label = "%s %d" % [zone.get("depot_label", "Depot"), count]
+	return b
+
+
+## Setzt ein Bauteil ohne Kosten und Regeln auf eine Kachel (Kartenfeatures, Werkzeuge, Tests). null bei unbekanntem Teil.
+func spawn_building(part: String, cell: Vector2i, owner_id: String) -> SimBuilding:
+	if not data.buildings.has(part):
+		return null
+	var def: Dictionary = data.buildings[part]
+	var b := SimBuilding.new()
+	b.id = _next_building_id
+	_next_building_id += 1
+	b.part = part
+	b.owner_id = owner_id
+	b.origin = cell * 2
+	b.max_hp = float(def["hp"])
+	b.hp = b.max_hp
+	b.placed_time = time
+	b.cells = SimBuilding.cells_for(def["size"], b.origin, 0)
+	map.add_building(b)
+	if not owner_id.is_empty() and (is_sensor(b) or is_container(b)):
+		refresh_places(owner_id)
 	return b
 
 
@@ -363,7 +373,9 @@ func refresh_equipment(c: SimCharacter) -> void:
 		c.melee_effect = ""
 
 
-## Werkbank: baut einen Gegenstand (Ausrüstung) oder ein Verbrauchsgut (Rohstoff mit 'cost'). Rückgabe: leer = gebaut, sonst der Grund.
+## Herstellen: baut einen Gegenstand (Ausrüstung) oder ein Verbrauchsgut (Rohstoff mit 'cost'). Braucht der Eintrag
+## eine Station ('needs_building': Werkbank, Schmelzofen, Schmiede, Lagerfeuer), muss sie in Reichweite stehen.
+## Rückgabe: leer = gebaut, sonst der Grund.
 func craft(c: SimCharacter, item_id: String) -> String:
 	if data.resources.has(item_id) and data.resources[item_id].has("cost"):
 		return _craft_consumable(c, item_id)
@@ -375,6 +387,9 @@ func craft(c: SimCharacter, item_id: String) -> String:
 	var cost: Dictionary = def.get("cost", {})
 	if cost.is_empty():
 		return "nicht baubar"
+	var station := station_reason(c, item_id)
+	if not station.is_empty():
+		return station
 	for rid: String in cost:
 		var needed := int(cost[rid])
 		if int(c.inventory.get(rid, 0)) < needed:
@@ -416,6 +431,9 @@ func repair_reason(c: SimCharacter, item_id: String) -> String:
 	var cost := repair_cost(item_id)
 	if cost.is_empty():
 		return "nicht reparierbar"
+	var station := station_reason(c, item_id)
+	if not station.is_empty():
+		return station
 	var left := durability_left(c, item_id)
 	var current_max := durability_max(c, item_id)
 	if left >= current_max - 0.001:
@@ -498,9 +516,9 @@ func owned_armors(c: SimCharacter) -> Array[String]:
 func _craft_consumable(c: SimCharacter, rid: String) -> String:
 	var def: Dictionary = data.resources[rid]
 	var cost: Dictionary = def["cost"]
-	var needs := String(def.get("needs_building", ""))
-	if not needs.is_empty() and building_part_near(c, needs) == null:
-		return "kein %s in Reichweite" % data.buildings.get(needs, {}).get("name", needs)
+	var station := station_reason(c, rid)
+	if not station.is_empty():
+		return station
 	for need: String in cost:
 		if int(c.inventory.get(need, 0)) < int(cost[need]):
 			return "zu wenig %s (%d nötig)" % [data.resources[need]["name"], int(cost[need])]
@@ -523,13 +541,15 @@ func _craft_consumable(c: SimCharacter, rid: String) -> String:
 
 
 ## Warum ein Verbrauchsgut gerade nicht herstellbar ist (für NPC-Regeln); leer = möglich.
-func craft_reason(c: SimCharacter, rid: String) -> String:
+## ignore_station: die Station prüft der Aufrufer selbst (der NPC läuft erst hin).
+func craft_reason(c: SimCharacter, rid: String, ignore_station: bool = false) -> String:
 	if not data.resources.has(rid) or not data.resources[rid].has("cost"):
 		return "kein herstellbares Verbrauchsgut"
 	var cost: Dictionary = data.resources[rid]["cost"]
-	var needs := String(data.resources[rid].get("needs_building", ""))
-	if not needs.is_empty() and building_part_near(c, needs) == null:
-		return "kein %s in Reichweite" % data.buildings.get(needs, {}).get("name", needs)
+	if not ignore_station:
+		var station := station_reason(c, rid)
+		if not station.is_empty():
+			return station
 	for need: String in cost:
 		if int(c.inventory.get(need, 0)) < int(cost[need]):
 			return "zu wenig %s (%d nötig)" % [data.resources[need]["name"], int(cost[need])]
@@ -545,6 +565,30 @@ func building_part_near(c: SimCharacter, part: String) -> SimBuilding:
 		if b.part == part and b.center().distance_to(c.pos) <= reach:
 			return b
 	return null
+
+
+## Warum die Station eines Gegenstands/Verbrauchsguts fehlt ("Werkbank nicht in Reichweite"); leer = von Hand oder Station da.
+func station_reason(c: SimCharacter, item_id: String) -> String:
+	var needs := data.station_of(item_id)
+	if needs.is_empty() or building_part_near(c, needs) != null:
+		return ""
+	return "%s nicht in Reichweite" % data.buildings[needs]["name"]
+
+
+## Nächste Station einer Art (beliebiger Besitzer) innerhalb der Leine eines NPC, sonst null. Ohne Leine: überall.
+func station_in_leash(c: SimCharacter, part: String) -> SimBuilding:
+	var best: SimBuilding = null
+	var best_d := INF
+	for b: SimBuilding in map.buildings.values():
+		if b.part != part:
+			continue
+		if c.leash_radius > 0.0 and b.center().distance_to(c.leash_center) > c.leash_radius + 0.5:
+			continue
+		var d := b.center().distance_squared_to(c.pos)
+		if d < best_d:
+			best_d = d
+			best = b
+	return best
 
 
 ## Munition einer Waffe (Kennung des Verbrauchsguts) oder leer, wenn sie keine braucht.

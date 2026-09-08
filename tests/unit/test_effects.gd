@@ -28,6 +28,7 @@ func before_each() -> void:
 func _axe_hit() -> void:
 	player.inventory["stone"] = 2
 	player.inventory["wood"] = 2
+	world.spawn_building("workbench", Vector2i(20, 6), "p1")  # Station in Reichweite
 	assert_eq(world.craft(player, "stone_axe"), "")
 	assert_true(world.set_active_weapon(player, "stone_axe"))
 	player.facing = Vector2.RIGHT

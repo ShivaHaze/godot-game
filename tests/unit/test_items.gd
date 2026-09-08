@@ -57,6 +57,7 @@ func test_craft_needs_resources_and_updates_equipment() -> void:
 	assert_eq(player.inventory["wood"], 7)
 	assert_true(player.items.has("club"))
 	assert_eq(world.craft(player, "club"), "schon vorhanden")
+	world.spawn_building("workbench", Vector2i(20, 6), "p1")  # Station in Reichweite
 	assert_eq(world.craft(player, "wood_armor"), "")
 	assert_eq(player.inventory["wood"], 1)
 	assert_eq(player.armor, data.balf("character.armor"), "Rüstung schützt erst, wenn sie angelegt ist")
@@ -71,6 +72,7 @@ func test_armor_is_worn_explicitly() -> void:
 	assert_eq(world.equip_armor(player, "wood_armor"), "nicht vorhanden")
 	assert_eq(world.equip_armor(player, "sling"), "keine Rüstung")
 	assert_eq(world.equip_armor(player, ""), "nichts angelegt")
+	world.spawn_building("workbench", Vector2i(20, 6), "p1")  # Station in Reichweite
 	assert_eq(world.craft(player, "wood_armor"), "")
 	assert_eq(world.craft(player, "cloth_armor"), "")
 	assert_eq(world.armor_item_of(player), "", "besitzen allein trägt nichts")
@@ -128,6 +130,7 @@ func test_armor_reduces_projectile_damage() -> void:
 	var other := world.spawn_player(OPEN + Vector2(3, 0), "p2", "Fremder")
 	other.facing = Vector2.LEFT
 	other.inventory["wood"] = 6
+	world.spawn_building("workbench", Vector2i(24, 6), "p2")
 	world.craft(other, "wood_armor")
 	world.equip_armor(other, "wood_armor")
 	var intent := SimIntent.new()
@@ -141,6 +144,7 @@ func test_armor_reduces_projectile_damage() -> void:
 func test_loot_transfers_items() -> void:
 	var other := world.spawn_player(OPEN + Vector2(1, 0), "p2", "Fremder")
 	other.inventory["wood"] = 9
+	world.spawn_building("workbench", Vector2i(20, 6), "p1")  # Station in Reichweite
 	world.craft(other, "club")
 	world.craft(other, "wood_armor")
 	other.dead = true
@@ -180,6 +184,7 @@ func test_npc_uses_club_against_adjacent_wolf() -> void:
 
 func test_save_keeps_items() -> void:
 	player.inventory["wood"] = 9
+	world.spawn_building("workbench", Vector2i(20, 6), "p1")  # Station in Reichweite
 	world.craft(player, "club")
 	world.craft(player, "wood_armor")
 	world.equip_armor(player, "wood_armor")

@@ -19,7 +19,7 @@ const DepotPanelScript := preload("res://game/depot_panel.gd")
 const MAX_TICKS_PER_FRAME: int = 5      # Schutz gegen Aufholspiralen bei Rucklern
 const SKIP_BUDGET_MSEC: int = 14        # Echtzeit pro Frame für den Zeitsprung (Fortschritt bleibt sichtbar)
 const SAVE_PATH: String = "user://save.dat"
-const HINT_LIVE: String = "WASD · Maus · Linksklick angreifen · E sammeln/plündern/handeln · F essen · H Verband · Q Waffe · C Werkbank · B Bauen · M Marker · Esc Ausloggen"
+const HINT_LIVE: String = "WASD · Maus · Linksklick angreifen · E sammeln/plündern/handeln · F essen · H Verband · Q Waffe · C Herstellen · B Bauen · M Marker · Esc Ausloggen"
 const HINT_DEAD: String = "Du bist tot. R = neuer Charakter am Spawn."
 const HINT_OFFLINE: String = "Dein Charakter handelt jetzt nach seinen Regeln. Du schaust nur zu."
 const HINT_SKIPPING: String = "Zeitsprung läuft …"
@@ -348,7 +348,7 @@ func _process_live_input(player: SimCharacter) -> void:
 		_eat_pressed = true
 	if Input.is_action_just_pressed("heal"):
 		if world.heal_item_of(player).is_empty():
-			hud.show_message("Kein Verband. Werkbank (C): 3 Fasern.", 2.0)
+			hud.show_message("Kein Verband. Herstellen (C): 1 Stoff aus 2 Fasern.", 2.0)
 		elif player.hp >= player.max_hp:
 			hud.show_message("Du bist gesund.", 1.5)
 		else:
@@ -594,28 +594,55 @@ func _toggle_build_mode(player: SimCharacter) -> void:
 		hud.set_hint(HINT_VERSUS if mode == Mode.VERSUS else HINT_LIVE)
 
 
+## Auswahl im Baumodus: alle baubaren Teile plus das Kachel-Werkzeug.
+func _build_choices() -> Array[String]:
+	var result: Array[String] = []
+	for id: String in data.building_order:
+		if bool(data.buildings[id].get("placeable", true)):
+			result.append(id)
+	result.append(CLAIM_TOOL)
+	return result
+
+
 func _build_hint() -> String:
-	var parts: PackedStringArray = []
-	for i in data.building_order.size():
-		var def: Dictionary = data.buildings[data.building_order[i]]
+	var choices := _build_choices()
+	var label := ""
+	if _build_part == CLAIM_TOOL:
+		label = "Kachel beanspruchen (%d Holz)" % data.bali("claim.tile_cost_wood")
+	else:
+		var def: Dictionary = data.buildings[_build_part]
 		var cost: PackedStringArray = []
 		for rid: String in def["cost"]:
 			cost.append("%d %s" % [int(def["cost"][rid]), data.resources[rid]["name"]])
-		parts.append("%d %s (%s)%s" % [i + 1, def["name"], ", ".join(cost), " ◄" if data.building_order[i] == _build_part else ""])
-	parts.append("%d Kachel beanspruchen (%d Holz)%s" % [data.building_order.size() + 1, data.bali("claim.tile_cost_wood"), " ◄" if _build_part == CLAIM_TOOL else ""])
-	return "Bauen: " + " · ".join(parts) + " · T drehen · Linksklick setzen · X abreißen/freigeben · B beenden"
+		label = "%s (%s)" % [def["name"], ", ".join(cost)]
+	return "Bauen %d/%d: %s · Tab/Mausrad wechselt, 1–9 direkt · T drehen · Linksklick setzen · X abreißen/freigeben · B beenden" % [choices.find(_build_part) + 1, choices.size(), label]
 
 
+## Baumodus: Tab (Shift+Tab zurück) und Mausrad blättern durch die Teile, 1–9 wählen direkt.
 func _unhandled_input(event: InputEvent) -> void:
-	if not _build_mode or not (event is InputEventKey) or not event.pressed or event.echo:
+	if not _build_mode:
 		return
-	var index := int(event.keycode) - int(KEY_1)
-	if index >= 0 and index < data.building_order.size():
-		_build_part = data.building_order[index]
-		hud.set_hint(_build_hint())
-	elif index == data.building_order.size():
-		_build_part = CLAIM_TOOL
-		hud.set_hint(_build_hint())
+	var choices := _build_choices()
+	var index := maxi(0, choices.find(_build_part))
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_TAB:
+			index = (index + (choices.size() - 1 if event.shift_pressed else 1)) % choices.size()
+		else:
+			var digit := int(event.keycode) - int(KEY_1)
+			if digit < 0 or digit > 8 or digit >= choices.size():
+				return
+			index = digit
+	elif event is InputEventMouseButton and event.pressed:
+		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
+			index = (index + choices.size() - 1) % choices.size()
+		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			index = (index + 1) % choices.size()
+		else:
+			return
+	else:
+		return
+	_build_part = choices[index]
+	hud.set_hint(_build_hint())
 
 
 func _update_build_mode(player: SimCharacter) -> void:
@@ -679,7 +706,7 @@ func _update_claim_tool(player: SimCharacter) -> void:
 func _switch_weapon(player: SimCharacter) -> void:
 	var weapons := world.owned_weapons(player)
 	if weapons.size() < 2:
-		hud.show_message("Nur eine Waffe. Keule gibt es an der Werkbank (C).", 2.0)
+		hud.show_message("Nur eine Waffe. Eine Keule baust du von Hand (C).", 2.0)
 		return
 	var index := weapons.find(player.active_weapon)
 	var next_id: String = weapons[(index + 1) % weapons.size()]

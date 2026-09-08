@@ -27,6 +27,7 @@ func _bow() -> void:
 	player.inventory["wood"] = 10
 	player.inventory["fibers"] = 2
 	player.inventory["stone"] = 2
+	world.spawn_building("workbench", Vector2i(20, 6), "p1")  # Station in Reichweite
 	assert_eq(world.craft(player, "bow"), "")
 	assert_true(world.set_active_weapon(player, "bow"))
 

@@ -32,6 +32,7 @@ func test_chain_fibers_cloth_bandage_and_armor() -> void:
 	assert_eq(int(player.inventory["bandage"]), 1)
 	assert_true(world.can_use(player, data.action_def("craft")), "erstes Herstellen schaltet 'stelle her' frei")
 	player.inventory["cloth"] = 4
+	world.spawn_building("workbench", Vector2i(20, 6), "p1")  # Station in Reichweite
 	assert_eq(world.craft(player, "cloth_armor"), "")
 	assert_eq(world.equip_armor(player, "cloth_armor"), "")
 	assert_eq(player.armor, data.balf("character.armor") + 2.0, "Stoffrüstung angelegt")

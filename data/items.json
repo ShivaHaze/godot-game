@@ -1,5 +1,5 @@
 {
-  "_doc": "Ausrüstung: Waffen und Rüstung. Spieler und Offline-NPC nutzen dieselben Werte. 'cost' = Rohstoffe, die die Werkbank (Taste C) verbraucht; leer = nicht baubar. 'starting' = gehört jedem neuen Charakter. Waffen: 'attack' ranged (Projektil: damage, projectile_speed, projectile_lifetime, cooldown, max_projectiles) oder melee (damage, range, cooldown). Rüstung: 'armor' = flacher Abzug pro Treffer; zählt nur, wenn sie angelegt ist (Herstellen-Tafel C: Anlegen/Ablegen, nie automatisch – der Spieler entscheidet, was er trägt). 'effect' = Zustandseffekt, den ein Treffer auslöst (balance.json 'effects'); ignoriert Rüstung. 'durability' = Nutzungen (Schuss/Schlag bzw. bei Rüstung erlittene Treffer), bis der Gegenstand zerbricht; Reparatur an der Werkbank, siehe balance.json 'wear'. 'ammo' = Verbrauchsgut, das jeder Schuss verbraucht (ohne Munition kein Schuss; NPCs greifen dann zur nächsten Waffe). Waffen: 'breaks' = Bauteil-Stufen (tier), die sie einschlagen können (Standard nur wood). Rüstung: 'slow' = Anteil, um den schwere Rüstung verlangsamt (Zustandseffekt Verlangsamung, Gegenmittel: ablegen bzw. leichtere Rüstung).",
+  "_doc": "Ausrüstung: Waffen und Rüstung. Spieler und Offline-NPC nutzen dieselben Werte. 'cost' = Rohstoffe, die die Werkbank (Taste C) verbraucht; leer = nicht baubar. 'starting' = gehört jedem neuen Charakter. Waffen: 'attack' ranged (Projektil: damage, projectile_speed, projectile_lifetime, cooldown, max_projectiles) oder melee (damage, range, cooldown). Rüstung: 'armor' = flacher Abzug pro Treffer; zählt nur, wenn sie angelegt ist (Herstellen-Tafel C: Anlegen/Ablegen, nie automatisch – der Spieler entscheidet, was er trägt). 'effect' = Zustandseffekt, den ein Treffer auslöst (balance.json 'effects'); ignoriert Rüstung. 'durability' = Nutzungen (Schuss/Schlag bzw. bei Rüstung erlittene Treffer), bis der Gegenstand zerbricht; Reparatur an der Werkbank, siehe balance.json 'wear'. 'ammo' = Verbrauchsgut, das jeder Schuss verbraucht (ohne Munition kein Schuss; NPCs greifen dann zur nächsten Waffe). Waffen: 'breaks' = Bauteil-Stufen (tier), die sie einschlagen können (Standard nur wood). Rüstung: 'slow' = Anteil, um den schwere Rüstung verlangsamt (Zustandseffekt Verlangsamung, Gegenmittel: ablegen bzw. leichtere Rüstung). 'needs_building' = Bauteil (Station), das beim Bauen und Reparieren in Reichweite stehen muss (Werkbank, Schmiede); ohne Eintrag geht es von Hand.",
   "items": [
     {
       "id": "sling",
@@ -34,7 +34,8 @@
         "fibers": 2
       },
       "durability": 80,
-      "ammo": "arrow"
+      "ammo": "arrow",
+      "needs_building": "workbench"
     },
     {
       "id": "club",
@@ -64,7 +65,8 @@
         "wood": 2
       },
       "effect": "bleeding",
-      "durability": 50
+      "durability": 50,
+      "needs_building": "workbench"
     },
     {
       "id": "copper_spear",
@@ -80,7 +82,8 @@
         "wood": 3
       },
       "durability": 90,
-      "effect": "bleeding"
+      "effect": "bleeding",
+      "needs_building": "workbench"
     },
     {
       "id": "iron_axe",
@@ -100,7 +103,8 @@
       "breaks": [
         "wood",
         "stone"
-      ]
+      ],
+      "needs_building": "forge"
     },
     {
       "id": "cloth_armor",
@@ -111,7 +115,8 @@
       "cost": {
         "cloth": 4
       },
-      "durability": 60
+      "durability": 60,
+      "needs_building": "workbench"
     },
     {
       "id": "wood_armor",
@@ -122,7 +127,8 @@
       "cost": {
         "wood": 6
       },
-      "durability": 40
+      "durability": 40,
+      "needs_building": "workbench"
     },
     {
       "id": "iron_armor",
@@ -135,7 +141,8 @@
         "cloth": 2
       },
       "durability": 80,
-      "slow": 0.15
+      "slow": 0.15,
+      "needs_building": "forge"
     }
   ]
 }

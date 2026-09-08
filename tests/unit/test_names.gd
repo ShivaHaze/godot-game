@@ -39,6 +39,7 @@ func test_knows_name_rules_and_description() -> void:
 	assert_eq(world.describe(player, far), "Unbekannter mit bloßen Händen")
 	far.inventory["copper"] = 2
 	far.inventory["wood"] = 3
+	world.spawn_building("workbench", Vector2i(28, 6), "p3")
 	world.craft(far, "copper_spear")
 	assert_eq(world.describe(player, far), "Unbekannter mit Kupferspeer")
 	assert_eq(world.describe(player, null), "Unbekannt")

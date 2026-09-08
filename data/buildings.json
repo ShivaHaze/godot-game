@@ -1,5 +1,5 @@
 {
-  "_doc": "Bauteile. Raster: halbe Kacheln (Design [E]); 'size' in Halbzellen [Breite, Höhe], drehbar (R). Nur live baubar, NPCs bauen und brechen nie (Design: nur Live kann Nehmen und Verändern). 'passable': none = blockiert alle, owner = nur der Besitzer (und seine NPCs) geht durch (Tür). 'tier': wood wird mit Nahkampf beschädigt und verfällt (decay_per_hour Lebenspunkte je Stunde); stone/iron kommen später (Eisenwerkzeug bzw. Sprengsatz). Projektile bleiben an Bauteilen hängen, ohne sie zu beschädigen. 'trade': true = Handelstisch mit Inhalt und Angeboten. Sensor: 'sensor_radius'/'sensor_hold'. Falle: 'trap_damage', 'hidden' (nur der Besitzer sieht sie).",
+  "_doc": "Bauteile. Raster: halbe Kacheln (Design [E]); 'size' in Halbzellen [Breite, Höhe], drehbar (R). Nur live baubar, NPCs bauen und brechen nie (Design: nur Live kann Nehmen und Verändern). 'passable': none = blockiert alle, owner = nur der Besitzer (und seine NPCs) geht durch (Tür). 'tier': wood wird mit Nahkampf beschädigt und verfällt (decay_per_hour Lebenspunkte je Stunde); stone/iron kommen später (Eisenwerkzeug bzw. Sprengsatz). Projektile bleiben an Bauteilen hängen, ohne sie zu beschädigen. 'trade': true = Handelstisch mit Inhalt und Angeboten. Sensor: 'sensor_radius'/'sensor_hold'. Falle: 'trap_damage', 'hidden' (nur der Besitzer sieht sie). 'station': true = Herstellungsort: Gegenstände und Verbrauchsgüter mit 'needs_building' (items.json/resources.json) entstehen nur in Reichweite; auch die Reparatur. Jeder darf eine fremde Station benutzen, die er erreicht (Raidziel).",
   "buildings": [
     {
       "id": "wood_wall",
@@ -186,6 +186,64 @@
       "color": "#ff9040",
       "campfire": true,
       "_doc": "Brennt etwa 3 Stunden herunter (Verfall). Jeder in Reichweite brät daran Fleisch (C oder NPC-Aktion 'stelle Gebratenes Fleisch her')."
+    },
+    {
+      "id": "workbench",
+      "name": "Werkbank",
+      "tier": "wood",
+      "cost": {
+        "wood": 8,
+        "stone": 4
+      },
+      "hp": 40,
+      "size": [
+        2,
+        1
+      ],
+      "passable": "none",
+      "decay_per_hour": 0.5,
+      "color": "#a07850",
+      "station": true,
+      "_doc": "Stufe 1 (wie Rust: Workbench Level 1): Bogen, Steinbeil, Kupferspeer, Stoff- und Holzrüstung, Draht, Pulver und Medizin entstehen nur in Reichweite; hier wird auch repariert. Von Hand gehen nur Schleuder, Keule, Stoff, Verband, Pfeile und Gegenmittel."
+    },
+    {
+      "id": "furnace",
+      "name": "Schmelzofen",
+      "tier": "stone",
+      "cost": {
+        "stone": 10,
+        "wood": 2
+      },
+      "hp": 80,
+      "size": [
+        2,
+        2
+      ],
+      "passable": "none",
+      "decay_per_hour": 0.3,
+      "color": "#b06040",
+      "station": true,
+      "_doc": "Schmelzen (wie Rust: Furnace): Kupfer (Erz + Holz) und Eisen (Erz + Kohle) entstehen nur hier. Stufe Stein: nur Eisenwerkzeug oder Sprengsatz bricht ihn."
+    },
+    {
+      "id": "forge",
+      "name": "Schmiede",
+      "tier": "stone",
+      "cost": {
+        "stone": 6,
+        "iron": 3,
+        "wood": 4
+      },
+      "hp": 100,
+      "size": [
+        2,
+        2
+      ],
+      "passable": "none",
+      "decay_per_hour": 0.3,
+      "color": "#607080",
+      "station": true,
+      "_doc": "Stufe 2 (wie Rust: Workbench Level 2): Eisenaxt, Eisenrüstung, Kugeln und Sprengsätze entstehen nur hier. Braucht Eisen zum Bau, also erst den Schmelzofen."
     },
     {
       "id": "spawn_anchor",

@@ -105,7 +105,12 @@ static func blocked_reason(world: SimWorld, c: SimCharacter, rule: Dictionary) -
 			if world.heal_item_of(c).is_empty():
 				return "kein passendes Heilmittel"
 		"craft":
-			var reason := world.craft_reason(c, String(params["product"]))
+			# Station (Werkbank, Schmelzofen, Lagerfeuer …): in Reichweite oder wenigstens in der Leine – dann läuft er hin
+			var product := String(params["product"])
+			var station := world.data.station_of(product)
+			if not station.is_empty() and world.building_part_near(c, station) == null and world.station_in_leash(c, station) == null:
+				return "%s nicht in der Leine" % world.data.buildings[station]["name"]
+			var reason := world.craft_reason(c, product, true)
 			if not reason.is_empty():
 				return reason
 		"deliver":
@@ -162,6 +167,15 @@ static func _execute(world: SimWorld, c: SimCharacter, rule: Dictionary, intent:
 			return true
 		"craft":
 			var rid := String(params["product"])
+			var station := world.data.station_of(rid)
+			if not station.is_empty() and world.building_part_near(c, station) == null:
+				# Erst zur Station in der Leine laufen (Werkbank, Schmelzofen, Lagerfeuer …)
+				var target := world.station_in_leash(c, station)
+				if target == null:
+					return false
+				var stand := SimMap.cell_center(world.map.nearest_walkable_cell(SimMap.cell_of(target.center())))
+				intent.move = SimNav.direction_toward(world, c, stand, dt, 0.15)
+				return true
 			if world.craft(c, rid).is_empty():
 				var index := c.active_rule_index
 				SimChronicle.log_rule(world, c, index, c.rules[index], "jetzt %d" % int(c.inventory.get(rid, 0)))

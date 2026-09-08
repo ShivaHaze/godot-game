@@ -42,6 +42,7 @@ func test_bomb_on_foreign_claim_blows_up_stone_and_turret() -> void:
 	player.inventory["powder"] = 2
 	player.inventory["iron"] = 1
 	player.inventory["wood"] = 5
+	world.spawn_building("forge", Vector2i(20, 6), "p1")  # Schmiede des Räubers (fliegt gleich mit in die Luft)
 	assert_eq(world.craft(player, "explosive"), "")
 	assert_eq(world.can_place(player, "wood_wall", Vector2i(46, 8), 0), "fremder Claim", "normales Bauen bleibt verboten")
 	var bomb := world.place_building(player, "bomb", Vector2i(43, 11), 0)  # Halbzelle vor der Wand, Kachel (21, 5) ist fremd? nein – (21,5) frei; (22,5) beansprucht

@@ -55,6 +55,8 @@ func test_sulfur_is_live_only_and_chain_to_shot() -> void:
 	player.inventory["sulfur"] = 2
 	player.inventory["coal"] = 2
 	player.inventory["iron"] = 2
+	world.spawn_building("workbench", SimMap.cell_of(player.pos) + Vector2i(0, 1), "p1")
+	world.spawn_building("forge", SimMap.cell_of(player.pos) + Vector2i(1, 1), "p1")
 	assert_eq(world.craft(player, "powder"), "")
 	assert_eq(int(player.inventory["powder"]), 2)
 	assert_eq(world.craft(player, "shot"), "")

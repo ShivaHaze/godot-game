@@ -45,6 +45,8 @@ func test_antidote_and_medicine_and_heal_choice() -> void:
 	assert_false(world.can_use(player, data.condition_def("poisoned")))
 	assert_eq(world.craft(player, "antidote"), "")
 	assert_true(world.can_use(player, data.condition_def("poisoned")), "Gegenmittel schaltet 'vergiftet' frei")
+	assert_eq(world.craft(player, "medicine"), "Werkbank nicht in Reichweite", "Medizin braucht die Werkbank")
+	world.spawn_building("workbench", Vector2i(20, 6), "p1")  # Station in Reichweite
 	assert_eq(world.craft(player, "medicine"), "")
 	player.inventory["bandage"] = 1
 	# Vergiftet und verletzt: H nimmt zuerst das Gegenmittel

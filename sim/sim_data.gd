@@ -295,6 +295,26 @@ func _parse_all(raw: Dictionary) -> void:
 	_parse_roles(raw["roles"])
 	_parse_items(raw["items"])
 	_parse_buildings(raw["buildings"])
+	_check_stations()
+
+
+## 'needs_building' in items.json/resources.json muss ein Bauteil mit 'station' (oder Lagerfeuer) nennen.
+func _check_stations() -> void:
+	for id: String in item_order:
+		var needs := String(items[id].get("needs_building", ""))
+		if not needs.is_empty() and not buildings.has(needs):
+			errors.append("items.json: '%s' braucht unbekanntes Bauteil '%s'" % [id, needs])
+	for id: String in resource_order:
+		var needs := String(resources[id].get("needs_building", ""))
+		if not needs.is_empty() and not buildings.has(needs):
+			errors.append("resources.json: '%s' braucht unbekanntes Bauteil '%s'" % [id, needs])
+
+
+## Station (Bauteil-Kennung), die ein Gegenstand oder Verbrauchsgut zum Herstellen braucht; leer = von Hand.
+func station_of(item_id: String) -> String:
+	if items.has(item_id):
+		return String(items[item_id].get("needs_building", ""))
+	return String(resources.get(item_id, {}).get("needs_building", ""))
 
 
 func _parse_balance(raw: Dictionary) -> void:
