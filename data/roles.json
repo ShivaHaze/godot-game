@@ -183,7 +183,7 @@
     {
       "id": "trader",
       "name": "Händler",
-      "tip": "Sammelt Beeren, bringt volle Ladungen zum eigenen Handelstisch – ohne Tisch zum nächsten kampffreien Markt (Gebühr). Der Weg ist das Risiko: gegen Wölfe hilft nur Zurückkämpfen, Flucht nicht.",
+      "tip": "Sammelt Beeren, bringt volle Ladungen zum eigenen Handelstisch – ohne Tisch zum nächsten kampffreien Markt (Gebühr). Der Weg ist das Risiko: gegen Wölfe hilft nur Zurückkämpfen; verletzt rastet er bei Hier, bis er wieder bei Kräften ist.",
       "rules": [
         {
           "if": {
@@ -199,6 +199,21 @@
           },
           "then": {
             "action": "eat"
+          }
+        },
+        {
+          "if": {
+            "condition": "health_below",
+            "params": {
+              "percent": 50
+            }
+          },
+          "then": {
+            "action": "stay_at",
+            "params": {
+              "place": "here",
+              "radius": 2
+            }
           }
         },
         {

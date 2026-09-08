@@ -68,7 +68,7 @@ func test_missing_symbolic_place_is_a_reason() -> void:
 
 func test_trader_preset_walks_full_load_to_the_depot_and_back() -> void:
 	var role: Dictionary = data.roles["trader"]
-	assert_eq(role["rules"].size(), 5)
+	assert_eq(role["rules"].size(), 6)
 	assert_eq(String(role["rules"][0]["then"]["action"]), "fight_back", "gegen Wölfe hilft nur Zurückkämpfen")
 	player.pos = Vector2(11.5, 6.5)  # neben den Beerenbüschen (11, 7) und (11, 8)
 	player.inventory["berries"] = data.bali("inventory.capacity") - 1

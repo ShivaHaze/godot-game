@@ -19,7 +19,7 @@
     "_interact_range": "Maximale Distanz (Mitte zu Kachelmitte) zum Sammeln oder Plündern."
   },
   "hunger": {
-    "_doc": "Hunger ist Unterhalt, kein Minispiel. 100 = satt, 0 = geschwächt.",
+    "_doc": "Hunger ist Unterhalt, kein Minispiel. 100 = satt, 0 = geschwächt. Wer satt ist (über hungry_threshold) und nicht angegriffen wird, heilt langsam von selbst (regen_per_minute_fed), live wie offline – Verbände heilen sofort, das hier trägt zwischen den Kämpfen.",
     "max": 100,
     "start": 80,
     "hungry_threshold": 30,
@@ -27,7 +27,9 @@
     "decay_per_second_live": 0.15,
     "_decay_per_second_live": "Abbau pro Sekunde, solange der Spieler live steuert (100 -> 0 in ca. 11 Minuten).",
     "decay_per_second_offline": 0.006,
-    "_decay_per_second_offline": "Abbau pro Sekunde im NPC-Modus, stark verlangsamt (100 -> 0 in ca. 4,6 Stunden)."
+    "_decay_per_second_offline": "Abbau pro Sekunde im NPC-Modus, stark verlangsamt (100 -> 0 in ca. 4,6 Stunden).",
+    "regen_per_minute_fed": 1.0,
+    "_regen_per_minute_fed": "Natürliche Heilung in Leben je Minute bei sattem Hunger und ohne Angriff in den letzten combat.under_attack_window Sekunden. 0 = aus."
   },
   "inventory": {
     "capacity": 20,
@@ -221,7 +223,7 @@
     "forget_hours": 6
   },
   "events": {
-    "_doc": "Ereignisse (Design PvE: Zentrum wertvoll/tödlich; Ereignisse: Karawanen, Bossspawns). boss = Leitwolf: erscheint first_after_hours nach Spielstart und dann alle interval_hours am Wolf-Spawn, der der Kartenmitte am nächsten liegt; stärker als ein Wolf (max_hp, armor, bite_damage, move_speed), streunt nur wander_radius um seinen Spawn, flieht nie und zieht nach lifetime_hours weiter, wenn ihn niemand erlegt. Beute (loot: viel Fleisch und Fell, was zu einem Wolf passt) liegt in seiner Leiche – nur wer live da ist, plündert sie. Offline-Charaktere sind eingeschränkt beteiligt: sie kämpfen zurück, wenn er sie beißt, aber 'greife an' meidet ihn. Alle Spieler bekommen die Meldung ohne Ortsangabe. caravan = Karawane: Händler mit Kasse (currency_stock Kupfer), Wachen (stark, verteidigen nur, Leine um den Händler) und Lasttiere (Fracht bis cargo_capacity). Route über die Depots der Zonen in route (Start am ersten, danach zurück und weiter); je Depot rest_minutes Rast, nur dann handelt sie: kauft Waren aus prices (lot Stück für pay Kupfer) und verkauft ihre Fracht zu pay × markup. Raidwaren und die Währung selbst nie. Wird ein Mitglied getötet, gilt sie als überfallen; stirbt der Händler, bleibt der Rest stehen und zieht nach linger_minutes ab. Fracht und Kasse liegen bei den Leichen. Offline-Charaktere greifen sie nie zuerst an; Turrets und Fallen verschonen sie (neutral).",
+    "_doc": "Ereignisse (Design PvE: Zentrum wertvoll/tödlich; Ereignisse: Karawanen, Bossspawns). boss = Leitwolf: erscheint first_after_hours nach Spielstart und dann alle interval_hours am Wolf-Spawn, der der Kartenmitte am nächsten liegt; stärker als ein Wolf (max_hp, armor, bite_damage, move_speed), streunt nur wander_radius um seinen Spawn, verfolgt Beute höchstens bis territory_radius von dort (das Zentrum ist tödlich, der Rest der Karte nicht), flieht nie und zieht nach lifetime_hours weiter, wenn ihn niemand erlegt. Beute (loot: viel Fleisch und Fell, was zu einem Wolf passt) liegt in seiner Leiche – nur wer live da ist, plündert sie. Offline-Charaktere sind eingeschränkt beteiligt: sie kämpfen zurück, wenn er sie beißt, aber 'greife an' meidet ihn. Alle Spieler bekommen die Meldung ohne Ortsangabe. caravan = Karawane: Händler mit Kasse (currency_stock Kupfer), Wachen (stark, verteidigen nur, Leine um den Händler) und Lasttiere (Fracht bis cargo_capacity). Route über die Depots der Zonen in route (Start am ersten, danach zurück und weiter); je Depot rest_minutes Rast, nur dann handelt sie: kauft Waren aus prices (lot Stück für pay Kupfer) und verkauft ihre Fracht zu pay × markup. Raidwaren und die Währung selbst nie. Sie ist ein Raid-Boss: Händler (200 Leben, Rüstung 6), drei Wachen (150 Leben, Rüstung 5, Bogen und Kupferspeer) und Lasttiere (100 Leben, Rüstung 3) – gegen die Schleuder praktisch unverwundbar, eine Gruppe mit Bögen oder Eisenwaffen zahlt teuer. Wird ein Mitglied getötet, gilt sie als überfallen; stirbt der Händler, bleibt der Rest stehen und zieht nach linger_minutes ab. Fracht und Kasse liegen bei den Leichen. Offline-Charaktere greifen sie nie zuerst an; Turrets und Fallen verschonen sie (neutral).",
     "boss": {
       "name": "Leitwolf",
       "interval_hours": 4,
@@ -235,7 +237,8 @@
       "loot": {
         "meat": 8,
         "hide": 3
-      }
+      },
+      "territory_radius": 9.0
     },
     "caravan": {
       "first_after_hours": 0.5,
@@ -246,33 +249,33 @@
         "market",
         "outpost"
       ],
-      "guards": 2,
+      "guards": 3,
       "animals": 2,
       "trader": {
         "name": "Karawanenhändler",
-        "max_hp": 50,
-        "armor": 2,
+        "max_hp": 200,
+        "armor": 6,
         "move_speed": 3.6
       },
       "guard": {
         "name": "Karawanenwache",
-        "max_hp": 80,
-        "armor": 4,
+        "max_hp": 150,
+        "armor": 5,
         "move_speed": 4.0,
         "weapons": [
           "bow",
           "copper_spear"
         ],
         "inventory": {
-          "arrow": 200
+          "arrow": 400
         },
-        "engage_radius": 10.0,
-        "leash": 8.0
+        "engage_radius": 12.0,
+        "leash": 10.0
       },
       "animal": {
         "name": "Lastesel",
-        "max_hp": 60,
-        "armor": 1,
+        "max_hp": 100,
+        "armor": 3,
         "move_speed": 3.6,
         "cargo_capacity": 40
       },

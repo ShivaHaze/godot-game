@@ -139,3 +139,24 @@ func test_offline_character_fights_back_but_never_attacks_the_boss_first() -> vo
 		shots += _events("shoot").size()
 	assert_gt(shots, 0, "zurückgekämpft")
 	assert_lt(boss.hp, boss.max_hp)
+
+
+func test_boss_stops_chasing_outside_its_territory() -> void:
+	var boss := SimEvents.spawn_boss(world)
+	boss.pos = boss.home_pos + Vector2(3, 0)
+	var prey := world.spawn_player(boss.pos + Vector2(2, 0), "p2", "Wanderer")
+	prey.max_hp = 1000.0
+	prey.hp = 1000.0
+	world.spatial.rebuild(world.characters)
+	world.tick()
+	assert_eq(boss.ai_state, WolfAI.STATE_CHASE, "im Revier jagt er")
+	var territory := data.balf("events.boss.territory_radius")
+	boss.pos = boss.home_pos + Vector2(0, -(territory + 1.0))  # nördlich: freies Feld statt der Bäume östlich
+	prey.pos = boss.pos + Vector2(2, 0)
+	world.spatial.rebuild(world.characters)
+	world.tick()
+	assert_eq(boss.ai_state, WolfAI.STATE_WANDER, "außerhalb des Reviers gibt er auf")
+	for i in 40:
+		world.tick()
+	assert_lt(boss.pos.distance_to(boss.home_pos), territory + 1.0, "kehrt heim")
+	assert_eq(prey.hp, 1000.0, "die Beute kommt davon")

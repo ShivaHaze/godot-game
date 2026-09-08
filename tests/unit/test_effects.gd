@@ -112,3 +112,22 @@ func test_bleeding_can_kill_and_survives_save_and_snapshot() -> void:
 		if line.contains("verblutet, zuletzt getroffen von Du"):
 			found = true
 	assert_true(found, "Chronik: %s" % [SimChronicle.format_all(victim)])
+
+
+func test_natural_healing_when_fed_and_not_under_attack() -> void:
+	player.hp = 10.0
+	player.hunger = 80.0
+	player.last_damage_time = -1e9
+	world.advance(120.0)
+	assert_almost_eq(player.hp, 12.0, 0.1, "satt: 1 Leben je Minute, live wie offline")
+	player.hunger = 10.0
+	world.advance(120.0)
+	assert_almost_eq(player.hp, 12.0, 0.1, "hungrig: keine Heilung")
+	player.hunger = 80.0
+	player.last_damage_time = world.time
+	world.advance(3.0)
+	assert_almost_eq(player.hp, 12.0, 0.05, "unter Beschuss: keine Heilung")
+	player.hp = player.max_hp - 0.5
+	world.advance(120.0)
+	assert_eq(player.hp, player.max_hp, "nie über das Maximum")
+

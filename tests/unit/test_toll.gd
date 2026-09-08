@@ -140,7 +140,7 @@ func test_evader_is_attacked_and_remembered() -> void:
 	world.spatial.rebuild(world.characters)
 	world.advance(60.0)
 	assert_eq(String(player.rules[player.active_rule_index]["then"]["action"]), "stay_at")
-	assert_eq(stranger.hp, hp, "draußen kein Schaden mehr")
+	assert_gte(stranger.hp, hp, "draußen kein Schaden mehr (eher natürliche Heilung)")
 	# Wiederkommen nach einer Weile: die Schuld ist gemerkt, Angriff auf Sicht
 	world.advance(120.0)
 	stranger.hp = stranger.max_hp

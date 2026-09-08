@@ -34,7 +34,7 @@ const REQUIRED_BALANCE: Array[String] = [
 	"character.max_hp", "character.armor", "character.move_speed",
 	"character.weakened_speed_multiplier", "character.collision_radius", "character.interact_range",
 	"hunger.max", "hunger.start", "hunger.hungry_threshold",
-	"hunger.decay_per_second_live", "hunger.decay_per_second_offline",
+	"hunger.decay_per_second_live", "hunger.decay_per_second_offline", "hunger.regen_per_minute_fed",
 	"inventory.capacity",
 	"gathering.gather_time", "gathering.node_regrow_time",
 	"combat.front_arc_degrees", "combat.back_arc_degrees",

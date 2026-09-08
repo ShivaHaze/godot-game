@@ -77,11 +77,11 @@ func test_heal_is_channeled_and_cancelled_by_attack() -> void:
 	for i in ticks - 1:
 		world.set_intent(player.id, _heal_intent())
 		world.tick()
-	assert_eq(player.hp, 10.0, "vor Ablauf der 3 s nichts")
+	assert_almost_eq(player.hp, 10.0, 0.2, "vor Ablauf der 3 s nichts (bis auf natürliche Heilung)")
 	assert_gt(player.heal_progress, 2.5)
 	world.set_intent(player.id, _heal_intent())
 	world.tick()
-	assert_eq(player.hp, 25.0, "+15 Leben")
+	assert_almost_eq(player.hp, 25.0, 0.2, "+15 Leben")
 	assert_eq(int(player.inventory["bandage"]), 1)
 	assert_eq(player.heal_progress, 0.0)
 	# Angriff bricht ab
@@ -119,7 +119,7 @@ func test_npc_heals_itself_when_rule_says_so() -> void:
 	player.logout_time = -1e9
 	for i in 20 * 4:
 		world.tick()
-	assert_eq(player.hp, 27.0, "NPC hat sich verbunden")
+	assert_almost_eq(player.hp, 27.0, 0.3, "NPC hat sich verbunden")
 	assert_eq(int(player.inventory["bandage"]), 0)
 	assert_eq(player.active_rule_index, 1, "danach wieder Sonst-Regel")
 	var lines := SimChronicle.format_all(player)

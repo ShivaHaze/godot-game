@@ -14,6 +14,9 @@ static func decide(world: SimWorld, wolf: SimCharacter, dt: float) -> SimIntent:
 	wolf.ai_timer -= dt
 	var search_radius := data.balf("wolf.give_up_radius") if wolf.ai_state == STATE_CHASE else data.balf("wolf.aggro_radius")
 	var target := nearest_prey(world, wolf, search_radius)
+	# Der Leitwolf verteidigt sein Revier, jagt aber nie quer über die Karte: außerhalb ignoriert er Beute und kehrt heim
+	if wolf.boss and wolf.pos.distance_to(wolf.home_pos) > data.balf("events.boss.territory_radius"):
+		target = null
 
 	if wolf.ai_state != STATE_FLEE and target != null and not wolf.boss and wolf.health_percent() < data.balf("wolf.flee_hp_percent"):  # der Leitwolf flieht nie
 		wolf.ai_state = STATE_FLEE

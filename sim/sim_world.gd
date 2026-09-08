@@ -9,61 +9,24 @@ extends RefCounted
 ## Hier bleiben Zustand, Aufbau, Absichten, Aus-/Einloggen, Tick und Simulationsstufen, Sammeln, Plündern, Essen,
 ## Hunger, Wölfe, Verstecken, Orte, Namen, Briefe und der Zeitsprung.
 
-
 var data: SimData
-
-
 var map: SimMap
-
-
 var characters: Dictionary = {}          # id -> SimCharacter
-
-
 var spatial := SimSpatial.new(4.0)      # Nachbarschaftsraster, pro Tick neu gefüllt
-
-
 var lod_enabled: bool = true             # Simulationsstufen pro Charakter (false: alles fein, z. B. in Tests)
-
-
 var observer_ids: Array[int] = []        # Charaktere, die wie Online-Spieler zählen (Zuschauer-Kamera)
-
-
 var projectiles: Array[SimProjectile] = []
-
-
 var events: Array[Dictionary] = []       # Ereignisse des letzten Ticks (für Darstellung/Chronik)
-
-
 var time: float = 0.0                    # Sim-Sekunden seit Spielstart
-
-
 var tick_count: int = 0
-
-
 var tick_dt: float = 0.05
-
-
 var rng := RandomNumberGenerator.new()
-
-
 var claims := SimClaims.new()            # Land: Anker, Kacheln, Unterhalt
-
-
 var guilds := SimGuilds.new()            # Gilden: Verbündete teilen Claims, Türen und Alarm
-
-
 var _next_id: int = 1
-
-
 var _next_building_id: int = 1
-
-
 var _intents: Dictionary = {}            # id -> SimIntent, gilt nur für den nächsten Tick
-
-
 var _wolf_respawn_timer: float = 0.0
-
-
 var next_boss_time: float = -1.0         # Sim-Zeit, zu der der nächste Leitwolf erscheint (Ereignis); < 0 = keine Ereignisse
 var next_caravan_time: float = -1.0      # Sim-Zeit, zu der die nächste Karawane aufbricht
 var caravans: Dictionary = {}            # Karawanen (SimEvents): id -> {leader, members, stop, leg, goal, target, rest_until, raided_at}
@@ -82,7 +45,6 @@ func _init(p_data: SimData, seed: int = 12345) -> void:
 
 
 # --- Aufbau ---------------------------------------------------------------
-
 
 ## Startet ein neues Spiel: Spieler am Spawn, Wölfe an ihren Spawns. Gibt die Spieler-Kennung zurück.
 func setup_new_game() -> int:
@@ -249,7 +211,6 @@ func projectile_count(owner_id: int) -> int:
 
 # --- Steuerung ------------------------------------------------------------
 
-
 func set_intent(id: int, intent: SimIntent) -> void:
 	_intents[id] = intent
 
@@ -372,8 +333,6 @@ static func _pos_text(pos: Vector2) -> String:
 ## Bausteine werden nie freigeschaltet (Entscheidung 2026-09-08). Manche brauchen etwas in der Welt: einen eigenen
 ## Claim ("Fremder im eigenen Claim", "verlange Zoll") oder einen eigenen Sensor ("Sensor … ausgelöst"). Der Editor
 ## graut sie sonst aus, ein NPC überspringt die Regel mit Grund. Der Client-Spiegel bekommt den Stand vom Server.
-
-
 var prereqs_override: Dictionary = {}    # Besitzer -> {fact: bool}; nur im Client-Spiegel gesetzt (Selbstblock)
 
 
@@ -393,7 +352,6 @@ func can_use(c: SimCharacter, def: Dictionary) -> bool:
 
 
 # --- Orte aus Bauteilen und Leichen -------------------------------------
-
 
 ## Kennung eines Bauteils als Ort ("b<id>").
 static func place_id_of(b: SimBuilding) -> String:
@@ -478,7 +436,6 @@ func _resolve_symbolic_places(c: SimCharacter) -> void:
 
 # --- Neutraler Markt und Depot --------------------------------------------
 
-
 ## Zonendefinition aus balance.json (leer, wenn keine Zone).
 func zone_def(zone: String) -> Dictionary:
 	return data.balance.get("zones", {}).get(zone, {}) if not zone.is_empty() else {}
@@ -499,7 +456,6 @@ func in_peace_zone(pos: Vector2) -> bool:
 
 
 # --- Tick -----------------------------------------------------------------
-
 
 func tick() -> void:
 	step(tick_dt)
@@ -770,7 +726,6 @@ func eat(c: SimCharacter) -> Dictionary:
 
 # --- Namen und Sichtbarkeit ----------------------------------------------
 
-
 ## Verbündet: derselbe Besitzer oder dieselbe Gilde.
 func allied(a: String, b: String) -> bool:
 	return guilds.allied(a, b)
@@ -825,8 +780,6 @@ var guild_invite_name: String = ""
 
 
 # --- Briefe ---------------------------------------------------------------
-
-
 var letters: Dictionary = {}  # Empfänger (owner_id) -> [{from, text, time}]; liegen, bis der Empfänger sie abholt
 
 
@@ -885,7 +838,6 @@ func describe(observer: SimCharacter, other: SimCharacter) -> String:
 
 # --- Verstecken -----------------------------------------------------------
 
-
 ## Verstecken braucht hide_delay Sekunden ohne Schaden und ohne Bewegung; Entdeckte müssen warten.
 func _update_hiding(c: SimCharacter, intent: SimIntent, dt: float) -> void:
 	if c.hidden:
@@ -911,10 +863,14 @@ func reveal(c: SimCharacter) -> void:
 
 # --- Unterhalt und Welt ---------------------------------------------------
 
-
+## Hunger als Unterhalt; dazu natürliche Heilung bei sattem Hunger (Entscheidung 2026-09-08): wer satt ist und nicht
+## angegriffen wird, heilt regen_per_minute_fed je Minute – live wie offline, damit Offline-Rollen zwischen zwei Kämpfen
+## wieder zu Kräften kommen. Verbände bleiben die schnelle Heilung.
 func _update_hunger(dt: float) -> void:
 	var live_rate := data.balf("hunger.decay_per_second_live")
 	var offline_rate := data.balf("hunger.decay_per_second_offline")
+	var hungry_below := data.balf("hunger.hungry_threshold")
+	var regen := data.balf("hunger.regen_per_minute_fed") / 60.0
 	for c: SimCharacter in characters.values():
 		if c.dead or c.kind != SimCharacter.Kind.PLAYER:
 			continue
@@ -922,6 +878,8 @@ func _update_hunger(dt: float) -> void:
 		if not c.effects.is_empty():
 			rate *= SimEffects.effect_hunger_multiplier(self, c)
 		c.hunger = maxf(0.0, c.hunger - rate * dt)
+		if regen > 0.0 and c.hp < c.max_hp and c.hunger >= hungry_below and not SimSensors.is_under_attack(self, c):
+			c.hp = minf(c.max_hp, c.hp + regen * dt)
 		# Krankheit als Ereignis: trifft zufällig, live wie offline
 		if rng.randf() < data.balf("effects.sick.chance_per_hour") * dt / 3600.0:
 			SimEffects.apply_effect(self, c, "sick", -1)
@@ -973,7 +931,6 @@ func _update_wolves(dt: float) -> void:
 
 # --- Zeitsprung -----------------------------------------------------------
 
-
 ## Simuliert `seconds` Sim-Sekunden ohne Darstellung (Simulationsstufen): grob mit offline.coarse_tick_dt,
 ## solange kein Spielercharakter in Gefahr ist und nichts fliegt, sonst fein mit tick_dt. Gibt die Schrittzahl zurück.
 func advance(seconds: float) -> int:
@@ -1015,7 +972,6 @@ func is_hot() -> bool:
 
 
 # --- Abfragen -------------------------------------------------------------
-
 
 ## Uhrzeit "HH:MM" für eine Sim-Zeit (Standard: jetzt).
 func clock_string(t: float = -1.0) -> String:

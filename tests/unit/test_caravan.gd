@@ -59,7 +59,7 @@ func test_caravan_spawns_at_the_market_and_rests_first() -> void:
 	var caravan: Dictionary = world.caravans.values()[0]
 	assert_eq(String(caravan["leg"]), "rest", "rastet zuerst am Markt")
 	assert_eq(_members(caravan, "trader").size(), 1)
-	assert_eq(_members(caravan, "guard").size(), 2)
+	assert_eq(_members(caravan, "guard").size(), 3)
 	assert_eq(_members(caravan, "animal").size(), 2)
 	var trader := _members(caravan, "trader")[0]
 	assert_eq(trader.kind, SimCharacter.Kind.CARAVAN)
@@ -68,10 +68,12 @@ func test_caravan_spawns_at_the_market_and_rests_first() -> void:
 	assert_eq(int(trader.inventory.get("copper", 0)), data.bali("events.caravan.currency_stock"), "Kasse")
 	assert_lt(trader.pos.distance_to(MARKET_DEPOT), 3.0, "am Markt-Depot")
 	var guard := _members(caravan, "guard")[0]
-	assert_eq(guard.armor, 4.0)
+	assert_eq(guard.armor, 5.0, "Raid-Boss-Stärke")
+	assert_eq(guard.max_hp, 150.0)
+	assert_eq(trader.max_hp, 200.0)
 	assert_eq(guard.active_weapon, "bow", "Bogen in der Hand, Speer für die Nähe: %s" % [guard.items])
 	assert_true(guard.items.has("copper_spear"))
-	assert_eq(int(guard.inventory.get("arrow", 0)), 200)
+	assert_eq(int(guard.inventory.get("arrow", 0)), int(data.balance["events"]["caravan"]["guard"]["inventory"]["arrow"]), "Pfeile für die ganze Reise")
 	assert_eq(world.count_alive_wolves(), 3, "keine Wölfe dazugekommen")
 	assert_eq(SimEvents.event_text(spawned[0]), "Eine Karawane rastet am Neutraler Markt und handelt in Kupfer.")
 
