@@ -12,10 +12,11 @@ Unter **Releases → „Aktueller Build“** (Tag `latest`) liegen bei jedem Sta
 |---|---|
 | `Prototyp-Client.exe` | Das Spiel (Windows). Starten, Name und Passwort eingeben, Serveradresse eintragen, „Verbinden“ – oder „Einzelspieler“ mit Zeitsprung. |
 | `Prototyp-Server.exe` + `Server-starten.bat` | Server auf einem Windows-Rechner. Doppelklick auf die .bat, Mitspieler tragen deine IP mit `:7777` ein. Port 7777 (UDP) muss erreichbar sein (Router-Freigabe oder gleiches LAN). |
-| `prototyp-server.x86_64` + `install-server.sh` | Server auf Ubuntu (z. B. Hetzner): beide Dateien hochladen, `sudo bash install-server.sh` – richtet einen Dienst ein, öffnet den Port in ufw, speichert alle 60 s. |
+| `prototyp-server.x86_64` + `install-server.sh` | Server auf Ubuntu (z. B. Hetzner): beide Dateien hochladen, `sudo bash install-server.sh` – richtet einen Dienst ein, öffnet den Port in ufw. |
 
 Steuerung: WASD bewegen, Maus zielen, Linksklick angreifen, E sammeln/plündern/handeln, F essen, H Verband, Q Waffe,
 C Herstellen, B Bauen, M Marker, Enter Chat, Esc Ausloggen-Menü, R neuer Charakter nach dem Tod.
+Der Server hält die Welt in einer SQLite-Datei (`world.db`, alle 10 s die Änderungen, täglich eine Sicherung im Ordner `backups/`) und die Konten in `accounts.db`; unter Windows liegen sie in `%APPDATA%\Godot\app_userdata\Prototyp`, unter Ubuntu in `/var/lib/prototyp/godot/app_userdata/Prototyp`.
 Mehrspieler: Beim ersten Beitritt legst du mit Name und Passwort dein Konto an (Passwort mindestens 4 Zeichen, gut merken – es gibt keine Wiederherstellung). Trennen macht deinen Charakter zum NPC mit deinen Regeln; wer mit demselben Namen und Passwort wiederkommt, übernimmt ihn.
 
 ## Aus dem Quelltext

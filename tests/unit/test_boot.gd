@@ -57,7 +57,7 @@ func test_start_menu_validates_and_emits() -> void:
 
 func test_server_runner_starts_and_stops_headless() -> void:
 	var runner := ServerRunner.new()
-	runner.save_path = ""  # frische Welt, kein Spielstand des Rechners
+	runner.data_dir = ""  # frische Welt, kein Spielstand des Rechners
 	runner.configure(PackedStringArray(["7791", "3", "0"]))
 	assert_eq(runner.start(), OK)
 	assert_true(runner.running)

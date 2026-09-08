@@ -1,16 +1,22 @@
 class_name ServerRunner
 extends RefCounted
 ## Betreibt den autoritativen Server: Welt laden oder neu anlegen, NPC-Füllung, Tick über NetServer, Statistik,
-## regelmäßiges Speichern. Wird vom Skript-Einstieg (server/server_main.gd, `-s`) und vom exportierten Programm
-## (game/boot.gd mit --server) gleich benutzt. Keine Nodes; der Aufrufer treibt update(delta) je Frame.
+## regelmäßiges Speichern in SQLite (WorldStore), Konten (AccountDbStore), tägliche Sicherung. Wird vom
+## Skript-Einstieg (server/server_main.gd, `-s`) und vom exportierten Programm (game/boot.gd mit --server) gleich
+## benutzt. Keine Nodes; der Aufrufer treibt update(delta) je Frame.
 
-const SAVE_PATH: String = "user://server_save.dat"
+const WORLD_DB: String = "world.db"
+const ACCOUNTS_DB: String = "accounts.db"
+const LEGACY_SAVE: String = "server_save.dat"      # Spielstand vor Schritt 52, wird einmalig übernommen
+const LEGACY_ACCOUNTS: String = "accounts.dat"     # Konten vor Schritt 52, werden einmalig übernommen
+const BACKUP_DIR: String = "backups"
+const BACKUP_KEEP: int = 7
 const STATS_INTERVAL: float = 5.0
-const SAVE_INTERVAL: float = 60.0
+const SAVE_INTERVAL: float = 10.0                  # nur geänderte Zeilen, daher günstig
 
 var port: int = 7777
-var save_path: String = SAVE_PATH  # leer = nicht laden und nicht speichern (Tests)
-var accounts_path: String = Accounts.AccountFileStore.PATH  # leer = offener Server ohne Passwörter
+var data_dir: String = "user://"   # Ordner für world.db, accounts.db, backups/; leer = nur im Speicher (Tests)
+var use_accounts: bool = true      # false = offener Server ohne Passwörter ('open')
 var fill_npcs: int = 0
 var run_seconds: float = 0.0
 var map_arg: String = ""
@@ -18,6 +24,8 @@ var map_arg: String = ""
 var data: SimData
 var world: SimWorld
 var server := NetServer.new()
+var store: WorldStore = null
+var account_store: AccountDbStore = null
 var running: bool = false
 
 var _stats_timer: float = 0.0
@@ -32,7 +40,7 @@ func configure(args: PackedStringArray) -> void:
 	var positional := PackedStringArray()
 	for arg: String in args:
 		if arg == "open":
-			accounts_path = ""
+			use_accounts = false
 		else:
 			positional.append(arg)
 	if positional.size() > 0:
@@ -45,7 +53,7 @@ func configure(args: PackedStringArray) -> void:
 		map_arg = positional[3]
 
 
-## Welt laden oder anlegen und den Port öffnen. Rückgabe OK oder der Fehler (Meldung steht auf der Konsole).
+## Welt laden oder anlegen, Konten öffnen und den Port öffnen. Rückgabe OK oder der Fehler (Meldung auf der Konsole).
 func start() -> Error:
 	data = SimData.load_from_dir("res://data")
 	if not data.is_valid():
@@ -58,22 +66,12 @@ func start() -> Error:
 			printerr("Karte unbrauchbar: ", problems)
 			return ERR_INVALID_DATA
 		print("Karte: %s (%d×%d, %d Spieler-Spawns)" % [map_arg, data.map_width, data.map_height, data.player_spawns.size()])
-	var saved := SimSave.load_from_file(data, save_path) if not save_path.is_empty() else {}
-	if saved.is_empty():
-		world = SimWorld.new(data, int(Time.get_unix_time_from_system()) % 100000)
-		world.setup_new_game()
-		world.characters.erase(1)  # der lokale 'Du'-Charakter gehört auf dem Server niemandem
-		print("Neue Welt.")
-	else:
-		world = saved["world"]
-		print("Welt geladen: Uhr %s, %d Charaktere." % [world.clock_string(), world.characters.size()])
+	var err := _open_world()
+	if err != OK:
+		return err
 	_fill_npcs()
-	if not accounts_path.is_empty():
-		server.accounts = Accounts.new(Accounts.AccountFileStore.new(accounts_path))
-		print("Konten: %d bekannt, Passwörter erforderlich." % server.accounts.count())
-	else:
-		print("Offener Server: keine Passwörter (Bots, Tests).")
-	var err := server.start(data, world, port)
+	_open_accounts()
+	err = server.start(data, world, port)
 	if err != OK:
 		return err
 	running = true
@@ -103,18 +101,71 @@ func update(delta: float) -> bool:
 	return true
 
 
+## Geänderte Zeilen in die Datenbank schreiben; einmal am Tag eine Sicherungskopie.
 func save() -> void:
-	if world != null and not save_path.is_empty():
-		SimSave.save_to_file(world, save_path)
+	if world == null or store == null:
+		return
+	if store.save(world) != OK:
+		printerr("Speichern fehlgeschlagen: ", store.path)
+		return
+	var today := Time.get_date_string_from_system(true)
+	if store.meta_value("last_backup_day") != today:
+		var target := store.backup(data_dir.path_join(BACKUP_DIR), BACKUP_KEEP)
+		if not target.is_empty():
+			store.set_meta_value("last_backup_day", today)
+			print("Sicherung: ", target)
 
 
-## Speichern und Port schließen (auch bei Strg+C / Fensterschluss).
+## Speichern, Datenbanken schließen und Port schließen (auch bei Strg+C / Fensterschluss).
 func stop() -> void:
 	if not running:
 		return
 	running = false
 	save()
 	server.stop()
+	if store != null:
+		store.close()
+	if account_store != null:
+		account_store.close()
+
+
+## Welt aus world.db laden; ohne Datenbank den alten Spielstand übernehmen oder eine neue Welt anlegen.
+func _open_world() -> Error:
+	if not data_dir.is_empty():
+		DirAccess.make_dir_recursive_absolute(data_dir)
+		store = WorldStore.new()
+		if store.open(data_dir.path_join(WORLD_DB)) != OK:
+			return ERR_CANT_OPEN
+		if not store.has_world() and store.import_legacy(data, data_dir.path_join(LEGACY_SAVE)):
+			print("Alter Spielstand übernommen: %s → %s" % [LEGACY_SAVE, WORLD_DB])
+		if store.has_world():
+			world = store.load_world(data)
+			if world == null:
+				printerr("Datenbank unlesbar: ", store.path)
+				return ERR_INVALID_DATA
+			print("Welt geladen: Uhr %s, %d Charaktere, %d Bauteile (%s)." % [world.clock_string(), world.characters.size(), world.map.buildings.size(), store.path])
+			return OK
+	world = SimWorld.new(data, int(Time.get_unix_time_from_system()) % 100000)
+	world.setup_new_game()
+	world.characters.erase(1)  # der lokale 'Du'-Charakter gehört auf dem Server niemandem
+	print("Neue Welt.")
+	return OK
+
+
+## Konten: Datenbank neben der Welt, alte Kontodatei einmalig übernehmen; ohne Ordner nur im Speicher.
+func _open_accounts() -> void:
+	if not use_accounts:
+		print("Offener Server: keine Passwörter (Bots, Tests).")
+		return
+	if data_dir.is_empty():
+		server.accounts = Accounts.new(Accounts.AccountStore.new())
+	else:
+		account_store = AccountDbStore.new(data_dir.path_join(ACCOUNTS_DB))
+		var imported := account_store.import_legacy(data_dir.path_join(LEGACY_ACCOUNTS))
+		if imported > 0:
+			print("Alte Konten übernommen: %d (%s → %s)" % [imported, LEGACY_ACCOUNTS, ACCOUNTS_DB])
+		server.accounts = Accounts.new(account_store)
+	print("Konten: %d bekannt, Passwörter erforderlich." % server.accounts.count())
 
 
 ## 'gen:BxH:Seed' oder Pfad zu einer map.json.

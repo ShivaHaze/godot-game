@@ -1,7 +1,7 @@
 #!/bin/bash
 # Richtet den Spielserver auf einem Ubuntu-Server (z. B. Hetzner) als Systemdienst ein.
 # Aufruf als root im Ordner mit prototyp-server.x86_64:  sudo bash install-server.sh [Port] [NPC-Füllung]
-# Danach: systemctl status prototyp-server · journalctl -u prototyp-server -f · Spielstand in /var/lib/prototyp/
+# Danach: systemctl status prototyp-server · journalctl -u prototyp-server -f · Welt und Konten in /var/lib/prototyp/
 set -euo pipefail
 PORT="${1:-7777}"
 NPCS="${2:-200}"
@@ -49,4 +49,4 @@ sleep 2
 systemctl --no-pager status prototyp-server | head -12
 echo
 echo "Fertig. Spieler tragen im Startbildschirm ein: $(hostname -I 2>/dev/null | awk '{print $1}'):$PORT"
-echo "Log: journalctl -u prototyp-server -f · Spielstand: $DATA_DIR/godot/app_userdata/Prototyp/server_save.dat"
+echo "Log: journalctl -u prototyp-server -f · Welt: $DATA_DIR/godot/app_userdata/Prototyp/world.db (Sicherungen in backups/), Konten: accounts.db"

@@ -129,13 +129,13 @@ func test_open_server_without_accounts_accepts_names_only() -> void:
 
 func test_runner_flag_open_disables_accounts() -> void:
 	var runner := ServerRunner.new()
-	runner.save_path = ""
+	runner.data_dir = ""
 	runner.configure(PackedStringArray(["7810", "0", "0", "open"]))
-	assert_eq(runner.accounts_path, "", "'open' schaltet Konten ab")
+	assert_false(runner.use_accounts, "'open' schaltet Konten ab")
 	assert_eq(runner.port, 7810)
 	var secured := ServerRunner.new()
 	secured.configure(PackedStringArray(["7811"]))
-	assert_eq(secured.accounts_path, Accounts.AccountFileStore.PATH, "sonst Konten in der Standarddatei")
+	assert_true(secured.use_accounts, "sonst Konten in der Datenbank")
 
 
 func _pump(server: NetServer, clients: Array, frames: int) -> void:
