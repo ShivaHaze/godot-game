@@ -217,6 +217,8 @@ func refresh() -> void:
 	var armor_item := world.armor_item_of(c)
 	if not armor_item.is_empty():
 		weapon_name += " · %s %d/%d" % [world.data.items[armor_item]["name"], int(ceilf(world.durability_left(c, armor_item))), int(world.durability_max(c, armor_item))]
+	elif not world.owned_armors(c).is_empty():
+		weapon_name += " · keine Rüstung angelegt (C: Anlegen)"
 	_status.text = "Modus: %s\nUhr %s\nLeben %d/%d\nHunger %s\n%s (%d/%d)\nWaffe: %s · Rüstung %d%s%s" % [
 		mode_text,
 		world.clock_string(),

@@ -134,6 +134,14 @@ func _on_message(peer: ENetPacketPeer, msg: Dictionary) -> void:
 		"weapon":
 			if c != null:
 				world.set_active_weapon(c, String(msg.get("item", "")))
+		"equip":
+			if c != null and c.control == SimCharacter.Controller.PLAYER and not c.dead:
+				var item_id := String(msg.get("item", ""))
+				var reason := world.equip_armor(c, item_id)
+				if not reason.is_empty():
+					_send(peer, {"t": "info", "text": "Rüstung: %s" % reason}, true)
+				else:
+					_send(peer, {"t": "info", "text": ("%s angelegt." % data.items[item_id]["name"]) if not item_id.is_empty() else "Rüstung abgelegt."}, true)
 		"build":
 			if c != null:
 				var origin := Vector2i(int(msg.get("x", 0)), int(msg.get("y", 0)))

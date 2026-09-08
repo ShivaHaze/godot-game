@@ -336,18 +336,16 @@ func can_use(c: SimCharacter, def: Dictionary) -> bool:
 
 # --- Ausrüstung -----------------------------------------------------------
 
-## Leitet Rüstung und Nahkampfwerte aus den besessenen Gegenständen ab (nur Spielercharaktere).
+## Leitet Rüstung und Nahkampfwerte aus der getragenen Rüstung und der aktiven Waffe ab (nur Spielercharaktere).
+## Rüstung zählt nur, wenn sie angelegt ist (equip_armor); besitzen allein schützt nicht.
 func refresh_equipment(c: SimCharacter) -> void:
 	if c.kind != SimCharacter.Kind.PLAYER:
 		return
-	var best_armor := 0.0
-	c.armor_slow = 0.0
-	for item_id: String in c.items:
-		var def: Dictionary = data.items.get(item_id, {})
-		if def.get("kind", "") == "armor" and float(def["armor"]) > best_armor:
-			best_armor = float(def["armor"])
-			c.armor_slow = float(def.get("slow", 0.0))  # die beste Rüstung wird getragen, mit ihrem Gewicht
-	c.armor = data.balf("character.armor") + best_armor
+	if not c.worn_armor.is_empty() and (not c.items.has(c.worn_armor) or data.items.get(c.worn_armor, {}).get("kind", "") != "armor"):
+		c.worn_armor = ""  # zerbrochen, geplündert oder unbekannt
+	var worn: Dictionary = data.items.get(c.worn_armor, {})
+	c.armor = data.balf("character.armor") + float(worn.get("armor", 0.0))
+	c.armor_slow = float(worn.get("slow", 0.0))  # schwere Rüstung verlangsamt, solange sie getragen wird
 	if not c.items.has(c.active_weapon):
 		c.active_weapon = ""
 		for item_id: String in c.items:
@@ -463,16 +461,38 @@ func wear(c: SimCharacter, item_id: String, amount: float = 1.0) -> void:
 		SimChronicle.add(self, c, "%s zerbrochen" % data.items[item_id]["name"])
 
 
-## Beste intakte Rüstung (Kennung) oder leer.
+## Getragene Rüstung (Kennung) oder leer.
 func armor_item_of(c: SimCharacter) -> String:
-	var best := ""
-	var best_value := 0.0
-	for item_id: String in c.items:
-		var def: Dictionary = data.items.get(item_id, {})
-		if def.get("kind", "") == "armor" and float(def["armor"]) > best_value:
-			best_value = float(def["armor"])
-			best = item_id
-	return best
+	return c.worn_armor if c.items.has(c.worn_armor) else ""
+
+
+## Rüstung anlegen (leer = ablegen). Explizit, nie automatisch: der Spieler entscheidet, was er trägt
+## (Design: schwere Rüstung verlangsamt, Gegenmittel ist Ablegen). Rückgabe: Grund oder leer.
+func equip_armor(c: SimCharacter, item_id: String) -> String:
+	if c.dead:
+		return "tot"
+	if not item_id.is_empty():
+		if not c.items.has(item_id):
+			return "nicht vorhanden"
+		if data.items.get(item_id, {}).get("kind", "") != "armor":
+			return "keine Rüstung"
+		if c.worn_armor == item_id:
+			return "schon angelegt"
+	elif c.worn_armor.is_empty():
+		return "nichts angelegt"
+	c.worn_armor = item_id
+	refresh_equipment(c)
+	events.append({"type": "equip", "id": c.id, "item": item_id})
+	return ""
+
+
+## Besessene Rüstungen (Kennungen), in Datenreihenfolge.
+func owned_armors(c: SimCharacter) -> Array[String]:
+	var result: Array[String] = []
+	for item_id: String in data.item_order:
+		if c.items.has(item_id) and data.items[item_id].get("kind", "") == "armor":
+			result.append(item_id)
+	return result
 
 
 func _craft_consumable(c: SimCharacter, rid: String) -> String:

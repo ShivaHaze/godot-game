@@ -19,7 +19,7 @@ const CHARACTER_FLOATS: Array[String] = [
 const CHARACTER_INTS: Array[String] = [
 	"id", "kind", "control", "last_attacker_id", "active_rule_index", "last_logged_rule_index", "marker_counter",
 ]
-const CHARACTER_STRINGS: Array[String] = ["name", "owner_id", "role_id", "ai_state", "active_weapon"]
+const CHARACTER_STRINGS: Array[String] = ["name", "owner_id", "role_id", "ai_state", "active_weapon", "worn_armor"]
 const CHARACTER_BOOLS: Array[String] = ["dead", "hidden", "transition_logged"]
 const CHARACTER_VECTORS: Array[String] = ["pos", "prev_pos", "facing", "logout_pos", "leash_center", "ai_target_pos", "home_pos"]
 

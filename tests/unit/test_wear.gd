@@ -52,6 +52,7 @@ func test_melee_and_armor_wear() -> void:
 	var victim := world.spawn_player(OPEN + Vector2(0.8, 0), "p2", "Opfer")
 	victim.inventory["wood"] = 6
 	assert_eq(world.craft(victim, "wood_armor"), "")
+	assert_eq(world.equip_armor(victim, "wood_armor"), "")
 	world.spatial.rebuild(world.characters)
 	var intent := SimIntent.new()
 	intent.melee = true

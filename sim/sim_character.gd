@@ -34,6 +34,7 @@ var hunger: float = 100.0
 var inventory: Dictionary = {}       # Rohstoff-Kennung -> Anzahl
 var items: Array[String] = []        # Besessene Ausrüstung (Kennungen aus items.json)
 var active_weapon: String = ""       # Aktive Waffe (Kennung) oder leer
+var worn_armor: String = ""          # Angelegte Rüstung (Kennung) oder leer; wird explizit an- und abgelegt, nie automatisch
 var durability: Dictionary = {}      # Gegenstand -> {"left": Rest, "max": aktuelles Maximum}; siehe balance.json wear
 
 var fire_cooldown: float = 0.0

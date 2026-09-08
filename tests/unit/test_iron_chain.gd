@@ -121,6 +121,8 @@ func test_iron_needs_coal_axe_breaks_stone_wall_armor_slows() -> void:
 	player.inventory["iron"] = 5
 	player.inventory["cloth"] = 2
 	assert_eq(world.craft(player, "iron_armor"), "")
+	assert_eq(player.armor_slow, 0.0, "nicht angelegt: kein Gewicht")
+	assert_eq(world.equip_armor(player, "iron_armor"), "")
 	assert_eq(player.armor, data.balf("character.armor") + 5.0)
 	assert_almost_eq(player.armor_slow, 0.15, 0.001)
 	player.pos = Vector2(10.5, 5.5)

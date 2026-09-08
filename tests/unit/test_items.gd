@@ -59,8 +59,46 @@ func test_craft_needs_resources_and_updates_equipment() -> void:
 	assert_eq(world.craft(player, "club"), "schon vorhanden")
 	assert_eq(world.craft(player, "wood_armor"), "")
 	assert_eq(player.inventory["wood"], 1)
-	assert_eq(player.armor, data.balf("character.armor") + 3.0, "beste Rüstung zählt")
+	assert_eq(player.armor, data.balf("character.armor"), "Rüstung schützt erst, wenn sie angelegt ist")
+	assert_eq(world.equip_armor(player, "wood_armor"), "")
+	assert_eq(player.armor, data.balf("character.armor") + 3.0, "angelegte Rüstung zählt")
 	assert_eq(world.craft(player, "unbekannt"), "unbekannter Gegenstand")
+
+
+func test_armor_is_worn_explicitly() -> void:
+	player.inventory["wood"] = 6
+	player.inventory["cloth"] = 4
+	assert_eq(world.equip_armor(player, "wood_armor"), "nicht vorhanden")
+	assert_eq(world.equip_armor(player, "sling"), "keine Rüstung")
+	assert_eq(world.equip_armor(player, ""), "nichts angelegt")
+	assert_eq(world.craft(player, "wood_armor"), "")
+	assert_eq(world.craft(player, "cloth_armor"), "")
+	assert_eq(world.armor_item_of(player), "", "besitzen allein trägt nichts")
+	assert_eq(world.owned_armors(player), ["cloth_armor", "wood_armor"] as Array[String])
+	assert_eq(world.equip_armor(player, "cloth_armor"), "")
+	assert_eq(world.armor_item_of(player), "cloth_armor")
+	assert_eq(player.armor, data.balf("character.armor") + 2.0)
+	assert_eq(world.equip_armor(player, "cloth_armor"), "schon angelegt")
+	assert_eq(world.equip_armor(player, "wood_armor"), "", "wechseln")
+	assert_eq(player.armor, data.balf("character.armor") + 3.0)
+	var equips := 0
+	for event: Dictionary in world.events:
+		if event.get("type") == "equip":
+			equips += 1
+	assert_eq(equips, 2, "Ereignis je Wechsel")
+	assert_eq(world.equip_armor(player, ""), "", "ablegen")
+	assert_eq(player.armor, data.balf("character.armor"))
+	assert_true(player.items.has("wood_armor"), "abgelegte Rüstung bleibt im Besitz")
+	# Zerbrochene Rüstung ist automatisch abgelegt
+	world.equip_armor(player, "wood_armor")
+	world.wear(player, "wood_armor", 1000.0)
+	assert_eq(player.worn_armor, "")
+	assert_eq(player.armor, data.balf("character.armor"))
+	# Spielstand trägt die getragene Rüstung
+	world.equip_armor(player, "cloth_armor")
+	var copy := SimSave.world_from_dict(data, SimSave.world_to_dict(world))
+	assert_eq(copy.get_character(player.id).worn_armor, "cloth_armor")
+	assert_eq(copy.get_character(player.id).armor, data.balf("character.armor") + 2.0)
 
 
 func test_switch_weapon_and_melee_hit() -> void:
@@ -91,6 +129,7 @@ func test_armor_reduces_projectile_damage() -> void:
 	other.facing = Vector2.LEFT
 	other.inventory["wood"] = 6
 	world.craft(other, "wood_armor")
+	world.equip_armor(other, "wood_armor")
 	var intent := SimIntent.new()
 	intent.aim = Vector2.RIGHT
 	intent.shoot = true
@@ -111,6 +150,8 @@ func test_loot_transfers_items() -> void:
 	assert_eq(loots.size(), 1)
 	assert_true(player.items.has("club"))
 	assert_true(player.items.has("wood_armor"))
+	assert_eq(player.armor, data.balf("character.armor"), "geplünderte Rüstung wird nicht automatisch getragen")
+	assert_eq(world.equip_armor(player, "wood_armor"), "")
 	assert_eq(player.armor, data.balf("character.armor") + 3.0)
 	assert_false(other.items.has("club"))
 	assert_eq(other.items.size(), 1, "Startwaffe bleibt bei der Leiche, weil der Plünderer sie schon hat")
@@ -141,10 +182,12 @@ func test_save_keeps_items() -> void:
 	player.inventory["wood"] = 9
 	world.craft(player, "club")
 	world.craft(player, "wood_armor")
+	world.equip_armor(player, "wood_armor")
 	world.set_active_weapon(player, "club")
 	var copy := SimSave.world_from_dict(data, SimSave.world_to_dict(world))
 	var loaded: SimCharacter = copy.get_character(player.id)
 	assert_eq(loaded.items, player.items)
 	assert_eq(loaded.active_weapon, "club")
+	assert_eq(loaded.worn_armor, "wood_armor")
 	assert_eq(loaded.armor, player.armor)
 	assert_eq(loaded.melee_damage, 16.0)

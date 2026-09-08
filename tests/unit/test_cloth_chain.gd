@@ -33,10 +33,13 @@ func test_chain_fibers_cloth_bandage_and_armor() -> void:
 	assert_true(world.can_use(player, data.action_def("craft")), "erstes Herstellen schaltet 'stelle her' frei")
 	player.inventory["cloth"] = 4
 	assert_eq(world.craft(player, "cloth_armor"), "")
-	assert_eq(player.armor, data.balf("character.armor") + 2.0, "Stoffrüstung zählt")
+	assert_eq(world.equip_armor(player, "cloth_armor"), "")
+	assert_eq(player.armor, data.balf("character.armor") + 2.0, "Stoffrüstung angelegt")
 	player.inventory["wood"] = 6
 	assert_eq(world.craft(player, "wood_armor"), "")
-	assert_eq(player.armor, data.balf("character.armor") + 3.0, "beste Rüstung zählt")
+	assert_eq(player.armor, data.balf("character.armor") + 2.0, "Bauen wechselt die Rüstung nicht")
+	assert_eq(world.equip_armor(player, "wood_armor"), "")
+	assert_eq(player.armor, data.balf("character.armor") + 3.0, "Holzpanzer angelegt")
 
 
 func test_npc_crafts_cloth_then_bandages_and_logs() -> void:

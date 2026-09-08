@@ -117,6 +117,7 @@ func _ready() -> void:
 	craft_panel = CraftPanelScript.new()
 	craft_panel.craft_requested.connect(_on_craft_requested)
 	craft_panel.repair_requested.connect(_on_repair_requested)
+	craft_panel.equip_requested.connect(_on_equip_requested)
 	craft_panel.closed.connect(func() -> void: craft_panel.close())
 	add_child(craft_panel)
 
@@ -699,6 +700,24 @@ func _on_repair_requested(item_id: String) -> void:
 	var reason := world.repair(player, item_id)
 	var label := String(data.items[item_id]["name"])
 	craft_panel.show_status(("%s repariert (Maximum sinkt je Reparatur)." % label) if reason.is_empty() else "Geht nicht: %s" % reason)
+	craft_panel.refresh()
+
+
+## Rüstung anlegen oder ablegen (leer): nie automatisch, der Spieler entscheidet.
+func _on_equip_requested(item_id: String) -> void:
+	var player := world.get_character(player_id)
+	if player == null:
+		return
+	if net != null:
+		net.send({"t": "equip", "item": item_id}, true)
+		return
+	var reason := world.equip_armor(player, item_id)
+	if reason.is_empty():
+		var text := ("%s angelegt%s." % [data.items[item_id]["name"], (" – schwer, −%d %% Tempo" % int(roundf(player.armor_slow * 100.0))) if player.armor_slow > 0.0 else ""]) if not item_id.is_empty() else "Rüstung abgelegt."
+		craft_panel.show_status(text)
+		hud.show_message(text, 2.0)
+	else:
+		craft_panel.show_status("Geht nicht: %s" % reason)
 	craft_panel.refresh()
 
 

@@ -4,6 +4,7 @@ extends CanvasLayer
 
 signal craft_requested(item_id: String)
 signal repair_requested(item_id: String)
+signal equip_requested(item_id: String)   # leer = Rüstung ablegen
 signal closed
 
 var data: SimData
@@ -16,6 +17,7 @@ var _status: Label
 var _buttons: Dictionary = {}  # item_id -> Button
 var _info: Dictionary = {}     # item_id -> Label
 var _repair: Dictionary = {}   # item_id -> Button
+var _equip: Dictionary = {}    # item_id -> Button (nur Rüstung)
 
 
 func _ready() -> void:
@@ -80,6 +82,7 @@ func _build_rows() -> void:
 	_buttons.clear()
 	_info.clear()
 	_repair.clear()
+	_equip.clear()
 	var all_ids: Array[String] = []
 	all_ids.assign(data.item_order)
 	all_ids.append_array(data.craftable_resources())
@@ -111,6 +114,12 @@ func _build_rows() -> void:
 			repair.pressed.connect(func() -> void: repair_requested.emit(item_id))
 			row.add_child(repair)
 			_repair[item_id] = repair
+			if String(def.get("kind", "")) == "armor":
+				var equip := Button.new()
+				equip.text = "Anlegen"
+				equip.pressed.connect(func() -> void: equip_requested.emit("" if character.worn_armor == item_id else item_id))
+				row.add_child(equip)
+				_equip[item_id] = equip
 		_rows.add_child(row)
 
 
@@ -167,8 +176,12 @@ func refresh() -> void:
 				repair.disabled = not reason.is_empty()
 				repair.tooltip_text = reason
 				_info[item_id].text = _describe(def) + " · Zustand %d/%d" % [int(ceilf(world.durability_left(character, item_id))), int(world.durability_max(character, item_id))]
+		if _equip.has(item_id):
+			var equip: Button = _equip[item_id]
+			equip.visible = character.items.has(item_id)
+			equip.text = "Ablegen" if character.worn_armor == item_id else "Anlegen"
 		if data.items.has(item_id) and character.items.has(item_id):
-			button.text = "vorhanden"
+			button.text = "getragen" if character.worn_armor == item_id else "vorhanden"
 			button.disabled = true
 			continue
 		if not data.items.has(item_id):
