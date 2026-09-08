@@ -19,7 +19,7 @@ func before_each() -> void:
 
 
 func _depot_in(zone: String) -> SimBuilding:
-	for b: SimBuilding in world.depots():
+	for b: SimBuilding in SimTrade.depots(world):
 		if world.map.zone(SimMap.cell_of(b.center())) == zone:
 			return b
 	return null
@@ -34,7 +34,7 @@ func test_outpost_zone_no_peace_no_building() -> void:
 	var depot := _outpost_depot()
 	assert_not_null(depot)
 	assert_eq(depot.label, "Outpost-Depot 1")
-	assert_eq(world.depots().size(), 2, "Markt- und Outpost-Depot")
+	assert_eq(SimTrade.depots(world).size(), 2, "Markt- und Outpost-Depot")
 	assert_eq(_depot_in("market").label, "Markt-Depot 1", "Zählung je Zone")
 	assert_false(world.in_market(depot.center()))
 	assert_false(world.in_peace_zone(depot.center()), "kein Kampfverbot")
@@ -42,10 +42,10 @@ func test_outpost_zone_no_peace_no_building() -> void:
 	player.pos = Vector2(12.5, 20.5)
 	var victim := world.spawn_player(Vector2(13.3, 20.5), "p2", "Opfer")
 	world.spatial.rebuild(world.characters)
-	world.apply_damage(victim, 10.0, Vector2.RIGHT, player.id)
+	SimCombat.apply_damage(world, victim, 10.0, Vector2.RIGHT, player.id)
 	assert_lt(victim.hp, victim.max_hp, "im Outpost gibt es Schaden")
 	player.inventory["wood"] = 10
-	assert_eq(world.can_place(player, "wood_wall", Vector2i(26, 40), 0), "im Räuber-Outpost wird nicht gebaut")
+	assert_eq(SimConstruction.can_place(world, player, "wood_wall", Vector2i(26, 40), 0), "im Räuber-Outpost wird nicht gebaut")
 	assert_eq(world.claims.claim_tile_reason(world, player, Vector2i(13, 20)), "du brauchst einen stehenden Anker")
 
 
@@ -54,16 +54,16 @@ func test_outpost_depot_low_fee_and_raid_goods() -> void:
 	player.pos = depot.center() + Vector2(-1.2, 0)
 	player.inventory["powder"] = 20
 	player.inventory["berries"] = 20
-	assert_almost_eq(world.depot_fee_of(depot), 0.05, 0.001)
-	assert_eq(world.depot_deposit(player, depot, "powder", 20), "", "Raidwaren erlaubt")
-	assert_eq(int(world.depot_stock(depot, "p1")["powder"]), 19, "5 % Gebühr")
-	assert_eq(world.depot_deposit(player, depot, "berries", 20), "")
-	assert_eq(int(world.depot_stock(depot, "p1")["berries"]), 19)
+	assert_almost_eq(SimTrade.depot_fee_of(world, depot), 0.05, 0.001)
+	assert_eq(SimTrade.depot_deposit(world, player, depot, "powder", 20), "", "Raidwaren erlaubt")
+	assert_eq(int(SimTrade.depot_stock(world, depot, "p1")["powder"]), 19, "5 % Gebühr")
+	assert_eq(SimTrade.depot_deposit(world, player, depot, "berries", 20), "")
+	assert_eq(int(SimTrade.depot_stock(world, depot, "p1")["berries"]), 19)
 	var market := _depot_in("market")
-	assert_almost_eq(world.depot_fee_of(market), 0.2, 0.001)
+	assert_almost_eq(SimTrade.depot_fee_of(world, market), 0.2, 0.001)
 	player.pos = market.center() + Vector2(-1.2, 0)
 	player.inventory["powder"] = 2
-	assert_eq(world.depot_deposit(player, market, "powder", 2), "Raidware: am neutralen Markt nicht handelbar")
+	assert_eq(SimTrade.depot_deposit(world, player, market, "powder", 2), "Raidware: am neutralen Markt nicht handelbar")
 
 
 func test_generator_places_one_outpost_far_from_markets() -> void:
@@ -74,7 +74,7 @@ func test_generator_places_one_outpost_far_from_markets() -> void:
 	var outposts := 0
 	var markets: Array[Vector2] = []
 	var outpost_pos := Vector2.ZERO
-	for b: SimBuilding in big.depots():
+	for b: SimBuilding in SimTrade.depots(big):
 		if big.map.zone(SimMap.cell_of(b.center())) == "outpost":
 			outposts += 1
 			outpost_pos = b.center()

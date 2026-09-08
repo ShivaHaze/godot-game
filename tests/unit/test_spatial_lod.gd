@@ -41,8 +41,8 @@ func test_nearest_enemy_uses_grid_and_ignores_far() -> void:
 	var near := world.spawn_player(player.pos + Vector2(2, 0), "p2", "nah")
 	world.spawn_player(player.pos + Vector2(9, 0), "p3", "fern")
 	world.tick()
-	assert_eq(world.nearest_enemy(player, 5.0), near)
-	assert_null(world.nearest_enemy(player, 1.0))
+	assert_eq(SimCombat.nearest_enemy(world, player, 5.0), near)
+	assert_null(SimCombat.nearest_enemy(world, player, 1.0))
 
 
 func test_far_npc_runs_coarse_near_npc_runs_fine() -> void:
@@ -134,7 +134,7 @@ func test_coarse_fight_back_keeps_leash_exactly() -> void:
 	for i in 25:
 		world.tick()  # erste grobe Entscheidung: 'bleib bei Hier (3)' setzt die Leine
 	assert_eq(npc.leash_radius, 3.0)
-	world.apply_damage(npc, 1.0, Vector2.LEFT, wolf.id)
+	SimCombat.apply_damage(world, npc, 1.0, Vector2.LEFT, wolf.id)
 	var worst := 0.0
 	for i in 20 * 6:
 		world.tick()

@@ -60,12 +60,12 @@ func test_blocks_with_requirement_follow_the_world_state() -> void:
 	assert_false(world.can_use(player, data.condition_def("stranger_in_claim")))
 	assert_false(world.can_use(player, data.action_def("toll")))
 	assert_false(world.can_use(player, data.condition_def("sensor_triggered")))
-	var anchor := world.place_building(player, "anchor", Vector2i(44, 10), 0)
+	var anchor := SimConstruction.place_building(world, player, "anchor", Vector2i(44, 10), 0)
 	assert_not_null(anchor)
 	assert_true(world.can_use(player, data.condition_def("stranger_in_claim")), "mit Claim verfügbar")
 	assert_true(world.can_use(player, data.action_def("toll")))
 	player.inventory["wire"] = 1
-	assert_not_null(world.place_building(player, "sensor", Vector2i(40, 10), 0))
+	assert_not_null(SimConstruction.place_building(world, player, "sensor", Vector2i(40, 10), 0))
 	assert_true(world.can_use(player, data.condition_def("sensor_triggered")), "mit Sensor verfügbar")
 	assert_eq(world.prerequisites_of("p1"), {"own_claim": true, "own_sensor": true})
 	# Gildenmitglied teilt den Sensor (Voraussetzung über Verbündete)
@@ -79,7 +79,7 @@ func test_blocks_with_requirement_follow_the_world_state() -> void:
 
 
 func test_rule_falls_through_with_reason_when_requirement_is_lost() -> void:
-	var anchor := world.place_building(player, "anchor", Vector2i(44, 10), 0)
+	var anchor := SimConstruction.place_building(world, player, "anchor", Vector2i(44, 10), 0)
 	var rules := data.normalize_rule_list([
 		{"if": {"condition": "stranger_in_claim"}, "then": {"action": "toll", "params": {"resource": "wood", "amount": 1}}},
 		{"if": {"condition": "else"}, "then": {"action": "stay_at", "params": {"place": "here", "radius": 3}}},
@@ -88,7 +88,7 @@ func test_rule_falls_through_with_reason_when_requirement_is_lost() -> void:
 	player.logout_time = -1e9
 	assert_eq(NpcController.blocked_reason(world, player, rules[0]), "kein Mensch ohne Freigang im Claim", "mit Claim: nur der Zoll-Grund")
 	# Anker zerstört und Schonfrist abgelaufen: der Claim ist weg, der Baustein fällt mit Grund durch
-	world.damage_building(anchor, 1000.0, -1)
+	SimConstruction.damage_building(world, anchor, 1000.0, -1)
 	world.advance(data.balf("claim.grace_hours") * 3600.0 + 5.0)
 	assert_null(world.claims.claim_of_owner("p1"))
 	assert_eq(NpcController.blocked_reason(world, player, rules[0]), "braucht einen eigenen Claim (Anker)")
@@ -98,7 +98,7 @@ func test_rule_falls_through_with_reason_when_requirement_is_lost() -> void:
 func test_save_has_no_unlocks_and_mirror_gets_requirements_from_server() -> void:
 	var dict := SimSave.world_to_dict(world)
 	assert_false(dict.has("unlocks"), "nichts mehr zu speichern")
-	world.place_building(player, "anchor", Vector2i(44, 10), 0)
+	SimConstruction.place_building(world, player, "anchor", Vector2i(44, 10), 0)
 	var block := NetProtocol.self_block_for(world, player)
 	block["reqs"] = world.prerequisites_of(player.owner_id)
 	var mirror := SimWorld.new(data, 0)

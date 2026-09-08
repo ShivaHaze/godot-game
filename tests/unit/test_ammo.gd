@@ -28,13 +28,13 @@ func _bow() -> void:
 	player.inventory["fibers"] = 2
 	player.inventory["stone"] = 2
 	world.spawn_building("workbench", Vector2i(20, 6), "p1")  # Station in Reichweite
-	assert_eq(world.craft(player, "bow"), "")
-	assert_true(world.set_active_weapon(player, "bow"))
+	assert_eq(SimCrafting.craft(world, player, "bow"), "")
+	assert_true(SimCrafting.set_active_weapon(world, player, "bow"))
 
 
 func test_arrows_are_crafted_in_batches_and_consumed_per_shot() -> void:
 	_bow()
-	assert_eq(world.craft(player, "arrow"), "")
+	assert_eq(SimCrafting.craft(world, player, "arrow"), "")
 	assert_eq(int(player.inventory["arrow"]), 4, "4 Pfeile je Herstellung")
 	assert_eq(int(player.inventory["wood"]), 10 - 4 - 1)
 	var intent := SimIntent.new()
@@ -55,10 +55,10 @@ func test_arrows_are_crafted_in_batches_and_consumed_per_shot() -> void:
 		if event.get("type") == "no_ammo":
 			no_ammo = true
 	assert_true(no_ammo)
-	assert_eq(world.durability_left(player, "bow"), float(data.items["bow"]["durability"]) - 1.0, "nur der echte Schuss nutzt ab")
+	assert_eq(SimCrafting.durability_left(world, player, "bow"), float(data.items["bow"]["durability"]) - 1.0, "nur der echte Schuss nutzt ab")
 	# Die Schleuder braucht keine Munition
-	assert_true(world.has_ammo(player, "sling"))
-	assert_false(world.has_ammo(player, "bow"))
+	assert_true(SimCrafting.has_ammo(world, player, "sling"))
+	assert_false(SimCrafting.has_ammo(world, player, "bow"))
 
 
 func test_npc_prefers_bow_with_arrows_and_falls_back_without() -> void:
@@ -91,7 +91,7 @@ func test_inventory_capacity_respects_yield() -> void:
 	player.inventory["wood"] = 1
 	player.inventory["stone"] = 1
 	player.inventory["berries"] = data.bali("inventory.capacity") - 3
-	assert_eq(world.craft(player, "arrow"), "Inventar voll", "4 Pfeile passen nicht mehr")
-	assert_eq(world.craft_reason(player, "arrow"), "Inventar voll")
+	assert_eq(SimCrafting.craft(world, player, "arrow"), "Inventar voll", "4 Pfeile passen nicht mehr")
+	assert_eq(SimCrafting.craft_reason(world, player, "arrow"), "Inventar voll")
 	player.inventory["berries"] = data.bali("inventory.capacity") - 4
-	assert_eq(world.craft(player, "arrow"), "")
+	assert_eq(SimCrafting.craft(world, player, "arrow"), "")

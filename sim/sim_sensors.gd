@@ -18,10 +18,10 @@ static func facts_for(world: SimWorld, c: SimCharacter) -> Dictionary:
 		"nearest_stranger_distance": nearest_stranger_distance(world, c),
 		"inventory_state": inventory_state(c, data.bali("inventory.capacity")),
 		"stranger_in_claim": stranger_in_claim(world, c),
-		"triggered_sensors": world.triggered_sensors_of(c.owner_id),
-		"is_bleeding": world.has_effect(c, "bleeding"),
-		"is_poisoned": world.has_effect(c, "poison"),
-		"is_sick": world.has_effect(c, "sick"),
+		"triggered_sensors": SimDefense.triggered_sensors_of(world, c.owner_id),
+		"is_bleeding": SimEffects.has_effect(world, c, "bleeding"),
+		"is_poisoned": SimEffects.has_effect(world, c, "poison"),
+		"is_sick": SimEffects.has_effect(world, c, "sick"),
 	}
 
 
@@ -60,7 +60,7 @@ static func stranger_in_claim(world: SimWorld, c: SimCharacter) -> bool:
 	for other: SimCharacter in world.characters.values():
 		if other == c or other.dead or other.hidden or world.allied(other.owner_id, c.owner_id):
 			continue
-		if claim.tiles.has(SimMap.cell_of(other.pos)) and not world.has_toll_pass(claim, other.owner_id):
+		if claim.tiles.has(SimMap.cell_of(other.pos)) and not SimToll.has_toll_pass(world, claim, other.owner_id):
 			return true  # wer Zoll gezahlt hat, gilt nicht als Fremder im Claim
 	return false
 

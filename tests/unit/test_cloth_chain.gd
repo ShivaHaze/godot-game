@@ -24,21 +24,21 @@ func before_each() -> void:
 func test_chain_fibers_cloth_bandage_and_armor() -> void:
 	assert_eq(data.craftable_resources(), ["cooked_meat", "cloth", "bandage", "arrow", "copper", "wire", "iron", "powder", "shot", "explosive", "antidote", "medicine"] as Array[String])
 	player.inventory["fibers"] = 2
-	assert_eq(world.craft(player, "bandage"), "zu wenig Stoff (1 nötig)")
-	assert_eq(world.craft(player, "cloth"), "")
+	assert_eq(SimCrafting.craft(world, player, "bandage"), "zu wenig Stoff (1 nötig)")
+	assert_eq(SimCrafting.craft(world, player, "cloth"), "")
 	assert_eq(int(player.inventory["cloth"]), 1)
 	assert_eq(int(player.inventory["fibers"]), 0)
-	assert_eq(world.craft(player, "bandage"), "")
+	assert_eq(SimCrafting.craft(world, player, "bandage"), "")
 	assert_eq(int(player.inventory["bandage"]), 1)
 	player.inventory["cloth"] = 4
 	world.spawn_building("workbench", Vector2i(20, 6), "p1")  # Station in Reichweite
-	assert_eq(world.craft(player, "cloth_armor"), "")
-	assert_eq(world.equip_armor(player, "cloth_armor"), "")
+	assert_eq(SimCrafting.craft(world, player, "cloth_armor"), "")
+	assert_eq(SimCrafting.equip_armor(world, player, "cloth_armor"), "")
 	assert_eq(player.armor, data.balf("character.armor") + 2.0, "Stoffrüstung angelegt")
 	player.inventory["wood"] = 6
-	assert_eq(world.craft(player, "wood_armor"), "")
+	assert_eq(SimCrafting.craft(world, player, "wood_armor"), "")
 	assert_eq(player.armor, data.balf("character.armor") + 2.0, "Bauen wechselt die Rüstung nicht")
-	assert_eq(world.equip_armor(player, "wood_armor"), "")
+	assert_eq(SimCrafting.equip_armor(world, player, "wood_armor"), "")
 	assert_eq(player.armor, data.balf("character.armor") + 3.0, "Holzpanzer angelegt")
 
 

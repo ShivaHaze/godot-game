@@ -49,7 +49,7 @@ func test_cannot_hide_during_transition() -> void:
 func test_damage_delays_transition() -> void:
 	world.logout(npc.id, _hide_rules(), "Verstecken")
 	world.advance(10.0)
-	world.apply_damage(npc, 1.0, Vector2.LEFT, -1)
+	SimCombat.apply_damage(world, npc, 1.0, Vector2.LEFT, -1)
 	var expected := 10.0 + data.balf("logout.combat_window") + data.balf("logout.transition_seconds")
 	assert_almost_eq(world.transition_end(npc), expected, 0.01, "Kampf schiebt den Übergang hinaus")
 	world.advance(expected - 10.0 - 1.0)
@@ -59,7 +59,7 @@ func test_damage_delays_transition() -> void:
 
 func test_combat_before_logout_counts() -> void:
 	world.advance(30.0)
-	world.apply_damage(npc, 1.0, Vector2.LEFT, -1)
+	SimCombat.apply_damage(world, npc, 1.0, Vector2.LEFT, -1)
 	world.advance(20.0)
 	world.logout(npc.id, _hide_rules())
 	var expected := 30.0 + data.balf("logout.combat_window") + data.balf("logout.transition_seconds")

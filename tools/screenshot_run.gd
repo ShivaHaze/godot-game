@@ -33,15 +33,15 @@ func _run() -> void:
 	await _shot("2_live_marker")
 	var builder: SimCharacter = main.world.get_character(main.player_id)
 	builder.inventory["wood"] = 20
-	main.world.place_building(builder, "wood_wall", SimBuilding.half_cell_of(builder.pos + Vector2(1.5, -1.0)), 0)
-	main.world.place_building(builder, "wood_door", SimBuilding.half_cell_of(builder.pos + Vector2(1.5, 0.0)), 0)
-	main.world.place_building(builder, "wood_wall", SimBuilding.half_cell_of(builder.pos + Vector2(1.5, 1.0)), 0)
+	SimConstruction.place_building(main.world, builder, "wood_wall", SimBuilding.half_cell_of(builder.pos + Vector2(1.5, -1.0)), 0)
+	SimConstruction.place_building(main.world, builder, "wood_door", SimBuilding.half_cell_of(builder.pos + Vector2(1.5, 0.0)), 0)
+	SimConstruction.place_building(main.world, builder, "wood_wall", SimBuilding.half_cell_of(builder.pos + Vector2(1.5, 1.0)), 0)
 	main._toggle_build_mode(builder)
 	await _frames(5)
 	await _shot("2a_bauen")
 	main._toggle_build_mode(builder)
-	var sign: SimBuilding = main.world.place_building(builder, "sign", SimBuilding.half_cell_of(builder.pos + Vector2(-1.5, 0.0)), 0)
-	main.world.set_sign_text(builder, sign, "Fremde zahlen Zoll: 2 Beeren")
+	var sign: SimBuilding = SimConstruction.place_building(main.world, builder, "sign", SimBuilding.half_cell_of(builder.pos + Vector2(-1.5, 0.0)), 0)
+	SimConstruction.set_sign_text(main.world, builder, sign, "Fremde zahlen Zoll: 2 Beeren")
 	main.hud.add_chat_line("[nah] Ben: Hallo Nachbar")
 	main.hud.add_chat_line("[global] Cleo: Kauft Beeren am Markt!")
 	main.hud.chat_input.visible = true
@@ -53,11 +53,11 @@ func _run() -> void:
 	await _frames(5)
 	await _shot("2b_werkbank")
 	main.craft_panel.close()
-	var depot: SimBuilding = main.world.depots()[main.world.depots().size() - 1]
+	var depot: SimBuilding = SimTrade.depots(main.world)[SimTrade.depots(main.world).size() - 1]
 	builder.pos = depot.center() + Vector2(-1.2, 0.0)
 	builder.prev_pos = builder.pos
 	builder.inventory["berries"] = 7
-	main.world.depot_deposit(builder, depot, "wood", 5)
+	SimTrade.depot_deposit(main.world, builder, depot, "wood", 5)
 	main._toggle_depot_panel(builder)
 	await _frames(5)
 	await _shot("2c_markt_depot")

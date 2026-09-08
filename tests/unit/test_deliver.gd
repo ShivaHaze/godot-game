@@ -25,17 +25,17 @@ func before_each() -> void:
 
 func test_anchor_and_table_are_places() -> void:
 	assert_true(world.can_use(player, data.action_def("deliver")), "'liefere' ist von Anfang an verfügbar (Markt-Depots gibt es immer)")
-	var anchor := world.place_building(player, "anchor", Vector2i(44, 10), 0)
+	var anchor := SimConstruction.place_building(world, player, "anchor", Vector2i(44, 10), 0)
 	assert_not_null(anchor)
 	assert_eq(player.extra_places["b%d" % anchor.id]["name"], "Anker")
 	player.pos = Vector2(18.5, 5.5)
-	var table := world.place_building(player, "trade_table", Vector2i(34, 10), 0)
+	var table := SimConstruction.place_building(world, player, "trade_table", Vector2i(34, 10), 0)
 	assert_not_null(table)
 	assert_eq(player.extra_places["b%d" % table.id]["name"], "Handelstisch 1")
 
 
 func test_npc_delivers_wood_to_anchor_and_logs() -> void:
-	var anchor := world.place_building(player, "anchor", Vector2i(44, 10), 0)
+	var anchor := SimConstruction.place_building(world, player, "anchor", Vector2i(44, 10), 0)
 	var claim := world.claims.claim_of_owner("p1")
 	player.inventory["wood"] = 12
 	player.pos = Vector2(16.5, 5.5)
@@ -60,7 +60,7 @@ func test_npc_delivers_wood_to_anchor_and_logs() -> void:
 func test_gather_and_deliver_loop_keeps_claim_fed() -> void:
 	# Anker neben den Bäumen bei (3..5, 14..16): Sammler holt Holz und liefert es ab
 	player.pos = Vector2(7.5, 15.5)
-	var anchor := world.place_building(player, "anchor", Vector2i(16, 30), 0)  # Kachel (8, 15)
+	var anchor := SimConstruction.place_building(world, player, "anchor", Vector2i(16, 30), 0)  # Kachel (8, 15)
 	assert_not_null(anchor)
 	var claim := world.claims.claim_of_owner("p1")
 	player.inventory["wood"] = 0
@@ -80,7 +80,7 @@ func test_gather_and_deliver_loop_keeps_claim_fed() -> void:
 
 
 func test_deliver_reasons() -> void:
-	var anchor := world.place_building(player, "anchor", Vector2i(44, 10), 0)
+	var anchor := SimConstruction.place_building(world, player, "anchor", Vector2i(44, 10), 0)
 	player.inventory["wood"] = 0
 	player.inventory["stone"] = 3
 	var rules := data.normalize_rule_list([
@@ -105,7 +105,7 @@ func test_deliver_reasons() -> void:
 
 func test_npc_delivers_berries_to_table() -> void:
 	player.pos = Vector2(18.5, 5.5)
-	var table := world.place_building(player, "trade_table", Vector2i(34, 10), 0)  # Kachel (17, 5)
+	var table := SimConstruction.place_building(world, player, "trade_table", Vector2i(34, 10), 0)  # Kachel (17, 5)
 	player.inventory["berries"] = 5
 	player.pos = Vector2(22.5, 5.5)
 	var rules := data.normalize_rule_list([

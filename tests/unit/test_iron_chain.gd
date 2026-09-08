@@ -71,9 +71,9 @@ func test_offline_mining_needs_a_mine_live_does_not() -> void:
 	player.inventory["wood"] = 12
 	player.inventory["stone"] = 6
 	player.pos = Vector2(17.5, 13.5)
-	assert_eq(world.can_place(player, "mine", Vector2i(34, 30), 0), "muss neben Eisenerz oder Kohle stehen")  # Kachel (17, 15)
-	var mine := world.place_building(player, "mine", Vector2i(36, 26), 0)  # Kachel (18, 13), westlich der Ader
-	assert_not_null(mine, "Mine: %s" % world.can_place(player, "mine", Vector2i(36, 26), 0))
+	assert_eq(SimConstruction.can_place(world, player, "mine", Vector2i(34, 30), 0), "muss neben Eisenerz oder Kohle stehen")  # Kachel (17, 15)
+	var mine := SimConstruction.place_building(world, player, "mine", Vector2i(36, 26), 0)  # Kachel (18, 13), westlich der Ader
+	assert_not_null(mine, "Mine: %s" % SimConstruction.can_place(world, player, "mine", Vector2i(36, 26), 0))
 	player.pos = Vector2(19.5, 14.5)
 	world.logout(player.id, rules, "Bergmann")
 	player.logout_time = -1e9
@@ -90,22 +90,22 @@ func test_iron_needs_coal_axe_breaks_stone_wall_armor_slows() -> void:
 	player.inventory["iron_ore"] = 6
 	world.spawn_building("furnace", Vector2i(19, 6), "p1")
 	world.spawn_building("forge", Vector2i(21, 6), "p1")
-	assert_eq(world.craft(player, "iron"), "zu wenig Kohle (1 nötig)", "Kohle ist der Engpass")
+	assert_eq(SimCrafting.craft(world, player, "iron"), "zu wenig Kohle (1 nötig)", "Kohle ist der Engpass")
 	player.inventory["coal"] = 3
 	for i in 3:
-		assert_eq(world.craft(player, "iron"), "")
+		assert_eq(SimCrafting.craft(world, player, "iron"), "")
 	assert_eq(int(player.inventory["iron"]), 3)
 	player.inventory["wood"] = 10
 	player.inventory["stone"] = 12
-	assert_eq(world.craft(player, "club"), "")
-	assert_eq(world.craft(player, "iron_axe"), "")
-	var wall := world.place_building(player, "stone_wall", Vector2i(44, 10), 0)
+	assert_eq(SimCrafting.craft(world, player, "club"), "")
+	assert_eq(SimCrafting.craft(world, player, "iron_axe"), "")
+	var wall := SimConstruction.place_building(world, player, "stone_wall", Vector2i(44, 10), 0)
 	assert_not_null(wall)
 	player.pos = Vector2(21.3, 5.6)  # in Schlagweite der Wand (Halbzellen ab x = 22)
 	player.facing = Vector2.RIGHT
 	var intent := SimIntent.new()
 	intent.melee = true
-	world.set_active_weapon(player, "club")
+	SimCrafting.set_active_weapon(world, player, "club")
 	world.set_intent(player.id, intent)
 	world.tick()
 	assert_almost_eq(wall.hp, wall.max_hp, 0.01, "Keule kann Stein nicht brechen (nur Verfall)")
@@ -115,16 +115,16 @@ func test_iron_needs_coal_axe_breaks_stone_wall_armor_slows() -> void:
 			too_hard = true
 	assert_true(too_hard)
 	player.bite_cooldown = 0.0
-	world.set_active_weapon(player, "iron_axe")
+	SimCrafting.set_active_weapon(world, player, "iron_axe")
 	world.set_intent(player.id, intent)
 	world.tick()
 	assert_lt(wall.hp, wall.max_hp, "Eisenaxt bricht Stein")
 	# Schwere Rüstung
 	player.inventory["iron"] = 5
 	player.inventory["cloth"] = 2
-	assert_eq(world.craft(player, "iron_armor"), "")
+	assert_eq(SimCrafting.craft(world, player, "iron_armor"), "")
 	assert_eq(player.armor_slow, 0.0, "nicht angelegt: kein Gewicht")
-	assert_eq(world.equip_armor(player, "iron_armor"), "")
+	assert_eq(SimCrafting.equip_armor(world, player, "iron_armor"), "")
 	assert_eq(player.armor, data.balf("character.armor") + 5.0)
 	assert_almost_eq(player.armor_slow, 0.15, 0.001)
 	player.pos = Vector2(10.5, 5.5)
@@ -135,7 +135,7 @@ func test_iron_needs_coal_axe_breaks_stone_wall_armor_slows() -> void:
 		world.set_intent(player.id, walk)
 		world.tick()
 	var slow_distance := player.pos.distance_to(start)
-	world.wear(player, "iron_armor", 1000.0)
+	SimCrafting.wear(world, player, "iron_armor", 1000.0)
 	assert_eq(player.armor_slow, 0.0, "ohne Rüstung wieder flott")
 	player.pos = start
 	for i in 20:

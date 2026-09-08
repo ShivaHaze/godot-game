@@ -27,40 +27,40 @@ func test_swamp_poisons_and_wears_off_after_leaving() -> void:
 	assert_eq(world.map.node_at(Vector2i(31, 9)).resource, "herbs")
 	player.pos = SWAMP
 	world.advance(4.0)
-	assert_true(world.has_effect(player, "poison"), "im Sumpf vergiftet")
+	assert_true(SimEffects.has_effect(world, player, "poison"), "im Sumpf vergiftet")
 	assert_almost_eq(player.hp, player.max_hp - 4.0 * data.balf("effects.poison.damage_per_second"), 0.2, "Gift zieht Leben")
 	player.pos = OPEN
 	world.advance(data.balf("effects.poison.duration") - 1.0)
-	assert_true(world.has_effect(player, "poison"), "wirkt noch nach")
+	assert_true(SimEffects.has_effect(world, player, "poison"), "wirkt noch nach")
 	world.advance(2.0)
-	assert_false(world.has_effect(player, "poison"), "abgeklungen")
+	assert_false(SimEffects.has_effect(world, player, "poison"), "abgeklungen")
 	player.inventory["wood"] = 10
 	player.pos = Vector2(29.5, 8.5)
-	assert_eq(world.can_place(player, "wood_wall", Vector2i(60, 16), 0), "im Sumpf versinkt jedes Bauteil")
+	assert_eq(SimConstruction.can_place(world, player, "wood_wall", Vector2i(60, 16), 0), "im Sumpf versinkt jedes Bauteil")
 
 
 func test_antidote_and_medicine_and_heal_choice() -> void:
 	player.inventory["herbs"] = 5
 	player.inventory["cloth"] = 1
-	assert_eq(world.craft(player, "antidote"), "")
+	assert_eq(SimCrafting.craft(world, player, "antidote"), "")
 	assert_true(world.can_use(player, data.condition_def("poisoned")), "'vergiftet' ist immer verfügbar")
-	assert_eq(world.craft(player, "medicine"), "Werkbank nicht in Reichweite", "Medizin braucht die Werkbank")
+	assert_eq(SimCrafting.craft(world, player, "medicine"), "Werkbank nicht in Reichweite", "Medizin braucht die Werkbank")
 	world.spawn_building("workbench", Vector2i(20, 6), "p1")  # Station in Reichweite
-	assert_eq(world.craft(player, "medicine"), "")
+	assert_eq(SimCrafting.craft(world, player, "medicine"), "")
 	player.inventory["bandage"] = 1
 	# Vergiftet und verletzt: H nimmt zuerst das Gegenmittel
-	world.apply_effect(player, "poison", -1)
+	SimEffects.apply_effect(world, player, "poison", -1)
 	player.hp = 10.0
-	assert_eq(world.heal_item_of(player), "antidote")
+	assert_eq(SimCrafting.heal_item_of(world, player), "antidote")
 	var intent := SimIntent.new()
 	intent.heal = true
 	for i in 20 * 2 + 1:
 		world.set_intent(player.id, intent)
 		world.tick()
-	assert_false(world.has_effect(player, "poison"), "kuriert")
+	assert_false(SimEffects.has_effect(world, player, "poison"), "kuriert")
 	assert_eq(int(player.inventory["antidote"]), 0)
 	# Nur verletzt: das stärkste Mittel (Medizin +30) vor dem Verband
-	assert_eq(world.heal_item_of(player), "medicine")
+	assert_eq(SimCrafting.heal_item_of(world, player), "medicine")
 	var before := player.hp
 	for i in 20 * 2 + 1:
 		world.set_intent(player.id, intent)
@@ -68,10 +68,10 @@ func test_antidote_and_medicine_and_heal_choice() -> void:
 	assert_gt(player.hp, before + 15.0, "Medizin heilt stark")
 	assert_eq(int(player.inventory["medicine"]), 0)
 	player.hp = player.max_hp
-	assert_eq(world.heal_item_of(player), "", "gesund: nichts nötig")
+	assert_eq(SimCrafting.heal_item_of(world, player), "", "gesund: nichts nötig")
 	player.inventory["bandage"] = 0
-	world.apply_effect(player, "poison", -1)
-	assert_eq(world.heal_item_of(player), "", "kein Gegenmittel mehr")
+	SimEffects.apply_effect(world, player, "poison", -1)
+	assert_eq(SimCrafting.heal_item_of(world, player), "", "kein Gegenmittel mehr")
 
 
 func test_npc_rule_poisoned_uses_antidote_and_gathers_herbs() -> void:

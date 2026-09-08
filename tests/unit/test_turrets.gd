@@ -25,8 +25,8 @@ func _turret(origin: Vector2i = Vector2i(44, 10)) -> SimBuilding:
 	player.inventory["iron"] = 4
 	player.inventory["wood"] = 6
 	player.inventory["wire"] = 2
-	var b := world.place_building(player, "turret", origin, 0)
-	assert_not_null(b, "Turret: %s" % world.can_place(player, "turret", origin, 0))
+	var b := SimConstruction.place_building(world, player, "turret", origin, 0)
+	assert_not_null(b, "Turret: %s" % SimConstruction.can_place(world, player, "turret", origin, 0))
 	return b
 
 
@@ -57,9 +57,9 @@ func test_sulfur_is_live_only_and_chain_to_shot() -> void:
 	player.inventory["iron"] = 2
 	world.spawn_building("workbench", SimMap.cell_of(player.pos) + Vector2i(0, 1), "p1")
 	world.spawn_building("forge", SimMap.cell_of(player.pos) + Vector2i(1, 1), "p1")
-	assert_eq(world.craft(player, "powder"), "")
+	assert_eq(SimCrafting.craft(world, player, "powder"), "")
 	assert_eq(int(player.inventory["powder"]), 2)
-	assert_eq(world.craft(player, "shot"), "")
+	assert_eq(SimCrafting.craft(world, player, "shot"), "")
 	assert_eq(int(player.inventory["shot"]), 4)
 	var gen := SimData.load_from_dir("res://data")
 	assert_true(gen.apply_map(MapGen.generate(120, 90, 7)).is_empty())
@@ -120,8 +120,8 @@ func test_turret_shoots_strangers_with_line_of_sight_and_uses_ammo() -> void:
 	# Wand dazwischen: keine Sichtlinie
 	player.pos = turret.center() + Vector2(0, -1.4)
 	player.inventory["wood"] = 10
-	var wall := world.place_building(player, "wood_wall", Vector2i(44, 13), 1)  # quer unter dem Turret
-	assert_not_null(wall, "Wand: %s" % world.can_place(player, "wood_wall", Vector2i(44, 13), 1))
+	var wall := SimConstruction.place_building(world, player, "wood_wall", Vector2i(44, 13), 1)  # quer unter dem Turret
+	assert_not_null(wall, "Wand: %s" % SimConstruction.can_place(world, player, "wood_wall", Vector2i(44, 13), 1))
 	sneaky.pos = turret.center() + Vector2(0.25, 2.2)
 	world.spatial.rebuild(world.characters)
 	for i in 20:
@@ -164,9 +164,9 @@ func test_npc_delivers_shot_to_turret_and_depot_refuses_raid_goods() -> void:
 	assert_true(found)
 	world.login(player.id)
 	var depot: SimBuilding = null
-	for b: SimBuilding in world.depots():
+	for b: SimBuilding in SimTrade.depots(world):
 		if world.map.zone(SimMap.cell_of(b.center())) == "market":
 			depot = b
 	player.pos = depot.center() + Vector2(-1.2, 0)
 	player.inventory["powder"] = 2
-	assert_eq(world.depot_deposit(player, depot, "powder", 2), "Raidware: am neutralen Markt nicht handelbar")
+	assert_eq(SimTrade.depot_deposit(world, player, depot, "powder", 2), "Raidware: am neutralen Markt nicht handelbar")

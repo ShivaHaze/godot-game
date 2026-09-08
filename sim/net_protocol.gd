@@ -128,11 +128,11 @@ static func snapshot(world: SimWorld, viewer_id: int, known: Dictionary, node_st
 	# Bauteile: neu/verändert im Sichtbereich, plus entfernte, die der Empfänger kannte
 	var built := []
 	for b: SimBuilding in world.map.buildings.values():
-		if b.center().distance_squared_to(center) > r2 or not world.building_visible_to(b, viewer.owner_id):
+		if b.center().distance_squared_to(center) > r2 or not SimDefense.building_visible_to(world, b, viewer.owner_id):
 			continue
 		var triggered := world.time < b.triggered_until
 		# Depot: nur der eigene Bestand geht raus (als contents); fremde Bestände bleiben geheim
-		var shown: Dictionary = world.depot_stock(b, viewer.owner_id) if world.is_depot(b) else b.contents
+		var shown: Dictionary = SimTrade.depot_stock(world, b, viewer.owner_id) if SimTrade.is_depot(world, b) else b.contents
 		var signature := [b.hp, shown, b.offers, b.label, triggered].hash()
 		if building_state.has(b.id) and int(building_state[b.id]) == signature:
 			continue

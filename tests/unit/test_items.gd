@@ -51,57 +51,57 @@ func test_items_data_loaded() -> void:
 
 
 func test_craft_needs_resources_and_updates_equipment() -> void:
-	assert_eq(world.craft(player, "club"), "zu wenig Holz (3 nötig)")
+	assert_eq(SimCrafting.craft(world, player, "club"), "zu wenig Holz (3 nötig)")
 	player.inventory["wood"] = 10
-	assert_eq(world.craft(player, "club"), "")
+	assert_eq(SimCrafting.craft(world, player, "club"), "")
 	assert_eq(player.inventory["wood"], 7)
 	assert_true(player.items.has("club"))
-	assert_eq(world.craft(player, "club"), "schon vorhanden")
+	assert_eq(SimCrafting.craft(world, player, "club"), "schon vorhanden")
 	world.spawn_building("workbench", Vector2i(20, 6), "p1")  # Station in Reichweite
-	assert_eq(world.craft(player, "wood_armor"), "")
+	assert_eq(SimCrafting.craft(world, player, "wood_armor"), "")
 	assert_eq(player.inventory["wood"], 1)
 	assert_eq(player.armor, data.balf("character.armor"), "Rüstung schützt erst, wenn sie angelegt ist")
-	assert_eq(world.equip_armor(player, "wood_armor"), "")
+	assert_eq(SimCrafting.equip_armor(world, player, "wood_armor"), "")
 	assert_eq(player.armor, data.balf("character.armor") + 3.0, "angelegte Rüstung zählt")
-	assert_eq(world.craft(player, "unbekannt"), "unbekannter Gegenstand")
+	assert_eq(SimCrafting.craft(world, player, "unbekannt"), "unbekannter Gegenstand")
 
 
 func test_armor_is_worn_explicitly() -> void:
 	player.inventory["wood"] = 6
 	player.inventory["cloth"] = 4
-	assert_eq(world.equip_armor(player, "wood_armor"), "nicht vorhanden")
-	assert_eq(world.equip_armor(player, "sling"), "keine Rüstung")
-	assert_eq(world.equip_armor(player, ""), "nichts angelegt")
+	assert_eq(SimCrafting.equip_armor(world, player, "wood_armor"), "nicht vorhanden")
+	assert_eq(SimCrafting.equip_armor(world, player, "sling"), "keine Rüstung")
+	assert_eq(SimCrafting.equip_armor(world, player, ""), "nichts angelegt")
 	world.spawn_building("workbench", Vector2i(20, 6), "p1")  # Station in Reichweite
-	assert_eq(world.craft(player, "wood_armor"), "")
-	assert_eq(world.craft(player, "cloth_armor"), "")
-	assert_eq(world.armor_item_of(player), "", "besitzen allein trägt nichts")
-	assert_eq(world.owned_armors(player), ["cloth_armor", "wood_armor"] as Array[String])
+	assert_eq(SimCrafting.craft(world, player, "wood_armor"), "")
+	assert_eq(SimCrafting.craft(world, player, "cloth_armor"), "")
+	assert_eq(SimCrafting.armor_item_of(world, player), "", "besitzen allein trägt nichts")
+	assert_eq(SimCrafting.owned_armors(world, player), ["cloth_armor", "wood_armor"] as Array[String])
 	player.inventory["hide"] = 2
 	player.inventory["cloth"] = 2
-	assert_eq(world.craft(player, "hide_armor"), "", "Fellrüstung aus Wolfsbeute")
-	assert_eq(world.owned_armors(player), ["cloth_armor", "hide_armor", "wood_armor"] as Array[String])
-	assert_eq(world.equip_armor(player, "cloth_armor"), "")
-	assert_eq(world.armor_item_of(player), "cloth_armor")
+	assert_eq(SimCrafting.craft(world, player, "hide_armor"), "", "Fellrüstung aus Wolfsbeute")
+	assert_eq(SimCrafting.owned_armors(world, player), ["cloth_armor", "hide_armor", "wood_armor"] as Array[String])
+	assert_eq(SimCrafting.equip_armor(world, player, "cloth_armor"), "")
+	assert_eq(SimCrafting.armor_item_of(world, player), "cloth_armor")
 	assert_eq(player.armor, data.balf("character.armor") + 2.0)
-	assert_eq(world.equip_armor(player, "cloth_armor"), "schon angelegt")
-	assert_eq(world.equip_armor(player, "wood_armor"), "", "wechseln")
+	assert_eq(SimCrafting.equip_armor(world, player, "cloth_armor"), "schon angelegt")
+	assert_eq(SimCrafting.equip_armor(world, player, "wood_armor"), "", "wechseln")
 	assert_eq(player.armor, data.balf("character.armor") + 3.0)
 	var equips := 0
 	for event: Dictionary in world.events:
 		if event.get("type") == "equip":
 			equips += 1
 	assert_eq(equips, 2, "Ereignis je Wechsel")
-	assert_eq(world.equip_armor(player, ""), "", "ablegen")
+	assert_eq(SimCrafting.equip_armor(world, player, ""), "", "ablegen")
 	assert_eq(player.armor, data.balf("character.armor"))
 	assert_true(player.items.has("wood_armor"), "abgelegte Rüstung bleibt im Besitz")
 	# Zerbrochene Rüstung ist automatisch abgelegt
-	world.equip_armor(player, "wood_armor")
-	world.wear(player, "wood_armor", 1000.0)
+	SimCrafting.equip_armor(world, player, "wood_armor")
+	SimCrafting.wear(world, player, "wood_armor", 1000.0)
 	assert_eq(player.worn_armor, "")
 	assert_eq(player.armor, data.balf("character.armor"))
 	# Spielstand trägt die getragene Rüstung
-	world.equip_armor(player, "cloth_armor")
+	SimCrafting.equip_armor(world, player, "cloth_armor")
 	var copy := SimSave.world_from_dict(data, SimSave.world_to_dict(world))
 	assert_eq(copy.get_character(player.id).worn_armor, "cloth_armor")
 	assert_eq(copy.get_character(player.id).armor, data.balf("character.armor") + 2.0)
@@ -109,9 +109,9 @@ func test_armor_is_worn_explicitly() -> void:
 
 func test_switch_weapon_and_melee_hit() -> void:
 	player.inventory["wood"] = 3
-	world.craft(player, "club")
+	SimCrafting.craft(world, player, "club")
 	assert_eq(player.active_weapon, "sling", "Bauen wechselt nicht automatisch")
-	world.set_active_weapon(player, "club")
+	SimCrafting.set_active_weapon(world, player, "club")
 	assert_eq(player.active_weapon, "club")
 	assert_eq(player.melee_damage, 16.0)
 	var wolf := _wolf()
@@ -124,7 +124,7 @@ func test_switch_weapon_and_melee_hit() -> void:
 	assert_eq(hits.size(), 1, "ein Schlag (Cooldown)")
 	assert_eq(hits[0]["damage"], 16.0)
 	assert_eq(world.projectiles.size(), 0, "kein Projektil im Nahkampf")
-	world.set_active_weapon(player, "sling")
+	SimCrafting.set_active_weapon(world, player, "sling")
 	assert_eq(player.melee_damage, 0.0)
 	hits = _tick(1, intent, "shoot")
 	assert_eq(hits.size(), 1, "Schleuder schießt wieder")
@@ -135,8 +135,8 @@ func test_armor_reduces_projectile_damage() -> void:
 	other.facing = Vector2.LEFT
 	other.inventory["wood"] = 6
 	world.spawn_building("workbench", Vector2i(24, 6), "p2")
-	world.craft(other, "wood_armor")
-	world.equip_armor(other, "wood_armor")
+	SimCrafting.craft(world, other, "wood_armor")
+	SimCrafting.equip_armor(world, other, "wood_armor")
 	var intent := SimIntent.new()
 	intent.aim = Vector2.RIGHT
 	intent.shoot = true
@@ -149,8 +149,8 @@ func test_loot_transfers_items() -> void:
 	var other := world.spawn_player(OPEN + Vector2(1, 0), "p2", "Fremder")
 	other.inventory["wood"] = 9
 	world.spawn_building("workbench", Vector2i(20, 6), "p1")  # Station in Reichweite
-	world.craft(other, "club")
-	world.craft(other, "wood_armor")
+	SimCrafting.craft(world, other, "club")
+	SimCrafting.craft(world, other, "wood_armor")
 	other.dead = true
 	var intent := SimIntent.new()
 	intent.interact = true
@@ -159,7 +159,7 @@ func test_loot_transfers_items() -> void:
 	assert_true(player.items.has("club"))
 	assert_true(player.items.has("wood_armor"))
 	assert_eq(player.armor, data.balf("character.armor"), "geplünderte Rüstung wird nicht automatisch getragen")
-	assert_eq(world.equip_armor(player, "wood_armor"), "")
+	assert_eq(SimCrafting.equip_armor(world, player, "wood_armor"), "")
 	assert_eq(player.armor, data.balf("character.armor") + 3.0)
 	assert_false(other.items.has("club"))
 	assert_eq(other.items.size(), 1, "Startwaffe bleibt bei der Leiche, weil der Plünderer sie schon hat")
@@ -167,7 +167,7 @@ func test_loot_transfers_items() -> void:
 
 func test_npc_uses_club_against_adjacent_wolf() -> void:
 	player.inventory["wood"] = 3
-	world.craft(player, "club")
+	SimCrafting.craft(world, player, "club")
 	var rules := data.normalize_rule_list([
 		{"if": {"condition": "under_attack"}, "then": {"action": "fight_back"}},
 		{"if": {"condition": "else"}, "then": {"action": "stay_at", "params": {"place": "here", "radius": 3}}},
@@ -176,7 +176,7 @@ func test_npc_uses_club_against_adjacent_wolf() -> void:
 	var wolf := _wolf()
 	wolf.pos = OPEN + Vector2(0.8, 0)
 	wolf.facing = Vector2.RIGHT
-	world.apply_damage(player, 1.0, Vector2.LEFT, wolf.id)
+	SimCombat.apply_damage(world, player, 1.0, Vector2.LEFT, wolf.id)
 	var hits := _tick(20, null, "hit")
 	var club_hits := 0
 	for hit: Dictionary in hits:
@@ -189,10 +189,10 @@ func test_npc_uses_club_against_adjacent_wolf() -> void:
 func test_save_keeps_items() -> void:
 	player.inventory["wood"] = 9
 	world.spawn_building("workbench", Vector2i(20, 6), "p1")  # Station in Reichweite
-	world.craft(player, "club")
-	world.craft(player, "wood_armor")
-	world.equip_armor(player, "wood_armor")
-	world.set_active_weapon(player, "club")
+	SimCrafting.craft(world, player, "club")
+	SimCrafting.craft(world, player, "wood_armor")
+	SimCrafting.equip_armor(world, player, "wood_armor")
+	SimCrafting.set_active_weapon(world, player, "club")
 	var copy := SimSave.world_from_dict(data, SimSave.world_to_dict(world))
 	var loaded: SimCharacter = copy.get_character(player.id)
 	assert_eq(loaded.items, player.items)

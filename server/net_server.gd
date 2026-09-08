@@ -125,20 +125,20 @@ func _on_message(peer: ENetPacketPeer, msg: Dictionary) -> void:
 				world.remove_marker(c.id, String(msg.get("id", "")))
 		"craft":
 			if c != null and c.control == SimCharacter.Controller.PLAYER and not c.dead:
-				var reason := world.craft(c, String(msg.get("item", "")))
+				var reason := SimCrafting.craft(world, c, String(msg.get("item", "")))
 				_send(peer, {"t": "info", "text": ("%s gebaut." % data.items[msg["item"]]["name"]) if reason.is_empty() else "Geht nicht: %s" % reason}, true)
 		"repair":
 			if c != null and c.control == SimCharacter.Controller.PLAYER and not c.dead:
 				var item_id := String(msg.get("item", ""))
-				var reason := world.repair(c, item_id)
+				var reason := SimCrafting.repair(world, c, item_id)
 				_send(peer, {"t": "info", "text": ("%s repariert." % data.items.get(item_id, {}).get("name", item_id)) if reason.is_empty() else "Geht nicht: %s" % reason}, true)
 		"weapon":
 			if c != null:
-				world.set_active_weapon(c, String(msg.get("item", "")))
+				SimCrafting.set_active_weapon(world, c, String(msg.get("item", "")))
 		"equip":
 			if c != null and c.control == SimCharacter.Controller.PLAYER and not c.dead:
 				var item_id := String(msg.get("item", ""))
-				var reason := world.equip_armor(c, item_id)
+				var reason := SimCrafting.equip_armor(world, c, item_id)
 				if not reason.is_empty():
 					_send(peer, {"t": "info", "text": "Rüstung: %s" % reason}, true)
 				else:
@@ -146,20 +146,20 @@ func _on_message(peer: ENetPacketPeer, msg: Dictionary) -> void:
 		"build":
 			if c != null:
 				var origin := Vector2i(int(msg.get("x", 0)), int(msg.get("y", 0)))
-				var reason := world.can_place(c, String(msg.get("part", "")), origin, int(msg.get("rot", 0)))
+				var reason := SimConstruction.can_place(world, c, String(msg.get("part", "")), origin, int(msg.get("rot", 0)))
 				if reason.is_empty():
-					world.place_building(c, String(msg["part"]), origin, int(msg.get("rot", 0)))
+					SimConstruction.place_building(world, c, String(msg["part"]), origin, int(msg.get("rot", 0)))
 				else:
 					_send(peer, {"t": "info", "text": "Bauen geht nicht: %s" % reason}, true)
 		"demolish":
 			if c != null:
 				var b: SimBuilding = world.map.buildings.get(int(msg.get("id", -1)))
-				if world.can_demolish(c, b):
-					world.remove_building(b.id, c)
+				if SimConstruction.can_demolish(world, c, b):
+					SimConstruction.remove_building(world, b.id, c)
 		"depot_deposit", "depot_withdraw":
 			if c != null:
 				var b: SimBuilding = world.map.buildings.get(int(msg.get("id", -1)))
-				var reason := world.depot_deposit(c, b, String(msg.get("res", "")), int(msg.get("amount", 0))) if String(msg["t"]) == "depot_deposit" else world.depot_withdraw(c, b, String(msg.get("res", "")), int(msg.get("amount", 0)))
+				var reason := SimTrade.depot_deposit(world, c, b, String(msg.get("res", "")), int(msg.get("amount", 0))) if String(msg["t"]) == "depot_deposit" else SimTrade.depot_withdraw(world, c, b, String(msg.get("res", "")), int(msg.get("amount", 0)))
 				if not reason.is_empty():
 					_send(peer, {"t": "info", "text": "Depot: %s" % reason}, true)
 		"table_deposit", "table_withdraw", "table_offers", "table_buy":
@@ -168,19 +168,19 @@ func _on_message(peer: ENetPacketPeer, msg: Dictionary) -> void:
 				var reason := "kein Handelstisch"
 				match String(msg["t"]):
 					"table_deposit":
-						reason = world.table_deposit(c, b, String(msg.get("res", "")), int(msg.get("amount", 0)))
+						reason = SimTrade.table_deposit(world, c, b, String(msg.get("res", "")), int(msg.get("amount", 0)))
 					"table_withdraw":
-						reason = world.table_withdraw(c, b, String(msg.get("res", "")), int(msg.get("amount", 0)))
+						reason = SimTrade.table_withdraw(world, c, b, String(msg.get("res", "")), int(msg.get("amount", 0)))
 					"table_offers":
-						reason = world.table_set_offers(c, b, msg.get("offers", []))
+						reason = SimTrade.table_set_offers(world, c, b, msg.get("offers", []))
 					"table_buy":
-						reason = world.table_buy(c, b, int(msg.get("index", -1)))
+						reason = SimTrade.table_buy(world, c, b, int(msg.get("index", -1)))
 				if not reason.is_empty():
 					_send(peer, {"t": "info", "text": "Handel: %s" % reason}, true)
 		"sign_text":
 			if c != null:
 				var b: SimBuilding = world.map.buildings.get(int(msg.get("id", -1)))
-				var reason := world.set_sign_text(c, b, String(msg.get("text", "")))
+				var reason := SimConstruction.set_sign_text(world, c, b, String(msg.get("text", "")))
 				if not reason.is_empty():
 					_send(peer, {"t": "info", "text": "Schild: %s" % reason}, true)
 		"chat":
@@ -250,7 +250,7 @@ func _forward_events() -> void:
 				text = "Zoll: %s" % event["reason"]
 			"boss_spawned", "boss_killed", "boss_left":
 				# Ereignis für alle, ohne Ortsangabe (Design: global keine Positionsdaten)
-				var line := SimWorld.boss_event_text(event)
+				var line := SimEvents.boss_event_text(event)
 				for peer: ENetPacketPeer in peers:
 					_send(peer, {"t": "chat", "from": "Welt", "text": line, "scope": "global"}, true)
 				continue

@@ -190,14 +190,14 @@ func refresh() -> void:
 			var repair: Button = _repair[item_id]
 			repair.visible = character.items.has(item_id)
 			if world != null and character.items.has(item_id):
-				var reason := world.repair_reason(character, item_id)
+				var reason := SimCrafting.repair_reason(world, character, item_id)
 				var cost_parts: PackedStringArray = []
-				for rid: String in world.repair_cost(item_id):
-					cost_parts.append("%d %s" % [int(world.repair_cost(item_id)[rid]), data.resources[rid]["name"]])
+				for rid: String in SimCrafting.repair_cost(world, item_id):
+					cost_parts.append("%d %s" % [int(SimCrafting.repair_cost(world, item_id)[rid]), data.resources[rid]["name"]])
 				repair.text = "Reparieren (%s)" % ", ".join(cost_parts)
 				repair.disabled = not reason.is_empty()
 				repair.tooltip_text = reason
-				_info[item_id].text = _describe(def) + " · Zustand %d/%d" % [int(ceilf(world.durability_left(character, item_id))), int(world.durability_max(character, item_id))]
+				_info[item_id].text = _describe(def) + " · Zustand %d/%d" % [int(ceilf(SimCrafting.durability_left(world, character, item_id))), int(SimCrafting.durability_max(world, character, item_id))]
 		if _equip.has(item_id):
 			var equip: Button = _equip[item_id]
 			equip.visible = character.items.has(item_id)
@@ -213,7 +213,7 @@ func refresh() -> void:
 		for rid: String in cost:
 			if int(character.inventory.get(rid, 0)) < int(cost[rid]):
 				affordable = false
-		var station_missing := world != null and not world.station_reason(character, item_id).is_empty()
+		var station_missing := world != null and not SimCrafting.station_reason(world, character, item_id).is_empty()
 		button.text = "Bauen"
 		button.disabled = not affordable or station_missing
-		button.tooltip_text = world.station_reason(character, item_id) if station_missing else ""
+		button.tooltip_text = SimCrafting.station_reason(world, character, item_id) if station_missing else ""

@@ -25,8 +25,8 @@ func test_sickness_slows_hungers_and_medicine_cures() -> void:
 		world.tick()
 	var healthy_distance := player.pos.distance_to(start)
 	var healthy_hunger := hunger_start - player.hunger
-	world.apply_effect(player, "sick", -1)
-	assert_true(world.has_effect(player, "sick"))
+	SimEffects.apply_effect(world, player, "sick", -1)
+	assert_true(SimEffects.has_effect(world, player, "sick"))
 	player.pos = start
 	hunger_start = player.hunger
 	for i in 20:
@@ -35,18 +35,18 @@ func test_sickness_slows_hungers_and_medicine_cures() -> void:
 	assert_almost_eq(player.pos.distance_to(start) / healthy_distance, 0.75, 0.03, "25 % langsamer")
 	assert_almost_eq((hunger_start - player.hunger) / healthy_hunger, 2.0, 0.05, "doppelt so hungrig")
 	player.inventory["medicine"] = 1
-	assert_eq(world.heal_item_of(player), "medicine", "Medizin gegen Krankheit")
+	assert_eq(SimCrafting.heal_item_of(world, player), "medicine", "Medizin gegen Krankheit")
 	var heal := SimIntent.new()
 	heal.heal = true
 	for i in 20 * 2 + 1:
 		world.set_intent(player.id, heal)
 		world.tick()
-	assert_false(world.has_effect(player, "sick"), "geheilt")
+	assert_false(SimEffects.has_effect(world, player, "sick"), "geheilt")
 	# Ohne Medizin klingt sie nach der Dauer ab; Chronik beim Offline-Charakter
 	world.logout(player.id, data.roles["hide"]["rules"])
-	world.apply_effect(player, "sick", -1)
+	SimEffects.apply_effect(world, player, "sick", -1)
 	world.advance(data.balf("effects.sick.duration") + 5.0)
-	assert_false(world.has_effect(player, "sick"))
+	assert_false(SimEffects.has_effect(world, player, "sick"))
 	var found := false
 	for line: String in SimChronicle.format_all(player):
 		if line.contains("erkrankt"):
@@ -64,7 +64,7 @@ func test_sickness_strikes_randomly() -> void:
 	var struck := false
 	for i in 20 * 60 * 5:
 		world.tick()
-		if world.has_effect(player, "sick"):
+		if SimEffects.has_effect(world, player, "sick"):
 			struck = true
 			break
 	assert_true(struck, "Krankheit trifft zufällig")

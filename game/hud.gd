@@ -184,11 +184,11 @@ func refresh() -> void:
 		state = "\nTOT"
 	elif c.hidden:
 		state = "\nversteckt"
-	if not c.dead and world.has_effect(c, "bleeding"):
+	if not c.dead and SimEffects.has_effect(world, c, "bleeding"):
 		state += "\nBLUTET – Verband anlegen (H)"
-	if not c.dead and world.has_effect(c, "poison"):
+	if not c.dead and SimEffects.has_effect(world, c, "poison"):
 		state += "\nVERGIFTET – Gegenmittel nehmen (H), raus aus dem Sumpf"
-	if not c.dead and world.has_effect(c, "sick"):
+	if not c.dead and SimEffects.has_effect(world, c, "sick"):
 		state += "\nKRANK – langsam und hungrig; Medizin (H) hilft, sonst 30 min"
 	var here := world.claims.claim_at_pos(c.pos)
 	var mine := world.claims.claim_of_owner(c.owner_id)
@@ -210,14 +210,14 @@ func refresh() -> void:
 		state += "\nLogout-Übergang: noch %d s (verwundbar, kein Verstecken)" % int(ceilf(world.transition_end(c) - world.time))
 	var weapon_name := String(world.data.items.get(c.active_weapon, {}).get("name", "keine"))
 	if not c.active_weapon.is_empty():
-		weapon_name += " %d/%d" % [int(ceilf(world.durability_left(c, c.active_weapon))), int(world.durability_max(c, c.active_weapon))]
-		var ammo := world.ammo_of(c.active_weapon)
+		weapon_name += " %d/%d" % [int(ceilf(SimCrafting.durability_left(world, c, c.active_weapon))), int(SimCrafting.durability_max(world, c, c.active_weapon))]
+		var ammo := SimCrafting.ammo_of(world, c.active_weapon)
 		if not ammo.is_empty():
 			weapon_name += " (%s %d)" % [world.data.resources[ammo]["name"], int(c.inventory.get(ammo, 0))]
-	var armor_item := world.armor_item_of(c)
+	var armor_item := SimCrafting.armor_item_of(world, c)
 	if not armor_item.is_empty():
-		weapon_name += " · %s %d/%d" % [world.data.items[armor_item]["name"], int(ceilf(world.durability_left(c, armor_item))), int(world.durability_max(c, armor_item))]
-	elif not world.owned_armors(c).is_empty():
+		weapon_name += " · %s %d/%d" % [world.data.items[armor_item]["name"], int(ceilf(SimCrafting.durability_left(world, c, armor_item))), int(SimCrafting.durability_max(world, c, armor_item))]
+	elif not SimCrafting.owned_armors(world, c).is_empty():
 		weapon_name += " · keine Rüstung angelegt (C: Anlegen)"
 	_status.text = "Modus: %s\nUhr %s\nLeben %d/%d\nHunger %s\n%s (%d/%d)\nWaffe: %s · Rüstung %d%s%s" % [
 		mode_text,

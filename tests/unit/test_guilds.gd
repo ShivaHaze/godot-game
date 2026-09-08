@@ -52,22 +52,22 @@ func test_guild_lifecycle_and_alliance() -> void:
 
 func test_allies_share_claims_doors_and_are_no_strangers() -> void:
 	player.inventory["wood"] = 30
-	var anchor := world.place_building(player, "anchor", Vector2i(44, 10), 0)  # Kachel (22, 5)
+	var anchor := SimConstruction.place_building(world, player, "anchor", Vector2i(44, 10), 0)  # Kachel (22, 5)
 	assert_not_null(anchor)
 	assert_true(world.claims.claim_tile(world, player, Vector2i(23, 5)))
 	mate.inventory["wood"] = 10
 	mate.pos = Vector2(23.5, 5.5)  # auf der beanspruchten Kachel
 	assert_true(SimSensors.stranger_in_claim(world, player), "Kamerad zählt vor der Gilde als Fremder")
 	mate.pos = Vector2(24.5, 5.5)
-	assert_eq(world.can_place(mate, "wood_wall", Vector2i(46, 10), 0), "fremder Claim")
+	assert_eq(SimConstruction.can_place(world, mate, "wood_wall", Vector2i(46, 10), 0), "fremder Claim")
 	_found()
-	assert_eq(world.can_place(mate, "wood_wall", Vector2i(46, 10), 0), "", "Gildenmitglied baut auf dem Claim")
+	assert_eq(SimConstruction.can_place(world, mate, "wood_wall", Vector2i(46, 10), 0), "", "Gildenmitglied baut auf dem Claim")
 	assert_false(SimSensors.stranger_in_claim(world, player))
 	assert_null(SimSensors.nearest_stranger(world, player), "Verbündete sind keine Fremden")
-	assert_null(world.nearest_enemy(player, 10.0))
+	assert_null(SimCombat.nearest_enemy(world, player, 10.0))
 	assert_true(world.knows_name(mate, player), "Gildenmitglieder kennen sich")
 	# Tür des Spielers lässt den Kameraden durch
-	var door := world.place_building(player, "wood_door", Vector2i(44, 12), 0)  # Kachel (22, 6)
+	var door := SimConstruction.place_building(world, player, "wood_door", Vector2i(44, 12), 0)  # Kachel (22, 6)
 	assert_not_null(door)
 	assert_false(world.map.half_blocked_for(Vector2i(44, 12), "p2", data), "Gildentür offen")
 	assert_true(world.map.half_blocked_for(Vector2i(44, 12), "p3", data))
@@ -84,22 +84,22 @@ func test_shared_alarm_and_defenses_spare_allies() -> void:
 	player.inventory["wire"] = 3
 	player.inventory["stone"] = 4
 	player.inventory["iron"] = 4
-	var sensor := world.place_building(player, "sensor", Vector2i(46, 11), 0)
+	var sensor := SimConstruction.place_building(world, player, "sensor", Vector2i(46, 11), 0)
 	assert_not_null(sensor)
-	var turret := world.place_building(player, "turret", Vector2i(44, 8), 0)
-	assert_not_null(turret, "Turret: %s" % world.can_place(player, "turret", Vector2i(44, 8), 0))
+	var turret := SimConstruction.place_building(world, player, "turret", Vector2i(44, 8), 0)
+	assert_not_null(turret, "Turret: %s" % SimConstruction.can_place(world, player, "turret", Vector2i(44, 8), 0))
 	turret.contents["shot"] = 5
 	mate.pos = sensor.center() + Vector2(2, 0)
 	for i in 20:
 		world.tick()
-	assert_eq(world.triggered_sensors_of("p1").size(), 0, "Kamerad löst nicht aus")
+	assert_eq(SimDefense.triggered_sensors_of(world, "p1").size(), 0, "Kamerad löst nicht aus")
 	assert_eq(int(turret.contents["shot"]), 5, "Turret verschont den Kameraden")
 	var stranger := world.spawn_player(sensor.center() + Vector2(2, 0), "p3", "Fremder")  # freie Kachel (25, 5)
 	for i in 3:
 		world.tick()
-	assert_eq(world.triggered_sensors_of("p1").size(), 1)
-	assert_eq(world.triggered_sensors_of("p2").size(), 1, "geteilter Alarm in der Gilde")
-	assert_true(world.sensors_of("p2", true).has(sensor))
+	assert_eq(SimDefense.triggered_sensors_of(world, "p1").size(), 1)
+	assert_eq(SimDefense.triggered_sensors_of(world, "p2").size(), 1, "geteilter Alarm in der Gilde")
+	assert_true(SimDefense.sensors_of(world, "p2", true).has(sensor))
 	assert_lt(int(turret.contents["shot"]), 5, "Fremde werden beschossen")
 	assert_true(stranger.hp < stranger.max_hp or stranger.dead)
 

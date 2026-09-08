@@ -104,35 +104,35 @@ static func blocked_reason(world: SimWorld, c: SimCharacter, rule: Dictionary) -
 		"heal_self":
 			if c.hp >= c.max_hp and c.effects.is_empty():
 				return "gesund"
-			if world.heal_item_of(c).is_empty():
+			if SimCrafting.heal_item_of(world, c).is_empty():
 				return "kein passendes Heilmittel"
 		"craft":
 			# Station (Werkbank, Schmelzofen, Lagerfeuer …): in Reichweite oder wenigstens in der Leine – dann läuft er hin
 			var product := String(params["product"])
 			var station := world.data.station_of(product)
-			if not station.is_empty() and world.building_part_near(c, station) == null and world.station_in_leash(c, station) == null:
+			if not station.is_empty() and SimCrafting.building_part_near(world, c, station) == null and SimCrafting.station_in_leash(world, c, station) == null:
 				return "%s nicht in der Leine" % world.data.buildings[station]["name"]
-			var reason := world.craft_reason(c, product, true)
+			var reason := SimCrafting.craft_reason(world, c, product, true)
 			if not reason.is_empty():
 				return reason
 		"toll":
-			var claim := world.toll_claim_of(c)
+			var claim := SimToll.toll_claim_of(world, c)
 			if claim == null:
 				return "kein eigener Claim"
 			if c.inventory_count() + int(params["amount"]) > data.bali("inventory.capacity"):
 				return "kein Platz für den Zoll"
-			if world.toll_liable_in_claim(c, claim).is_empty():
+			if SimToll.toll_liable_in_claim(world, c, claim).is_empty():
 				return "kein Mensch ohne Freigang im Claim"
 		"deliver":
 			var rid := String(params["resource"])
 			if int(c.inventory.get(rid, 0)) <= 0:
 				return "nichts zu liefern"
-			var target := world.container_near(c.owner_id, c.place_pos(String(params["place"])), float(params["radius"]))
+			var target := SimTrade.container_near(world, c.owner_id, c.place_pos(String(params["place"])), float(params["radius"]))
 			if target == null:
 				return "kein eigener Anker oder Handelstisch am Ort"
 			if target.part == "anchor" and rid != "wood":
 				return "der Anker nimmt nur Holz"
-			if world.is_turret(target) and rid != String(world.data.buildings[target.part]["turret"]["ammo"]):
+			if SimDefense.is_turret(world, target) and rid != String(world.data.buildings[target.part]["turret"]["ammo"]):
 				return "das Turret nimmt nur Kugeln"
 	return ""
 
@@ -180,15 +180,15 @@ static func _execute(world: SimWorld, c: SimCharacter, rule: Dictionary, intent:
 		"craft":
 			var rid := String(params["product"])
 			var station := world.data.station_of(rid)
-			if not station.is_empty() and world.building_part_near(c, station) == null:
+			if not station.is_empty() and SimCrafting.building_part_near(world, c, station) == null:
 				# Erst zur Station in der Leine laufen (Werkbank, Schmelzofen, Lagerfeuer …)
-				var target := world.station_in_leash(c, station)
+				var target := SimCrafting.station_in_leash(world, c, station)
 				if target == null:
 					return false
 				var stand := SimMap.cell_center(world.map.nearest_walkable_cell(SimMap.cell_of(target.center())))
 				intent.move = SimNav.direction_toward(world, c, stand, dt, 0.15)
 				return true
-			if world.craft(c, rid).is_empty():
+			if SimCrafting.craft(world, c, rid).is_empty():
 				var index := c.active_rule_index
 				SimChronicle.log_rule(world, c, index, c.rules[index], "jetzt %d" % int(c.inventory.get(rid, 0)))
 				c.last_logged_rule_index = -1  # jedes Stück wird protokolliert
@@ -220,12 +220,12 @@ static func _gather(world: SimWorld, c: SimCharacter, resource: String, center: 
 
 ## Liefern: zum eigenen Anker/Tisch am Ort gehen und alles vom Rohstoff abgeben; Chronik mit Menge.
 static func _deliver(world: SimWorld, c: SimCharacter, rid: String, center: Vector2, radius: float, intent: SimIntent, dt: float) -> void:
-	var target := world.container_near(c.owner_id, center, radius)
+	var target := SimTrade.container_near(world, c.owner_id, center, radius)
 	if target == null:
 		return
 	var reach := world.data.balf("character.interact_range")
 	if c.pos.distance_to(target.center()) <= reach + 0.3:
-		var moved := world.deliver_to(c, target, rid)
+		var moved := SimTrade.deliver_to(world, c, target, rid)
 		if moved > 0:
 			var index := c.active_rule_index
 			SimChronicle.log_rule(world, c, index, c.rules[index], "%d %s" % [moved, world.data.resources[rid]["name"]])
@@ -239,14 +239,14 @@ static func _deliver(world: SimWorld, c: SimCharacter, rid: String, center: Vect
 ## hingehen, damit er per E zahlen kann. Die Zeit im Claim ohne Zahlung wird als Schuld gemerkt – auch über mehrere
 ## Besuche; ab toll.grace_seconds greift der Zöllner an, solange der Fremde im Claim steht (Design: "Zoll, Zutritt, Angriff").
 static func _toll(world: SimWorld, c: SimCharacter, rid: String, amount: int, intent: SimIntent, dt: float) -> bool:
-	var claim := world.toll_claim_of(c)
+	var claim := SimToll.toll_claim_of(world, c)
 	if claim == null:
 		return false
 	var grace := world.data.balf("toll.grace_seconds")
 	var target: SimCharacter = null
 	var best := INF
-	for other: SimCharacter in world.toll_liable_in_claim(c, claim):
-		var entry := world.toll_entry(claim, other.owner_id)
+	for other: SimCharacter in SimToll.toll_liable_in_claim(world, c, claim):
+		var entry := SimToll.toll_entry(world, claim, other.owner_id)
 		entry["debt"] = float(entry["debt"]) + dt
 		if not bool(entry["demanded"]):
 			entry["demanded"] = true
@@ -299,7 +299,7 @@ static func _find_gather_node(world: SimWorld, c: SimCharacter, resource: String
 static func _fight_back(world: SimWorld, c: SimCharacter, intent: SimIntent, dt: float) -> void:
 	var target := world.get_character(c.last_attacker_id)
 	if target == null or target.dead or target.hidden:
-		target = world.nearest_enemy(c, world.data.balf("offline.hot_radius"))
+		target = SimCombat.nearest_enemy(world, c, world.data.balf("offline.hot_radius"))
 	if target == null:
 		return
 	_engage(world, c, target, intent, dt)
@@ -307,7 +307,7 @@ static func _fight_back(world: SimWorld, c: SimCharacter, intent: SimIntent, dt:
 
 ## Angreifen (freigeschaltet): nächsten sichtbaren Fremden im Radius angreifen, ohne selbst angegriffen zu sein.
 static func _attack_nearby(world: SimWorld, c: SimCharacter, radius: float, intent: SimIntent, dt: float) -> void:
-	var target := world.nearest_enemy(c, radius, true)  # Offline nur eingeschränkt am Ereignis beteiligt: den Leitwolf greift er nie zuerst an
+	var target := SimCombat.nearest_enemy(world, c, radius, true)  # Offline nur eingeschränkt am Ereignis beteiligt: den Leitwolf greift er nie zuerst an
 	if target == null:
 		return
 	_engage(world, c, target, intent, dt)
@@ -322,22 +322,22 @@ static func _engage(world: SimWorld, c: SimCharacter, target: SimCharacter, inte
 	# Waffenwahl: Nahkampf nur, wenn der Feind schon in Reichweite steht; sonst vorsichtig auf Abstand schießen
 	var melee_id := ""
 	var ranged_id := ""
-	for item_id: String in world.owned_weapons(c):
+	for item_id: String in SimCrafting.owned_weapons(world, c):
 		if data.items[item_id]["attack"] == "melee" and melee_id.is_empty():
 			melee_id = item_id
-		elif data.items[item_id]["attack"] == "ranged" and world.has_ammo(c, item_id) \
+		elif data.items[item_id]["attack"] == "ranged" and SimCrafting.has_ammo(world, c, item_id) \
 				and (ranged_id.is_empty() or float(data.items[item_id]["damage"]) > float(data.items[ranged_id]["damage"])):
 			ranged_id = item_id  # stärkste Fernwaffe mit Munition
 	if not melee_id.is_empty() and distance <= float(data.items[melee_id]["range"]) * 1.1:
-		world.set_active_weapon(c, melee_id)
+		SimCrafting.set_active_weapon(world, c, melee_id)
 		intent.shoot = true
 		return
 	if ranged_id.is_empty():
 		if not melee_id.is_empty():
-			world.set_active_weapon(c, melee_id)
+			SimCrafting.set_active_weapon(world, c, melee_id)
 			intent.move = to_target.normalized()  # nur Nahkampf: hingehen
 		return
-	world.set_active_weapon(c, ranged_id)
+	SimCrafting.set_active_weapon(world, c, ranged_id)
 	var preferred := data.balf("npc.preferred_combat_range")
 	if distance < preferred * 0.7:
 		intent.move = -to_target.normalized()
@@ -353,7 +353,7 @@ static func _engage(world: SimWorld, c: SimCharacter, target: SimCharacter, inte
 static func _face_threat_if_idle(world: SimWorld, c: SimCharacter, intent: SimIntent) -> void:
 	if intent.aim != Vector2.ZERO or intent.move != Vector2.ZERO:
 		return
-	var threat := world.nearest_enemy(c, THREAT_LOOK_RADIUS)
+	var threat := SimCombat.nearest_enemy(world, c, THREAT_LOOK_RADIUS)
 	if threat != null:
 		intent.aim = threat.pos - c.pos
 

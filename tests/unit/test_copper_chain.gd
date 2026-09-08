@@ -55,19 +55,19 @@ func test_gather_ore_offline_smelt_and_draw_wire() -> void:
 	world.spawn_building("workbench", Vector2i(2, 11), "p1")
 	player.inventory["copper_ore"] = 4
 	player.inventory["wood"] = 0
-	assert_eq(world.craft(player, "copper"), "zu wenig Holz (1 nötig)", "Schmelzen braucht Brennstoff")
+	assert_eq(SimCrafting.craft(world, player, "copper"), "zu wenig Holz (1 nötig)", "Schmelzen braucht Brennstoff")
 	player.inventory["wood"] = 2
-	assert_eq(world.craft(player, "copper"), "")
-	assert_eq(world.craft(player, "copper"), "")
+	assert_eq(SimCrafting.craft(world, player, "copper"), "")
+	assert_eq(SimCrafting.craft(world, player, "copper"), "")
 	assert_eq(int(player.inventory["copper"]), 2)
 	assert_eq(int(player.inventory["copper_ore"]), 0)
-	assert_eq(world.craft(player, "wire"), "")
+	assert_eq(SimCrafting.craft(world, player, "wire"), "")
 	assert_eq(int(player.inventory["wire"]), 2, "2 Draht je Kupfer")
 	player.pos = Vector2(20.5, 5.5)
 	player.inventory["wood"] = 10
-	assert_eq(world.can_place(player, "sensor", Vector2i(44, 10), 0), "")
+	assert_eq(SimConstruction.can_place(world, player, "sensor", Vector2i(44, 10), 0), "")
 	player.inventory["wire"] = 0
-	assert_eq(world.can_place(player, "sensor", Vector2i(44, 10), 0), "zu wenig Draht (1 nötig)", "Sensoren brauchen Draht")
+	assert_eq(SimConstruction.can_place(world, player, "sensor", Vector2i(44, 10), 0), "zu wenig Draht (1 nötig)", "Sensoren brauchen Draht")
 
 
 func test_copper_spear_is_a_reach_blade() -> void:
@@ -75,8 +75,8 @@ func test_copper_spear_is_a_reach_blade() -> void:
 	player.inventory["copper"] = 2
 	player.inventory["wood"] = 3
 	world.spawn_building("workbench", Vector2i(20, 6), "p1")  # Station in Reichweite
-	assert_eq(world.craft(player, "copper_spear"), "")
-	assert_true(world.set_active_weapon(player, "copper_spear"))
+	assert_eq(SimCrafting.craft(world, player, "copper_spear"), "")
+	assert_true(SimCrafting.set_active_weapon(world, player, "copper_spear"))
 	assert_eq(player.melee_range, 1.6, "Speer reicht weiter als Keule und Beil")
 	assert_eq(player.melee_effect, "bleeding", "Klinge")
 	var victim := world.spawn_player(player.pos + Vector2(1.4, 0), "p2", "Opfer")
@@ -88,4 +88,4 @@ func test_copper_spear_is_a_reach_blade() -> void:
 	world.set_intent(player.id, intent)
 	world.tick()
 	assert_lt(victim.hp, victim.max_hp, "trifft auf 1,4 Kacheln")
-	assert_true(world.has_effect(victim, "bleeding"))
+	assert_true(SimEffects.has_effect(world, victim, "bleeding"))

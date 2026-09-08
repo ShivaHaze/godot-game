@@ -27,7 +27,7 @@ func before_each() -> void:
 
 ## Anker auf (22, 5) und ein Block 18..21 × 4..6 als Claim; Zöllner loggt bei OPEN aus.
 func _claim_and_keeper(rules: Array = []) -> SimClaim:
-	assert_not_null(world.place_building(player, "anchor", Vector2i(44, 10), 0))
+	assert_not_null(SimConstruction.place_building(world, player, "anchor", Vector2i(44, 10), 0))
 	# Kacheln müssen angrenzen: von innen nach außen
 	for x in [21, 20, 19, 18]:
 		assert_true(world.claims.claim_tile(world, player, Vector2i(x, 5)), "Kachel (%d, 5): %s" % [x, world.claims.claim_tile_reason(world, player, Vector2i(x, 5))])
@@ -67,7 +67,7 @@ func _tick(n: int, stranger: SimCharacter = null, intent: SimIntent = null, kind
 func test_toll_action_needs_own_claim() -> void:
 	assert_true(data.actions.has("toll"))
 	assert_false(world.can_use(player, data.action_def("toll")), "ohne Claim nicht verfügbar")
-	world.place_building(player, "anchor", Vector2i(44, 10), 0)
+	SimConstruction.place_building(world, player, "anchor", Vector2i(44, 10), 0)
 	assert_true(world.can_use(player, data.action_def("toll")), "mit Claim verfügbar")
 	var def := data.action_def("toll")
 	assert_eq(data.format_template(String(def["label"]), def["params"], {"resource": "wood", "amount": 2}), "verlange Zoll: 2 Holz")
@@ -96,7 +96,7 @@ func test_demand_and_payment_give_pass() -> void:
 	assert_eq(paid.size(), 1, "gezahlt")
 	assert_eq(int(stranger.inventory["wood"]), 3)
 	assert_eq(int(player.inventory["wood"]), 30 - 10 - 12 + 2, "Zöllner hat den Zoll: %s" % [player.inventory])
-	assert_true(world.has_toll_pass(claim, "p2"), "Freigang")
+	assert_true(SimToll.has_toll_pass(world, claim, "p2"), "Freigang")
 	assert_eq(float(claim.toll["p2"]["debt"]), 0.0)
 	assert_false(SimSensors.stranger_in_claim(world, player), "zahlende Gäste sind keine Fremden im Claim")
 	found = false
@@ -111,7 +111,7 @@ func test_demand_and_payment_give_pass() -> void:
 	# Freigang läuft nach pass_hours ab
 	assert_almost_eq(float(claim.toll["p2"]["paid_until"]), world.time - 20.0 + data.balf("toll.pass_hours") * 3600.0, 1.0)
 	claim.toll["p2"]["paid_until"] = world.time - 1.0
-	assert_false(world.has_toll_pass(claim, "p2"))
+	assert_false(SimToll.has_toll_pass(world, claim, "p2"))
 
 
 func test_evader_is_attacked_and_remembered() -> void:
@@ -183,7 +183,7 @@ func test_blocked_reasons_and_save() -> void:
 	# Ein Wolf zählt als 'Fremder im Claim', ist aber nicht zollpflichtig: die Regel fällt mit Grund durch
 	var wolf := world.spawn_wolf(INSIDE)
 	wolf.control = SimCharacter.Controller.NONE
-	assert_true(world.toll_liable_in_claim(player, claim).is_empty())
+	assert_true(SimToll.toll_liable_in_claim(world, player, claim).is_empty())
 	_tick(10)
 	var lines := SimChronicle.format_all(player)
 	var found := false
@@ -220,11 +220,11 @@ func test_turret_spares_pass_holders() -> void:
 	player.inventory["iron"] = 4
 	player.inventory["wood"] = 6
 	player.inventory["wire"] = 2
-	var turret := world.place_building(player, "turret", Vector2i(36, 8), 0)  # Kachel (18, 4) im Claim
-	assert_not_null(turret, "Turret: %s" % world.can_place(player, "turret", Vector2i(36, 8), 0))
+	var turret := SimConstruction.place_building(world, player, "turret", Vector2i(36, 8), 0)  # Kachel (18, 4) im Claim
+	assert_not_null(turret, "Turret: %s" % SimConstruction.can_place(world, player, "turret", Vector2i(36, 8), 0))
 	turret.contents["shot"] = 10
 	var stranger := world.spawn_player(INSIDE, "p2", "Anna")
-	world.toll_entry(claim, "p2")["paid_until"] = world.time + 3600.0
+	SimToll.toll_entry(world, claim, "p2")["paid_until"] = world.time + 3600.0
 	var shots := _tick(40, null, null, "turret_shot")
 	assert_eq(shots.size(), 0, "Turret verschont zahlende Gäste")
 	claim.toll["p2"]["paid_until"] = -1.0

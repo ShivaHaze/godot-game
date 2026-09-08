@@ -62,9 +62,9 @@ func test_allied_buildings_are_places() -> void:
 	mate.inventory["stone"] = 4
 	mate.inventory["wire"] = 2
 	mate.pos = Vector2(16.5, 5.5)
-	var anchor := world.place_building(mate, "anchor", Vector2i(36, 10), 0)  # Kachel (18, 5)
-	assert_not_null(anchor, "Anker: %s" % world.can_place(mate, "anchor", Vector2i(36, 10), 0))
-	var sensor := world.place_building(mate, "sensor", Vector2i(34, 12), 0)
+	var anchor := SimConstruction.place_building(world, mate, "anchor", Vector2i(36, 10), 0)  # Kachel (18, 5)
+	assert_not_null(anchor, "Anker: %s" % SimConstruction.can_place(world, mate, "anchor", Vector2i(36, 10), 0))
+	var sensor := SimConstruction.place_building(world, mate, "sensor", Vector2i(34, 12), 0)
 	assert_not_null(sensor)
 	assert_eq(player.extra_places["b%d" % anchor.id]["name"], "Anker (p2)", "Anker des Mitglieds als Ort")
 	assert_eq(player.extra_places["b%d" % sensor.id]["name"], "Sensor 1 (p2)")

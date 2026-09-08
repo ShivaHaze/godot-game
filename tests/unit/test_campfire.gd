@@ -26,7 +26,7 @@ func test_wolf_corpse_gives_meat() -> void:
 	wolf.control = SimCharacter.Controller.NONE
 	assert_eq(int(wolf.inventory["meat"]), int(data.bal("wolf.loot")["meat"]))
 	assert_eq(int(wolf.inventory["hide"]), 1, "Fell")
-	world.apply_damage(wolf, 1000.0, Vector2.RIGHT, player.id)
+	SimCombat.apply_damage(world, wolf, 1000.0, Vector2.RIGHT, player.id)
 	assert_true(wolf.dead)
 	world.spatial.rebuild(world.characters)
 	var intent := SimIntent.new()
@@ -41,10 +41,10 @@ func test_wolf_corpse_gives_meat() -> void:
 func test_cooking_needs_campfire_and_is_better_food() -> void:
 	player.inventory["meat"] = 2
 	player.inventory["wood"] = 4
-	assert_eq(world.craft(player, "cooked_meat"), "Lagerfeuer nicht in Reichweite")
-	var fire := world.place_building(player, "campfire", Vector2i(43, 11), 0)
-	assert_not_null(fire, "Feuer: %s" % world.can_place(player, "campfire", Vector2i(43, 11), 0))
-	assert_eq(world.craft(player, "cooked_meat"), "")
+	assert_eq(SimCrafting.craft(world, player, "cooked_meat"), "Lagerfeuer nicht in Reichweite")
+	var fire := SimConstruction.place_building(world, player, "campfire", Vector2i(43, 11), 0)
+	assert_not_null(fire, "Feuer: %s" % SimConstruction.can_place(world, player, "campfire", Vector2i(43, 11), 0))
+	assert_eq(SimCrafting.craft(world, player, "cooked_meat"), "")
 	assert_eq(int(player.inventory["cooked_meat"]), 1)
 	assert_eq(int(player.inventory["meat"]), 1)
 	# Essen nimmt das nahrhafteste Stück
@@ -59,13 +59,13 @@ func test_cooking_needs_campfire_and_is_better_food() -> void:
 	assert_true(world.map.buildings.has(fire.id))
 	world.advance(3.5 * 3600.0)
 	assert_false(world.map.buildings.has(fire.id), "nach ~3 h erloschen")
-	assert_eq(world.craft(player, "cooked_meat"), "Lagerfeuer nicht in Reichweite")
+	assert_eq(SimCrafting.craft(world, player, "cooked_meat"), "Lagerfeuer nicht in Reichweite")
 
 
 func test_npc_cooks_at_a_fire_and_eats_when_hungry() -> void:
 	player.inventory["meat"] = 3
 	player.inventory["wood"] = 4
-	var fire := world.place_building(player, "campfire", Vector2i(43, 11), 0)
+	var fire := SimConstruction.place_building(world, player, "campfire", Vector2i(43, 11), 0)
 	assert_not_null(fire)
 	var rules := data.normalize_rule_list([
 		{"if": {"condition": "hungry"}, "then": {"action": "eat"}},

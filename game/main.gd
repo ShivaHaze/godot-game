@@ -347,7 +347,7 @@ func _process_live_input(player: SimCharacter) -> void:
 	if Input.is_action_just_pressed("eat"):
 		_eat_pressed = true
 	if Input.is_action_just_pressed("heal"):
-		if world.heal_item_of(player).is_empty():
+		if SimCrafting.heal_item_of(world, player).is_empty():
 			hud.show_message("Kein Verband. Herstellen (C): 1 Stoff aus 2 Fasern.", 2.0)
 		elif player.hp >= player.max_hp:
 			hud.show_message("Du bist gesund.", 1.5)
@@ -476,7 +476,7 @@ func _guild_command_line(line: String) -> void:
 
 ## E neben einem eigenen Schild: Text eingeben. true, wenn ein Schild in Reichweite ist.
 func _toggle_sign_edit(player: SimCharacter) -> bool:
-	var sign := world.sign_near(player)
+	var sign := SimConstruction.sign_near(world, player)
 	if sign == null:
 		return false
 	if sign.owner_id != player.owner_id:
@@ -497,7 +497,7 @@ func _apply_sign_text(text: String) -> void:
 		net.send({"t": "sign_text", "id": _sign_edit.id, "text": text}, true)
 		return
 	var player := world.get_character(player_id)
-	var reason := world.set_sign_text(player, _sign_edit, text)
+	var reason := SimConstruction.set_sign_text(world, player, _sign_edit, text)
 	hud.show_message("Schild beschriftet." if reason.is_empty() else "Schild: %s" % reason, 2.0)
 
 
@@ -516,7 +516,7 @@ func _toggle_depot_panel(player: SimCharacter) -> bool:
 	if depot_panel.visible:
 		depot_panel.close()
 		return true
-	var depot := world.depot_near(player)
+	var depot := SimTrade.depot_near(world, player)
 	if depot == null:
 		return false
 	craft_panel.close()
@@ -535,7 +535,7 @@ func _depot_action(kind: String, payload: Dictionary) -> void:
 		net.send(msg, true)
 		return
 	var b: SimBuilding = world.map.buildings.get(int(payload["id"]))
-	var reason := world.depot_deposit(player, b, String(payload["res"]), int(payload["amount"])) if kind == "depot_deposit" else world.depot_withdraw(player, b, String(payload["res"]), int(payload["amount"]))
+	var reason := SimTrade.depot_deposit(world, player, b, String(payload["res"]), int(payload["amount"])) if kind == "depot_deposit" else SimTrade.depot_withdraw(world, player, b, String(payload["res"]), int(payload["amount"]))
 	depot_panel.show_status("" if reason.is_empty() else "Geht nicht: %s" % reason)
 	depot_panel.rebuild()
 
@@ -544,7 +544,7 @@ func _toggle_trade_panel(player: SimCharacter) -> void:
 	if trade_panel.visible:
 		trade_panel.close()
 		return
-	var table := world.trade_table_near(player)
+	var table := SimTrade.trade_table_near(world, player)
 	if table == null:
 		return
 	craft_panel.close()
@@ -565,15 +565,15 @@ func _trade_action(kind: String, payload: Dictionary) -> void:
 	var reason := ""
 	match kind:
 		"table_deposit":
-			reason = world.table_deposit(player, b, String(payload["res"]), int(payload["amount"]))
+			reason = SimTrade.table_deposit(world, player, b, String(payload["res"]), int(payload["amount"]))
 		"table_withdraw":
-			reason = world.table_withdraw(player, b, String(payload["res"]), int(payload["amount"]))
+			reason = SimTrade.table_withdraw(world, player, b, String(payload["res"]), int(payload["amount"]))
 		"table_offers":
-			reason = world.table_set_offers(player, b, payload["offers"])
+			reason = SimTrade.table_set_offers(world, player, b, payload["offers"])
 			if reason.is_empty():
 				trade_panel.show_status("Angebote gespeichert.")
 		"table_buy":
-			reason = world.table_buy(player, b, int(payload["index"]))
+			reason = SimTrade.table_buy(world, player, b, int(payload["index"]))
 			if reason.is_empty():
 				trade_panel.show_status("Gekauft.")
 	if not reason.is_empty():
@@ -655,13 +655,13 @@ func _update_build_mode(player: SimCharacter) -> void:
 	if def.is_empty():
 		return
 	var origin := SimBuilding.half_cell_of(view.mouse_world_pos())
-	var reason := world.can_place(player, _build_part, origin, _build_rot)
+	var reason := SimConstruction.can_place(world, player, _build_part, origin, _build_rot)
 	view.ghost = {"cells": SimBuilding.cells_for(def["size"], origin, _build_rot), "valid": reason.is_empty()}
 	if Input.is_action_just_pressed("shoot"):
 		if net != null:
 			net.send({"t": "build", "part": _build_part, "x": origin.x, "y": origin.y, "rot": _build_rot}, true)
 		elif reason.is_empty():
-			world.place_building(player, _build_part, origin, _build_rot)
+			SimConstruction.place_building(world, player, _build_part, origin, _build_rot)
 			hud.show_message("%s gesetzt" % def["name"], 1.0)
 		else:
 			hud.show_message("Bauen geht nicht: %s" % reason, 1.5)
@@ -671,8 +671,8 @@ func _update_build_mode(player: SimCharacter) -> void:
 			hud.show_message("Kein Bauteil unter der Maus.", 1.0)
 		elif net != null:
 			net.send({"t": "demolish", "id": b.id}, true)
-		elif world.can_demolish(player, b):
-			world.remove_building(b.id, player)
+		elif SimConstruction.can_demolish(world, player, b):
+			SimConstruction.remove_building(world, b.id, player)
 			hud.show_message("Abgerissen, %d %% der Kosten zurück." % int(data.balf("building.refund_fraction") * 100.0), 1.5)
 		else:
 			hud.show_message("Nicht dein Bauteil oder zu weit weg.", 1.5)
@@ -704,7 +704,7 @@ func _update_claim_tool(player: SimCharacter) -> void:
 
 ## Q: nächste besessene Waffe.
 func _switch_weapon(player: SimCharacter) -> void:
-	var weapons := world.owned_weapons(player)
+	var weapons := SimCrafting.owned_weapons(world, player)
 	if weapons.size() < 2:
 		hud.show_message("Nur eine Waffe. Eine Keule baust du von Hand (C).", 2.0)
 		return
@@ -713,7 +713,7 @@ func _switch_weapon(player: SimCharacter) -> void:
 	if net != null:
 		net.send({"t": "weapon", "item": next_id}, true)
 	else:
-		world.set_active_weapon(player, next_id)
+		SimCrafting.set_active_weapon(world, player, next_id)
 	hud.show_message("Waffe: %s" % data.items[next_id]["name"], 1.5)
 
 
@@ -724,7 +724,7 @@ func _on_repair_requested(item_id: String) -> void:
 	if net != null:
 		net.send({"t": "repair", "item": item_id}, true)
 		return
-	var reason := world.repair(player, item_id)
+	var reason := SimCrafting.repair(world, player, item_id)
 	var label := String(data.items[item_id]["name"])
 	craft_panel.show_status(("%s repariert (Maximum sinkt je Reparatur)." % label) if reason.is_empty() else "Geht nicht: %s" % reason)
 	craft_panel.refresh()
@@ -738,7 +738,7 @@ func _on_equip_requested(item_id: String) -> void:
 	if net != null:
 		net.send({"t": "equip", "item": item_id}, true)
 		return
-	var reason := world.equip_armor(player, item_id)
+	var reason := SimCrafting.equip_armor(world, player, item_id)
 	if reason.is_empty():
 		var text := ("%s angelegt%s." % [data.items[item_id]["name"], (" – schwer, −%d %% Tempo" % int(roundf(player.armor_slow * 100.0))) if player.armor_slow > 0.0 else ""]) if not item_id.is_empty() else "Rüstung abgelegt."
 		craft_panel.show_status(text)
@@ -755,7 +755,7 @@ func _on_craft_requested(item_id: String) -> void:
 	if net != null:
 		net.send({"t": "craft", "item": item_id}, true)
 		return
-	var reason := world.craft(player, item_id)
+	var reason := SimCrafting.craft(world, player, item_id)
 	if reason.is_empty():
 		var label := String((data.items.get(item_id, data.resources.get(item_id, {})))["name"])
 		craft_panel.show_status("%s gebaut." % label)
@@ -941,7 +941,7 @@ func _handle_events() -> void:
 	for event: Dictionary in world.events:
 		var id := int(event.get("id", -1))
 		if ["boss_spawned", "boss_killed", "boss_left"].has(String(event.get("type", ""))):
-			var line := SimWorld.boss_event_text(event)
+			var line := SimEvents.boss_event_text(event)
 			hud.show_message(line, 5.0)
 			hud.add_chat_line("[Welt] " + line)
 			continue
@@ -1013,7 +1013,7 @@ func _handle_events() -> void:
 			"too_hard":
 				hud.show_message("Zu hart für %s – dafür braucht es Eisenwerkzeug." % data.items.get(world.get_character(player_id).active_weapon, {}).get("name", "bloße Hände"), 1.5)
 			"no_ammo":
-				hud.show_message("Keine %s mehr." % data.resources[world.ammo_of(event["weapon"])]["name"], 1.5)
+				hud.show_message("Keine %s mehr." % data.resources[SimCrafting.ammo_of(world, event["weapon"])]["name"], 1.5)
 			"healed":
 				_heal_active = false
 				var cured: Array = event.get("cured", [])

@@ -24,7 +24,7 @@ func before_each() -> void:
 
 ## Anker auf Kachel (22, 5), Spieler steht daneben.
 func _anchor() -> SimBuilding:
-	var b := world.place_building(player, "anchor", Vector2i(44, 10), 0)
+	var b := SimConstruction.place_building(world, player, "anchor", Vector2i(44, 10), 0)
 	assert_not_null(b, "Anker steht")
 	return b
 
@@ -40,16 +40,16 @@ func test_anchor_founds_claim_and_makes_condition_available() -> void:
 	assert_eq(world.claims.claim_at(Vector2i(22, 5)), claim)
 	assert_eq(int(player.inventory["wood"]), 10)
 	assert_true(world.can_use(player, data.condition_def("stranger_in_claim")), "mit Claim verfügbar")
-	assert_eq(world.can_place(player, "anchor", Vector2i(46, 10), 0), "du hast schon einen Anker (Solo: einer)")
+	assert_eq(SimConstruction.can_place(world, player, "anchor", Vector2i(46, 10), 0), "du hast schon einen Anker (Solo: einer)")
 
 
 func test_foreign_anchor_distance_and_claim_rules() -> void:
 	_anchor()
 	var other := world.spawn_player(OPEN + Vector2(4, 0), "p2", "Nachbar")
 	other.inventory["wood"] = 30
-	assert_eq(world.can_place(other, "anchor", Vector2i(52, 10), 0), "zu nah an einem fremden Anker")
+	assert_eq(SimConstruction.can_place(world, other, "anchor", Vector2i(52, 10), 0), "zu nah an einem fremden Anker")
 	other.pos = Vector2(34.6, 5.5)
-	assert_eq(world.can_place(other, "anchor", Vector2i(66, 10), 0), "")
+	assert_eq(SimConstruction.can_place(world, other, "anchor", Vector2i(66, 10), 0), "")
 	# Kacheln: angrenzend, Kosten, fremd, Limit
 	assert_eq(world.claims.claim_tile_reason(world, player, Vector2i(24, 5)), "muss an den Claim angrenzen")
 	assert_eq(world.claims.claim_tile_reason(world, player, Vector2i(21, 5)), "")
@@ -57,7 +57,7 @@ func test_foreign_anchor_distance_and_claim_rules() -> void:
 	assert_eq(int(player.inventory["wood"]), 9)
 	assert_eq(world.claims.claim_tile_reason(world, player, Vector2i(21, 5)), "schon beansprucht")
 	assert_eq(world.claims.claim_tile_reason(world, other, Vector2i(23, 5)), "du brauchst einen stehenden Anker")
-	world.place_building(other, "anchor", Vector2i(66, 10), 0)
+	SimConstruction.place_building(world, other, "anchor", Vector2i(66, 10), 0)
 	other.pos = Vector2(24.0, 5.5)
 	assert_eq(world.claims.claim_tile_reason(world, other, Vector2i(21, 5)), "fremder Claim")
 	player.inventory["wood"] = 100
@@ -76,8 +76,8 @@ func test_only_owner_builds_on_claim_and_npc_does_not_gather_foreign() -> void:
 	world.claims.claim_tile(world, player, Vector2i(21, 5))
 	var other := world.spawn_player(Vector2(21.5, 6.6), "p2", "Fremder")
 	other.inventory["wood"] = 6  # genug für eine Wand, Inventar bleibt offen
-	assert_eq(world.can_place(other, "wood_wall", Vector2i(42, 10), 0), "fremder Claim")
-	assert_eq(world.can_place(player, "wood_wall", Vector2i(42, 10), 0), "")
+	assert_eq(SimConstruction.can_place(world, other, "wood_wall", Vector2i(42, 10), 0), "fremder Claim")
+	assert_eq(SimConstruction.can_place(world, player, "wood_wall", Vector2i(42, 10), 0), "")
 	# Alle vier Beerenbüsche (27..28, 2..3) in den Claim holen: Kachelkette von (22,5) aus
 	player.inventory["wood"] = 100
 	for tile: Vector2i in [Vector2i(23, 5), Vector2i(24, 5), Vector2i(25, 5), Vector2i(26, 5), Vector2i(26, 4), Vector2i(26, 3), Vector2i(27, 3), Vector2i(27, 2), Vector2i(28, 2), Vector2i(28, 3)]:
@@ -141,16 +141,16 @@ func test_upkeep_deposit_and_shrink() -> void:
 func test_anchor_destroyed_grace_and_restore() -> void:
 	var anchor := _anchor()
 	var claim := world.claims.claim_of_owner("p1")
-	world.damage_building(anchor, 100.0, -1)
+	SimConstruction.damage_building(world, anchor, 100.0, -1)
 	assert_eq(claim.anchor_building_id, -1)
 	assert_gt(claim.grace_until, world.time)
 	assert_eq(world.claims.claim_tile_reason(world, player, Vector2i(21, 5)), "du brauchst einen stehenden Anker")
 	world.advance(3600.0)
 	player.inventory["wood"] = 20
-	var again := world.place_building(player, "anchor", Vector2i(44, 10), 0)
+	var again := SimConstruction.place_building(world, player, "anchor", Vector2i(44, 10), 0)
 	assert_not_null(again, "Wiederaufbau in der Schonfrist")
 	assert_eq(claim.anchor_building_id, again.id, "derselbe Claim lebt weiter")
-	world.damage_building(again, 100.0, -1)
+	SimConstruction.damage_building(world, again, 100.0, -1)
 	world.advance(3600.0 * 3)
 	assert_false(world.claims.claims.has(claim.id), "nach der Schonfrist aufgelöst")
 	assert_null(world.claims.claim_at(Vector2i(22, 5)))

@@ -132,7 +132,7 @@ func _building_color(part: String) -> Color:
 func _draw_buildings() -> void:
 	var half := TILE * 0.5
 	for b: SimBuilding in world.map.buildings.values():
-		if not world.building_visible_to(b, viewer_owner):
+		if not SimDefense.building_visible_to(world, b, viewer_owner):
 			continue
 		var color := _building_color(b.part)
 		var frac := b.hp / maxf(1.0, b.max_hp)
@@ -235,10 +235,10 @@ func _draw_characters() -> void:
 		if c.hidden:
 			color.a = 0.35
 		draw_rect(Rect2(top_left, Vector2(size, size)), color)
-		if world.has_effect(c, "bleeding"):
+		if SimEffects.has_effect(world, c, "bleeding"):
 			draw_rect(Rect2(top_left, Vector2(size, size)), Color(0.8, 0.05, 0.05), false, 2.0)
 			draw_circle(p + Vector2(size * 0.35, size * 0.45), 3.0, Color(0.8, 0.05, 0.05))
-		if world.has_effect(c, "poison"):
+		if SimEffects.has_effect(world, c, "poison"):
 			draw_rect(Rect2(top_left + Vector2(2, 2), Vector2(size - 4, size - 4)), Color(0.3, 0.9, 0.3), false, 2.0)
 		draw_line(p, p + c.facing * TILE * 0.6, Color(1, 1, 1, 0.9), 2.0)
 		# Lebensbalken

@@ -48,15 +48,22 @@ docs/design-doc.md   Design-Dokument (Wahrheit für alle Designfragen)
 data/                JSON: balance, resources, tiles, map, conditions, actions, roles, items, buildings (+ README.md)
 sim/                 Simulation ohne Nodes:
   sim_data.gd          Loader + Validierung + Regel-Normalisierung + Textvorlagen
-  sim_world.gd         Weltzustand, Tick/step(dt), Intents, Kampf (Waffen), Hunger, Sammeln, Plündern, Verstecken,
-                       Wölfe, Marker, Werkbank (craft), logout()/login(), Übergang, advance()/advance_until(), is_hot()
+  sim_world.gd         Weltzustand, Aufbau, Tick/step(dt) mit Simulationsstufen, Intents, Sammeln, Plündern, Essen,
+                       Hunger, Wölfe, Verstecken, Orte, Namen, Briefe, logout()/login(), Übergang, advance()/is_hot()
+  sim_crafting.gd      Herstellen an Stationen, Ausrüstung (Rüstung anlegen, Waffen, Munition), Verschleiß, Reparatur, Heilmittel
+  sim_effects.gd       Zustandseffekte (Blutung, Vergiftung, Krankheit)
+  sim_construction.gd  Bauen: setzen, abreißen, Schaden, Verfall, Schilder
+  sim_defense.gd       Sensoren, Fallen, Turrets, Sprengsätze
+  sim_trade.gd         Handelstisch, Depots (Markt/Outpost), Lieferung in Bauteile
+  sim_toll.gd          Zoll: Forderung, Schuld, Freigang, Zahlung
+  sim_events.gd        Ereignisse: Leitwolf
   sim_save.gd          Weltzustand <-> Dictionary (JSON-fähig) und exakte Spielstand-Datei
   sim_map.gd           Karte, Kollision (Kreis vs. Kacheln, Gleiten, Substeps), Quellen, A*
   sim_character.gd     Charakterdaten (Spieler live / NPC / Wolf)
   sim_intent.gd        Steuerabsicht pro Tick (move, aim, shoot, interact, eat, hide, melee)
   sim_projectile.gd, sim_resource_node.gd, sim_building.gd, sim_claim.gd   Daten
   sim_claims.gd        Land: Anker, Kacheln, Unterhalt, Schrumpfen, Schonfrist, Rechte (world.claims)
-  sim_combat.gd        Richtungstreffer + Rüstung (reine Logik)
+  sim_combat.gd        Richtungstreffer + Rüstung (reine Logik), Angriff, Projektile, Treffer, Tod
   sim_sensors.gd       Sensorwerte ("facts") für die Regelmaschine
   rule_engine.gd       Regelmaschine (reine Logik)
   sim_chronicle.gd     Chronik-Einträge und -Texte

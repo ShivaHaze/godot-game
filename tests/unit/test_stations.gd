@@ -50,43 +50,43 @@ func test_crafting_and_repair_need_the_station_in_reach() -> void:
 	player.inventory["wood"] = 20
 	player.inventory["fibers"] = 4
 	player.inventory["stone"] = 4
-	assert_eq(world.craft(player, "bow"), "Werkbank nicht in Reichweite")
-	assert_eq(world.craft(player, "club"), "", "Keule von Hand")
+	assert_eq(SimCrafting.craft(world, player, "bow"), "Werkbank nicht in Reichweite")
+	assert_eq(SimCrafting.craft(world, player, "club"), "", "Keule von Hand")
 	var bench := world.spawn_building("workbench", Vector2i(20, 6), "p2")  # fremde Werkbank zählt auch
 	assert_not_null(bench)
-	assert_eq(world.craft(player, "bow"), "")
+	assert_eq(SimCrafting.craft(world, player, "bow"), "")
 	player.inventory["iron_ore"] = 2
 	player.inventory["coal"] = 1
-	assert_eq(world.craft(player, "iron"), "Schmelzofen nicht in Reichweite")
+	assert_eq(SimCrafting.craft(world, player, "iron"), "Schmelzofen nicht in Reichweite")
 	world.spawn_building("furnace", Vector2i(19, 6), "p1")
-	assert_eq(world.craft(player, "iron"), "")
+	assert_eq(SimCrafting.craft(world, player, "iron"), "")
 	player.inventory["iron"] = 3
-	assert_eq(world.craft(player, "iron_axe"), "Schmiede nicht in Reichweite")
+	assert_eq(SimCrafting.craft(world, player, "iron_axe"), "Schmiede nicht in Reichweite")
 	world.spawn_building("forge", Vector2i(21, 6), "p1")
-	assert_eq(world.craft(player, "iron_axe"), "")
+	assert_eq(SimCrafting.craft(world, player, "iron_axe"), "")
 	# Reparatur braucht die Station des Gegenstands
-	world.wear(player, "bow", 10.0)
+	SimCrafting.wear(world, player, "bow", 10.0)
 	player.pos = Vector2(10.5, 5.5)
-	assert_eq(world.repair_reason(player, "bow"), "Werkbank nicht in Reichweite")
+	assert_eq(SimCrafting.repair_reason(world, player, "bow"), "Werkbank nicht in Reichweite")
 	player.pos = OPEN
-	assert_eq(world.repair_reason(player, "bow"), "")
-	assert_eq(world.repair(player, "bow"), "")
+	assert_eq(SimCrafting.repair_reason(world, player, "bow"), "")
+	assert_eq(SimCrafting.repair(world, player, "bow"), "")
 
 
 func test_station_is_built_live_and_is_a_raid_target() -> void:
 	player.inventory["wood"] = 8
 	player.inventory["stone"] = 4
-	var bench := world.place_building(player, "workbench", Vector2i(42, 12), 0)  # Kachel (21, 6)
-	assert_not_null(bench, "Werkbank: %s" % world.can_place(player, "workbench", Vector2i(42, 12), 0))
+	var bench := SimConstruction.place_building(world, player, "workbench", Vector2i(42, 12), 0)  # Kachel (21, 6)
+	assert_not_null(bench, "Werkbank: %s" % SimConstruction.can_place(world, player, "workbench", Vector2i(42, 12), 0))
 	assert_eq(int(player.inventory["wood"]), 0)
 	player.inventory["stone"] = 6
 	player.inventory["wood"] = 4
-	assert_eq(world.can_place(player, "forge", Vector2i(44, 12), 0), "zu wenig Eisen (3 nötig)", "Schmiede braucht Eisen, also erst den Schmelzofen")
+	assert_eq(SimConstruction.can_place(world, player, "forge", Vector2i(44, 12), 0), "zu wenig Eisen (3 nötig)", "Schmiede braucht Eisen, also erst den Schmelzofen")
 	# Ein Fremder schlägt die Werkbank (Holz) ein
 	var raider := world.spawn_player(Vector2(21.5, 7.3), "p2", "Räuber")
 	raider.inventory["wood"] = 3
-	assert_eq(world.craft(raider, "club"), "")
-	world.set_active_weapon(raider, "club")
+	assert_eq(SimCrafting.craft(world, raider, "club"), "")
+	SimCrafting.set_active_weapon(world, raider, "club")
 	raider.facing = Vector2.UP
 	world.spatial.rebuild(world.characters)
 	var intent := SimIntent.new()
@@ -98,7 +98,7 @@ func test_station_is_built_live_and_is_a_raid_target() -> void:
 	assert_false(world.map.buildings.has(bench.id), "Werkbank eingeschlagen")
 	player.inventory["wood"] = 4
 	player.inventory["fibers"] = 2
-	assert_eq(world.craft(player, "bow"), "Werkbank nicht in Reichweite", "ohne Werkbank keine Stufe 1 mehr")
+	assert_eq(SimCrafting.craft(world, player, "bow"), "Werkbank nicht in Reichweite", "ohne Werkbank keine Stufe 1 mehr")
 
 
 func test_npc_walks_to_workbench_in_leash_and_crafts() -> void:

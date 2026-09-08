@@ -102,7 +102,7 @@ func test_fight_back_never_leaves_leash_but_shoots() -> void:
 	var wolf := _wolf()
 	wolf.pos = OPEN + Vector2(9, 0)  # weit außerhalb der Leine
 	wolf.facing = Vector2.LEFT
-	world.apply_damage(npc, 1.0, Vector2.LEFT, wolf.id)
+	SimCombat.apply_damage(world, npc, 1.0, Vector2.LEFT, wolf.id)
 	var shots := 0
 	var worst := 0.0
 	for i in 100:
@@ -128,7 +128,7 @@ func test_flee_to_here_when_attacked() -> void:
 	npc.pos = OPEN + Vector2(5, 0)
 	var wolf := _wolf()
 	wolf.pos = OPEN + Vector2(7, 0)
-	world.apply_damage(npc, 1.0, Vector2.LEFT, wolf.id)
+	SimCombat.apply_damage(world, npc, 1.0, Vector2.LEFT, wolf.id)
 	_tick(40)
 	assert_eq(npc.active_rule_index, 0, "angegriffen -> fliehe zu Hier")
 	assert_lt(npc.pos.distance_to(OPEN), 2.0, "in der Fluchtleine angekommen")

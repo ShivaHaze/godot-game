@@ -35,12 +35,12 @@ func test_knows_name_rules_and_description() -> void:
 	assert_eq(world.describe(player, near), "Nachbar")
 	assert_eq(world.describe(player, far), "Unbekannter mit Schleuder")
 	far.items.clear()
-	world.refresh_equipment(far)
+	SimCrafting.refresh_equipment(world, far)
 	assert_eq(world.describe(player, far), "Unbekannter mit bloßen Händen")
 	far.inventory["copper"] = 2
 	far.inventory["wood"] = 3
 	world.spawn_building("workbench", Vector2i(28, 6), "p3")
-	world.craft(far, "copper_spear")
+	SimCrafting.craft(world, far, "copper_spear")
 	assert_eq(world.describe(player, far), "Unbekannter mit Kupferspeer")
 	assert_eq(world.describe(player, null), "Unbekannt")
 
@@ -53,7 +53,7 @@ func test_chronicle_names_only_near_attackers() -> void:
 	world.logout(sniper.id, sniper_rules, "Wache")
 	player.hp = 1.0
 	world.spatial.rebuild(world.characters)
-	world.apply_damage(player, 10.0, Vector2.LEFT, sniper.id)
+	SimCombat.apply_damage(world, player, 10.0, Vector2.LEFT, sniper.id)
 	assert_true(player.dead)
 	var victim_lines := SimChronicle.format_all(player)
 	assert_true(victim_lines[victim_lines.size() - 1].contains("gestorben durch Unbekannter mit Schleuder"), "Opfer: %s" % [victim_lines])
@@ -64,14 +64,14 @@ func test_chronicle_names_only_near_attackers() -> void:
 	var victim := world.spawn_player(OPEN + Vector2(2, 0), "p4", "Opfer")
 	world.logout(brawler.id, sniper_rules, "Wache")
 	victim.hp = 1.0
-	world.apply_damage(victim, 10.0, Vector2.RIGHT, brawler.id)
+	SimCombat.apply_damage(world, victim, 10.0, Vector2.RIGHT, brawler.id)
 	assert_true(SimChronicle.format_all(victim)[SimChronicle.format_all(victim).size() - 1].contains("gestorben durch Schläger"))
 	assert_true(SimChronicle.format_all(brawler)[SimChronicle.format_all(brawler).size() - 1].contains("Opfer getötet"))
 	# Wölfe erkennt man immer
 	var wolf := world.spawn_wolf(OPEN + Vector2(-9, 0))
 	var prey := world.spawn_player(OPEN + Vector2(-2, 0), "p5", "Beute")
 	prey.hp = 1.0
-	world.apply_damage(prey, 10.0, Vector2.RIGHT, wolf.id)
+	SimCombat.apply_damage(world, prey, 10.0, Vector2.RIGHT, wolf.id)
 	assert_true(SimChronicle.format_all(prey)[SimChronicle.format_all(prey).size() - 1].contains("gestorben durch Wolf"))
 
 

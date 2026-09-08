@@ -23,55 +23,55 @@ func before_each() -> void:
 			c.pos = Vector2(38.5, 28.5)
 			c.home_pos = c.pos
 			c.control = SimCharacter.Controller.NONE
-	table = world.place_building(seller, "trade_table", Vector2i(44, 10), 0)  # Kachel (22, 5), 2×1 Halbzellen
+	table = SimConstruction.place_building(world, seller, "trade_table", Vector2i(44, 10), 0)  # Kachel (22, 5), 2×1 Halbzellen
 	assert_not_null(table)
 	buyer = world.spawn_player(Vector2(23.5, 5.5), "p2", "Kunde")
 	buyer.inventory["wood"] = 5
 
 
 func test_owner_stocks_and_sets_offers() -> void:
-	assert_true(world.is_trade_table(table))
-	assert_eq(world.trade_table_near(seller), table)
-	assert_eq(world.table_deposit(seller, table, "berries", 6), "")
+	assert_true(SimTrade.is_trade_table(world, table))
+	assert_eq(SimTrade.trade_table_near(world, seller), table)
+	assert_eq(SimTrade.table_deposit(world, seller, table, "berries", 6), "")
 	assert_eq(int(table.contents["berries"]), 6)
 	assert_eq(int(seller.inventory["berries"]), 4)
-	assert_eq(world.table_withdraw(seller, table, "berries", 2), "")
+	assert_eq(SimTrade.table_withdraw(world, seller, table, "berries", 2), "")
 	assert_eq(int(table.contents["berries"]), 4)
-	assert_eq(world.table_set_offers(seller, table, [{"sell": "berries", "sell_amount": 2, "price": "wood", "price_amount": 1}]), "")
+	assert_eq(SimTrade.table_set_offers(world, seller, table, [{"sell": "berries", "sell_amount": 2, "price": "wood", "price_amount": 1}]), "")
 	assert_eq(table.offers.size(), 1)
-	assert_eq(world.table_set_offers(seller, table, [{"sell": "berries", "sell_amount": 2, "price": "berries", "price_amount": 1}]), "ungültiges Angebot")
-	assert_eq(world.table_set_offers(seller, table, [{}, {}, {}, {}]), "höchstens 3 Angebote")
-	assert_eq(world.table_deposit(buyer, table, "wood", 1), "nicht dein Tisch")
-	assert_eq(world.table_set_offers(buyer, table, []), "nicht dein Tisch")
+	assert_eq(SimTrade.table_set_offers(world, seller, table, [{"sell": "berries", "sell_amount": 2, "price": "berries", "price_amount": 1}]), "ungültiges Angebot")
+	assert_eq(SimTrade.table_set_offers(world, seller, table, [{}, {}, {}, {}]), "höchstens 3 Angebote")
+	assert_eq(SimTrade.table_deposit(world, buyer, table, "wood", 1), "nicht dein Tisch")
+	assert_eq(SimTrade.table_set_offers(world, buyer, table, []), "nicht dein Tisch")
 
 
 func test_buyer_trades_and_reasons() -> void:
-	world.table_deposit(seller, table, "berries", 6)
-	world.table_set_offers(seller, table, [{"sell": "berries", "sell_amount": 2, "price": "wood", "price_amount": 1}])
-	assert_eq(world.table_buy(buyer, table, 0), "")
+	SimTrade.table_deposit(world, seller, table, "berries", 6)
+	SimTrade.table_set_offers(world, seller, table, [{"sell": "berries", "sell_amount": 2, "price": "wood", "price_amount": 1}])
+	assert_eq(SimTrade.table_buy(world, buyer, table, 0), "")
 	assert_eq(int(buyer.inventory["berries"]), 2)
 	assert_eq(int(buyer.inventory["wood"]), 4)
 	assert_eq(int(table.contents["berries"]), 4)
 	assert_eq(int(table.contents["wood"]), 1, "Bezahlung liegt im Tisch")
-	assert_eq(world.table_buy(buyer, table, 1), "kein solches Angebot")
+	assert_eq(SimTrade.table_buy(world, buyer, table, 1), "kein solches Angebot")
 	buyer.inventory["wood"] = 0
-	assert_eq(world.table_buy(buyer, table, 0), "zu wenig Holz (1 nötig)")
+	assert_eq(SimTrade.table_buy(world, buyer, table, 0), "zu wenig Holz (1 nötig)")
 	buyer.inventory["wood"] = 9
-	world.table_buy(buyer, table, 0)
-	world.table_buy(buyer, table, 0)
-	assert_eq(world.table_buy(buyer, table, 0), "ausverkauft")
+	SimTrade.table_buy(world, buyer, table, 0)
+	SimTrade.table_buy(world, buyer, table, 0)
+	assert_eq(SimTrade.table_buy(world, buyer, table, 0), "ausverkauft")
 	buyer.pos = Vector2(30.5, 5.5)
-	assert_eq(world.table_buy(buyer, table, 0), "zu weit weg")
+	assert_eq(SimTrade.table_buy(world, buyer, table, 0), "zu weit weg")
 	world.logout(buyer.id, data.roles["guard"]["rules"])
-	assert_eq(world.table_buy(buyer, table, 0), "nur live", "Handel nur live")
+	assert_eq(SimTrade.table_buy(world, buyer, table, 0), "nur live", "Handel nur live")
 
 
 func test_destroyed_table_yields_contents_to_attacker() -> void:
-	world.table_deposit(seller, table, "berries", 6)
-	world.table_deposit(seller, table, "wood", 4)
+	SimTrade.table_deposit(world, seller, table, "berries", 6)
+	SimTrade.table_deposit(world, seller, table, "wood", 4)
 	buyer.inventory["wood"] = 3
-	world.craft(buyer, "club")
-	world.set_active_weapon(buyer, "club")
+	SimCrafting.craft(world, buyer, "club")
+	SimCrafting.set_active_weapon(world, buyer, "club")
 	buyer.pos = Vector2(23.4, 5.25)
 	var intent := SimIntent.new()
 	intent.aim = Vector2.LEFT
@@ -89,8 +89,8 @@ func test_destroyed_table_yields_contents_to_attacker() -> void:
 
 
 func test_save_and_snapshot_carry_table_state() -> void:
-	world.table_deposit(seller, table, "berries", 3)
-	world.table_set_offers(seller, table, [{"sell": "berries", "sell_amount": 1, "price": "wood", "price_amount": 2}])
+	SimTrade.table_deposit(world, seller, table, "berries", 3)
+	SimTrade.table_set_offers(world, seller, table, [{"sell": "berries", "sell_amount": 1, "price": "wood", "price_amount": 2}])
 	var copy := SimSave.world_from_dict(data, SimSave.world_to_dict(world))
 	var loaded: SimBuilding = copy.map.buildings[table.id]
 	assert_eq(int(loaded.contents["berries"]), 3)
@@ -106,5 +106,5 @@ func test_save_and_snapshot_carry_table_state() -> void:
 	assert_eq(int(mirror.map.buildings[table.id].contents["berries"]), 3)
 	assert_eq(mirror.map.buildings[table.id].offers.size(), 1)
 	assert_false(NetProtocol.snapshot(world, buyer.id, known, nodes, state).has("bld"), "unverändert")
-	world.table_buy(buyer, table, 0)
+	SimTrade.table_buy(world, buyer, table, 0)
 	assert_true(NetProtocol.snapshot(world, buyer.id, known, nodes, state).has("bld"), "Kauf ändert den Tisch")

@@ -25,7 +25,7 @@ func before_each() -> void:
 
 
 func _sensor(origin: Vector2i = Vector2i(46, 11)) -> SimBuilding:
-	var b := world.place_building(player, "sensor", origin, 0)
+	var b := SimConstruction.place_building(world, player, "sensor", origin, 0)
 	assert_not_null(b, "Sensor steht")
 	return b
 
@@ -38,7 +38,7 @@ func test_sensor_triggers_on_stranger_and_holds() -> void:
 	assert_eq(player.extra_places["b%d" % s.id]["name"], "Sensor 1", "Sensor ist ein Ort")
 	assert_eq(player.marker_name("b%d" % s.id), "Sensor 1")
 	world.tick()
-	assert_eq(world.triggered_sensors_of("p1").size(), 0)
+	assert_eq(SimDefense.triggered_sensors_of(world, "p1").size(), 0)
 	var stranger := world.spawn_player(s.center() + Vector2(4, 0), "p2", "Fremder")
 	stranger.hidden = true
 	var events := []
@@ -49,15 +49,15 @@ func test_sensor_triggers_on_stranger_and_holds() -> void:
 				events.append(event)
 	assert_eq(events.size(), 1, "einmal gemeldet")
 	assert_eq(int(events[0]["by"]), stranger.id, "auch versteckte Fremde")
-	assert_eq(world.triggered_sensors_of("p1"), ["b%d" % s.id])
+	assert_eq(SimDefense.triggered_sensors_of(world, "p1"), ["b%d" % s.id])
 	stranger.pos = Vector2(38.5, 20.5)
 	world.advance(3.0)
-	assert_eq(world.triggered_sensors_of("p1").size(), 1, "hält 5 s nach")
+	assert_eq(SimDefense.triggered_sensors_of(world, "p1").size(), 1, "hält 5 s nach")
 	world.advance(3.0)
-	assert_eq(world.triggered_sensors_of("p1").size(), 0)
+	assert_eq(SimDefense.triggered_sensors_of(world, "p1").size(), 0)
 	var own := world.spawn_player(s.center() + Vector2(1, 0), "p1", "Eigener")
 	world.tick()
-	assert_eq(world.triggered_sensors_of("p1").size(), 0, "eigene Leute lösen nicht aus")
+	assert_eq(SimDefense.triggered_sensors_of(world, "p1").size(), 0, "eigene Leute lösen nicht aus")
 	assert_eq(own.owner_id, "p1")
 
 
@@ -99,7 +99,7 @@ func test_missing_sensor_falls_through() -> void:
 	], "Test")
 	world.logout(player.id, rules)
 	player.logout_time = -1e9
-	world.damage_building(s, 100.0, -1)
+	SimConstruction.damage_building(world, s, 100.0, -1)
 	for i in 20:
 		world.tick()
 	assert_eq(player.active_rule_index, RuleEngine.NO_MATCH)
@@ -112,10 +112,10 @@ func test_missing_sensor_falls_through() -> void:
 
 
 func test_trap_is_hidden_to_strangers_damages_and_vanishes() -> void:
-	var trap := world.place_building(player, "trap", Vector2i(46, 10), 0)
+	var trap := SimConstruction.place_building(world, player, "trap", Vector2i(46, 10), 0)
 	assert_not_null(trap)
-	assert_true(world.building_visible_to(trap, "p1"))
-	assert_false(world.building_visible_to(trap, "p2"), "Fremde sehen die Falle nicht")
+	assert_true(SimDefense.building_visible_to(world, trap, "p1"))
+	assert_false(SimDefense.building_visible_to(world, trap, "p2"), "Fremde sehen die Falle nicht")
 	var known := {}
 	var nodes := {}
 	var state := {}

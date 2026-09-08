@@ -74,10 +74,10 @@ func rebuild() -> void:
 	if building == null or viewer == null:
 		return
 	var zone := world.zone_at(building.center())
-	var fee := int(roundf(world.depot_fee_of(building) * 100.0))
+	var fee := int(roundf(SimTrade.depot_fee_of(world, building) * 100.0))
 	_title.text = "%s – %s. Einlagern kostet %d %% Gebühr, holen ist frei%s. Bestand %d/%d." % [
-		building.label, zone.get("name", "Depot"), fee, "" if zone.get("raid_goods", false) else ", Raidwaren nicht", world.depot_stock_count(building, viewer.owner_id), data.bali("market.depot_capacity")]
-	var stock := world.depot_stock(building, viewer.owner_id)
+		building.label, zone.get("name", "Depot"), fee, "" if zone.get("raid_goods", false) else ", Raidwaren nicht", SimTrade.depot_stock_count(world, building, viewer.owner_id), data.bali("market.depot_capacity")]
+	var stock := SimTrade.depot_stock(world, building, viewer.owner_id)
 	for rid: String in data.resource_order:
 		var have := int(viewer.inventory.get(rid, 0))
 		var stored := int(stock.get(rid, 0))

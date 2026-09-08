@@ -25,7 +25,7 @@ func before_each() -> void:
 
 ## Setzt eine Holzwand rechts vom Spieler (senkrecht, x = 22, y 5..6 in Kacheln).
 func _wall_right() -> SimBuilding:
-	var b := world.place_building(player, "wood_wall", Vector2i(44, 10), 0)
+	var b := SimConstruction.place_building(world, player, "wood_wall", Vector2i(44, 10), 0)
 	assert_not_null(b, "Wand steht")
 	return b
 
@@ -39,20 +39,20 @@ func test_data_and_cells() -> void:
 
 
 func test_place_rules() -> void:
-	assert_eq(world.can_place(player, "turm", Vector2i(44, 10), 0), "unbekanntes Bauteil")
-	assert_eq(world.can_place(player, "wood_wall", Vector2i(0, 0), 0), "kein freier Boden", "Rand ist Hindernis")
-	assert_eq(world.can_place(player, "wood_wall", Vector2i(60, 46), 0), "zu weit weg")
-	assert_eq(world.can_place(player, "wood_wall", Vector2i(41, 11), 0), "jemand steht im Weg")
-	assert_eq(world.can_place(player, "wood_wall", Vector2i(44, 10), 0), "")
+	assert_eq(SimConstruction.can_place(world, player, "turm", Vector2i(44, 10), 0), "unbekanntes Bauteil")
+	assert_eq(SimConstruction.can_place(world, player, "wood_wall", Vector2i(0, 0), 0), "kein freier Boden", "Rand ist Hindernis")
+	assert_eq(SimConstruction.can_place(world, player, "wood_wall", Vector2i(60, 46), 0), "zu weit weg")
+	assert_eq(SimConstruction.can_place(world, player, "wood_wall", Vector2i(41, 11), 0), "jemand steht im Weg")
+	assert_eq(SimConstruction.can_place(world, player, "wood_wall", Vector2i(44, 10), 0), "")
 	player.inventory["wood"] = 3
-	assert_eq(world.can_place(player, "wood_wall", Vector2i(44, 10), 0), "zu wenig Holz (4 nötig)")
+	assert_eq(SimConstruction.can_place(world, player, "wood_wall", Vector2i(44, 10), 0), "zu wenig Holz (4 nötig)")
 	player.inventory["wood"] = 20
 	var b := _wall_right()
 	assert_eq(player.inventory["wood"], 16, "Kosten abgezogen")
-	assert_eq(world.can_place(player, "wood_wall", Vector2i(44, 11), 0), "schon bebaut")
+	assert_eq(SimConstruction.can_place(world, player, "wood_wall", Vector2i(44, 11), 0), "schon bebaut")
 	assert_eq(world.map.building_at(Vector2(22.25, 5.75)), b)
 	world.logout(player.id, data.roles["guard"]["rules"])
-	assert_eq(world.can_place(player, "wood_wall", Vector2i(46, 10), 0), "nur live baubar", "NPCs bauen nie")
+	assert_eq(SimConstruction.can_place(world, player, "wood_wall", Vector2i(46, 10), 0), "nur live baubar", "NPCs bauen nie")
 
 
 func test_wall_blocks_everyone_door_only_strangers() -> void:
@@ -63,8 +63,8 @@ func test_wall_blocks_everyone_door_only_strangers() -> void:
 		world.set_intent(player.id, intent)
 		world.tick()
 	assert_lt(player.pos.x, 22.0, "eigene Wand blockiert auch den Besitzer")
-	world.remove_building(wall.id)
-	var door := world.place_building(player, "wood_door", Vector2i(44, 10), 0)
+	SimConstruction.remove_building(world, wall.id)
+	var door := SimConstruction.place_building(world, player, "wood_door", Vector2i(44, 10), 0)
 	assert_not_null(door)
 	for i in 20:
 		world.set_intent(player.id, intent)
@@ -97,8 +97,8 @@ func test_projectile_stops_at_wall() -> void:
 
 func test_melee_breaks_wood_wall_but_npc_never() -> void:
 	var b := _wall_right()
-	world.craft(player, "club")
-	world.set_active_weapon(player, "club")
+	SimCrafting.craft(world, player, "club")
+	SimCrafting.set_active_weapon(world, player, "club")
 	player.pos = Vector2(21.4, 5.75)
 	var intent := SimIntent.new()
 	intent.aim = Vector2.RIGHT
@@ -128,12 +128,12 @@ func test_decay_and_demolish_refund() -> void:
 	world.advance(31 * 3600.0)
 	assert_false(world.map.buildings.has(b.id), "verfallen")
 	var wood := int(player.inventory["wood"])
-	var d := world.place_building(player, "wood_door", Vector2i(44, 10), 0)
+	var d := SimConstruction.place_building(world, player, "wood_door", Vector2i(44, 10), 0)
 	assert_eq(int(player.inventory["wood"]), wood - 6)
 	var stranger := world.spawn_player(OPEN + Vector2(-1, 0), "p2", "Fremder")
-	assert_false(world.can_demolish(stranger, d), "nur der Besitzer")
-	assert_true(world.can_demolish(player, d))
-	world.remove_building(d.id, player)
+	assert_false(SimConstruction.can_demolish(world, stranger, d), "nur der Besitzer")
+	assert_true(SimConstruction.can_demolish(world, player, d))
+	SimConstruction.remove_building(world, d.id, player)
 	assert_eq(int(player.inventory["wood"]), wood - 3, "50 % zurück")
 
 
@@ -142,8 +142,8 @@ func test_npc_paths_around_wall_and_wolf_cannot_pass_door() -> void:
 	for hy in range(6, 16, 2):
 		player.pos = Vector2(26.5, hy * 0.5 + 0.5)
 		player.inventory["wood"] = 20
-		assert_eq(world.can_place(player, "wood_wall", Vector2i(50, hy), 0), "", "Halbzeile %d" % hy)
-		assert_not_null(world.place_building(player, "wood_wall", Vector2i(50, hy), 0))
+		assert_eq(SimConstruction.can_place(world, player, "wood_wall", Vector2i(50, hy), 0), "", "Halbzeile %d" % hy)
+		assert_not_null(SimConstruction.place_building(world, player, "wood_wall", Vector2i(50, hy), 0))
 	player.pos = OPEN
 	player.markers.append({"id": "m1", "name": "Ziel", "pos": Vector2(26.5, 5.5)})
 	var rules := data.normalize_rule_list([{"if": {"condition": "else"}, "then": {"action": "stay_at", "params": {"place": "m1", "radius": 1}}}], "Test")
@@ -158,9 +158,9 @@ func test_npc_paths_around_wall_and_wolf_cannot_pass_door() -> void:
 	assert_eq(path_owner.size(), path_wolf.size(), "ohne Tür gleich lang")
 	world.login(player.id)
 	player.pos = Vector2(26.5, 5.75)
-	world.remove_building(world.map.building_at_half(Vector2i(50, 10)).id)
+	SimConstruction.remove_building(world, world.map.building_at_half(Vector2i(50, 10)).id)
 	player.inventory["wood"] = 20
-	assert_not_null(world.place_building(player, "wood_door", Vector2i(50, 10), 0))
+	assert_not_null(SimConstruction.place_building(world, player, "wood_door", Vector2i(50, 10), 0))
 	path_owner = world.map.find_path(Vector2i(20, 5), Vector2i(26, 5), 4000, "p1", data)
 	path_wolf = world.map.find_path(Vector2i(20, 5), Vector2i(26, 5), 4000, "wild", data)
 	assert_lt(path_owner.size(), path_wolf.size(), "Besitzer nimmt die Tür, der Wolf muss außen herum")
@@ -187,7 +187,7 @@ func test_save_and_snapshot_carry_buildings() -> void:
 	NetProtocol.apply_snapshot(mirror, NetProtocol.decode(NetProtocol.encode(snap)))
 	assert_true(mirror.map.buildings.has(b.id))
 	assert_eq(mirror.map.buildings[b.id].cells, b.cells)
-	world.remove_building(b.id)
+	SimConstruction.remove_building(world, b.id)
 	var removal := NetProtocol.snapshot(world, player.id, known, nodes, state)
 	assert_true(removal.has("bld_rm"))
 	NetProtocol.apply_snapshot(mirror, removal)
@@ -200,7 +200,7 @@ func test_tile_occupancy_follows_add_and_remove() -> void:
 	assert_true(world.map.tile_built(Vector2i(22, 5)))
 	assert_false(world.map.tile_built(Vector2i(23, 5)))
 	assert_false(world.map.is_walkable_for(Vector2i(22, 5), "p2", data))
-	world.remove_building(wall.id)
+	SimConstruction.remove_building(world, wall.id)
 	assert_false(world.map.tile_built(Vector2i(22, 5)))
 	assert_true(world.map.is_walkable_for(Vector2i(22, 5), "p2", data))
-	assert_true(world.map.tile_built(SimMap.cell_of(world.depots()[0].center())), "Depot zählt")
+	assert_true(world.map.tile_built(SimMap.cell_of(SimTrade.depots(world)[0].center())), "Depot zählt")

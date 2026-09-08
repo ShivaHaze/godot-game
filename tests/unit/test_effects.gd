@@ -29,8 +29,8 @@ func _axe_hit() -> void:
 	player.inventory["stone"] = 2
 	player.inventory["wood"] = 2
 	world.spawn_building("workbench", Vector2i(20, 6), "p1")  # Station in Reichweite
-	assert_eq(world.craft(player, "stone_axe"), "")
-	assert_true(world.set_active_weapon(player, "stone_axe"))
+	assert_eq(SimCrafting.craft(world, player, "stone_axe"), "")
+	assert_true(SimCrafting.set_active_weapon(world, player, "stone_axe"))
 	player.facing = Vector2.RIGHT
 	var intent := SimIntent.new()
 	intent.melee = true
@@ -41,19 +41,19 @@ func _axe_hit() -> void:
 func test_axe_causes_bleeding_that_ignores_armor_and_ends() -> void:
 	var hp_before := victim.hp
 	_axe_hit()
-	assert_true(world.has_effect(victim, "bleeding"), "Steinbeil = Klinge")
+	assert_true(SimEffects.has_effect(world, victim, "bleeding"), "Steinbeil = Klinge")
 	var after_hit := victim.hp
 	assert_gte(after_hit, hp_before - float(data.bali("combat.min_damage")) - 0.1, "Rüstung fängt den Schlag ab")
 	world.advance(4.0)
 	assert_almost_eq(victim.hp, after_hit - 4.0 * data.balf("effects.bleeding.damage_per_second"), 0.15, "blutet trotz Rüstung")
 	world.advance(data.balf("effects.bleeding.duration"))
-	assert_false(world.has_effect(victim, "bleeding"), "läuft aus")
+	assert_false(SimEffects.has_effect(world, victim, "bleeding"), "läuft aus")
 	assert_false(victim.effects.has("bleeding"), "Eintrag aufgeräumt")
 	# Wolfsbiss löst keine Blutung aus
 	var wolf := world.spawn_wolf(OPEN + Vector2(3, 0))
 	wolf.control = SimCharacter.Controller.NONE
-	world.apply_damage(player, wolf.melee_damage, Vector2.LEFT, wolf.id, wolf.melee_effect)
-	assert_false(world.has_effect(player, "bleeding"))
+	SimCombat.apply_damage(world, player, wolf.melee_damage, Vector2.LEFT, wolf.id, wolf.melee_effect)
+	assert_false(SimEffects.has_effect(world, player, "bleeding"))
 
 
 func test_bandage_stops_bleeding_even_at_full_health() -> void:
@@ -65,7 +65,7 @@ func test_bandage_stops_bleeding_even_at_full_health() -> void:
 	for i in 20 * 3 + 1:
 		world.set_intent(victim.id, intent)
 		world.tick()
-	assert_false(world.has_effect(victim, "bleeding"), "Verband ist das Gegenmittel")
+	assert_false(SimEffects.has_effect(world, victim, "bleeding"), "Verband ist das Gegenmittel")
 	assert_eq(int(victim.inventory["bandage"]), 0)
 
 
@@ -81,7 +81,7 @@ func test_npc_rule_bleeding_heals_itself() -> void:
 	victim.hp = victim.max_hp
 	for i in 20 * 4:
 		world.tick()
-	assert_false(world.has_effect(victim, "bleeding"), "NPC hat sich verbunden")
+	assert_false(SimEffects.has_effect(world, victim, "bleeding"), "NPC hat sich verbunden")
 	assert_eq(int(victim.inventory["bandage"]), 0)
 	var lines := SimChronicle.format_all(victim)
 	var seen_start := false
@@ -99,10 +99,10 @@ func test_bleeding_can_kill_and_survives_save_and_snapshot() -> void:
 	_axe_hit()
 	victim.hp = 2.0
 	var copy := SimSave.world_from_dict(data, SimSave.world_to_dict(world))
-	assert_true(copy.has_effect(copy.get_character(victim.id), "bleeding"), "Spielstand trägt den Effekt")
+	assert_true(SimEffects.has_effect(copy, copy.get_character(victim.id), "bleeding"), "Spielstand trägt den Effekt")
 	var mirror := SimWorld.new(data, 0)
 	NetProtocol.apply_snapshot(mirror, NetProtocol.decode(NetProtocol.encode(NetProtocol.snapshot(world, player.id, {}, {}, {}))))
-	assert_true(mirror.has_effect(mirror.get_character(victim.id), "bleeding"), "Snapshot zeigt Blutung")
+	assert_true(SimEffects.has_effect(mirror, mirror.get_character(victim.id), "bleeding"), "Snapshot zeigt Blutung")
 	assert_eq(mirror.get_character(victim.id).control, SimCharacter.Controller.PLAYER, "Steuerung bleibt lesbar")
 	world.logout(victim.id, data.roles["hide"]["rules"])
 	world.advance(4.0)

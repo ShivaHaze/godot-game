@@ -59,15 +59,15 @@ func test_gather_fibers_and_craft_bandage() -> void:
 		world.set_intent(player.id, intent)
 		world.tick()
 	assert_gte(int(player.inventory["fibers"]), 3, "Fasern gesammelt (auf der Pflanze stehend)")
-	assert_eq(world.craft(player, "bandage"), "zu wenig Stoff (1 nötig)", "Verband braucht die Zwischenstufe Stoff")
-	assert_eq(world.craft(player, "cloth"), "")
-	assert_eq(world.craft(player, "bandage"), "")
+	assert_eq(SimCrafting.craft(world, player, "bandage"), "zu wenig Stoff (1 nötig)", "Verband braucht die Zwischenstufe Stoff")
+	assert_eq(SimCrafting.craft(world, player, "cloth"), "")
+	assert_eq(SimCrafting.craft(world, player, "bandage"), "")
 	assert_eq(int(player.inventory["bandage"]), 1)
 	assert_true(world.can_use(player, data.action_def("heal_self")), "'verbinde dich' ist immer verfügbar")
 	player.inventory["fibers"] = 0
 	player.inventory["cloth"] = 0
-	assert_eq(world.craft(player, "bandage"), "zu wenig Stoff (1 nötig)")
-	assert_eq(world.craft(player, "cloth"), "zu wenig Fasern (2 nötig)")
+	assert_eq(SimCrafting.craft(world, player, "bandage"), "zu wenig Stoff (1 nötig)")
+	assert_eq(SimCrafting.craft(world, player, "cloth"), "zu wenig Fasern (2 nötig)")
 
 
 func test_heal_is_channeled_and_cancelled_by_attack() -> void:
@@ -154,7 +154,7 @@ func test_stone_axe_and_stone_gathering() -> void:
 	assert_gte(int(player.inventory["stone"]), 2, "Stein gesammelt")
 	player.inventory["wood"] = 2
 	world.spawn_building("workbench", SimMap.cell_of(player.pos) + Vector2i(0, 1), "p1")
-	assert_eq(world.craft(player, "stone_axe"), "")
-	world.set_active_weapon(player, "stone_axe")
+	assert_eq(SimCrafting.craft(world, player, "stone_axe"), "")
+	SimCrafting.set_active_weapon(world, player, "stone_axe")
 	assert_eq(player.melee_damage, 20.0)
 	assert_gt(int(data.items["stone_axe"]["damage"]), int(data.items["club"]["damage"]), "Stufe 0 schlägt Keule")

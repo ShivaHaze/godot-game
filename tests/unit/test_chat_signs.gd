@@ -17,20 +17,20 @@ func test_sign_text_rules_and_snapshot() -> void:
 	var player := world.get_character(world.setup_new_game())
 	player.pos = OPEN
 	player.inventory["wood"] = 10
-	var sign := world.place_building(player, "sign", Vector2i(42, 11), 0)
+	var sign := SimConstruction.place_building(world, player, "sign", Vector2i(42, 11), 0)
 	assert_not_null(sign)
-	assert_eq(world.sign_near(player), sign)
-	assert_eq(world.set_sign_text(player, sign, "  Willkommen, Fremde zahlen Zoll  "), "")
+	assert_eq(SimConstruction.sign_near(world, player), sign)
+	assert_eq(SimConstruction.set_sign_text(world, player, sign, "  Willkommen, Fremde zahlen Zoll  "), "")
 	assert_eq(sign.label, "Willkommen, Fremde zahlen Zoll")
 	var long := ""
 	for i in 100:
 		long += "x"
-	world.set_sign_text(player, sign, long)
+	SimConstruction.set_sign_text(world, player, sign, long)
 	assert_eq(sign.label.length(), data.bali("building.sign_max_length"), "gekürzt")
 	var stranger := world.spawn_player(OPEN + Vector2(1, 0), "p2", "Fremder")
-	assert_eq(world.set_sign_text(stranger, sign, "Hacked"), "nicht dein Schild")
+	assert_eq(SimConstruction.set_sign_text(world, stranger, sign, "Hacked"), "nicht dein Schild")
 	world.logout(player.id, data.roles["guard"]["rules"])
-	assert_eq(world.set_sign_text(player, sign, "offline"), "nur live")
+	assert_eq(SimConstruction.set_sign_text(world, player, sign, "offline"), "nur live")
 	world.tick()
 	var mirror := SimWorld.new(data, 0)
 	NetProtocol.apply_snapshot(mirror, NetProtocol.decode(NetProtocol.encode(NetProtocol.snapshot(world, stranger.id, {}, {}, {}))))
