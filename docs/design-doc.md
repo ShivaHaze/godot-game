@@ -128,6 +128,13 @@ Marktorte (Kartenfeatures, keine NPC-Händler; Unterschied nur über Regeln):
 - Ereignis-Design (Karawanen, Bosse).
 - Welche Rollen-Presets genau und mit welchen Regeln. → Phase-0-Vorschlag [T] siehe Abschnitt 8, `data/roles.json`.
 - Aggressions-Freischaltung: genaue Bedingung.
+- **Fragen aus Phase 1 (2026-09-08, bitte entscheiden):**
+  - *Zoll:* Wie soll ein Offline-NPC Zoll durchsetzen? Vorschlag [T]: Regel-Aktion "verlange Zoll {Rohstoff} {Menge}" – Fremde im Claim bekommen eine Meldung und 20 s Zeit, per E beim NPC zu zahlen, sonst gilt "greife an". Ohne Entscheidung bleibt Zoll offen (die Bausteine "Fremder im Claim → greife an" gibt es schon).
+  - *Ereignisse:* Karawanen (neutraler Händler-Zug zwischen Märkten, plünderbar) und Bosse (starker Wolf im Zentrum, Beute: Schwefel) – welche zuerst, und dürfen Offline-NPCs daran teilnehmen?
+  - *Balancing:* Zahlen sind [T] in balance.json (Unterhalt 0,05·n·(1+n/10) Holz/h, Depotgebühr 20 %/5 %, Verschleiß, Blutung 1/s, Krankheit 2 %/h). Der Balancing-Bericht (3 Seeds) zeigt: alle Presets überleben 8 h, Wache gewinnt das Duell gegen einen Wolf. Sollen Wölfe gefährlicher werden?
+  - *Setting:* Vorschlag "Vigil" / Grenzmark (oben) – bestätigen oder verwerfen? Bisher steckt kein Setting in Texten oder Namen.
+  - *Werkbank als Bauteil:* Herstellen geht überall (außer Braten am Lagerfeuer). Soll die Werkbank ein Bauteil werden (Claim-Bindung, Raidziel)? Die Mechanik dafür existiert (`needs_building`).
+  - *Rüstung anlegen:* Zurzeit zählt die beste besessene Rüstung automatisch (Eisenrüstung macht langsam). Explizites An-/Ablegen nötig?
 - Kosmetik-Umfang.
 - Name: siehe Setting-Vorschlag (Vigil / Hinterland / Grenzmark).
 
