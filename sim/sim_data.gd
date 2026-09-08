@@ -45,6 +45,7 @@ const REQUIRED_BALANCE: Array[String] = [
 	"market.depot_capacity", "zones.market.depot_fee", "zones.outpost.depot_fee", "combat.name_range", "combat.corpse_rot_hours", "claim.guild_tiles_per_member", "guild.xp_per_rule", "guild.xp_per_level", "guild.max_level",
 	"claim.max_tiles_solo", "claim.tile_cost_wood", "claim.upkeep_base", "claim.upkeep_growth", "claim.stock_capacity",
 	"claim.shrink_interval_hours", "claim.grace_hours", "claim.min_anchor_distance", "claim.foreign_decay_multiplier",
+	"toll.grace_seconds", "toll.pass_hours", "toll.forget_hours",
 ]
 
 var balance: Dictionary = {}

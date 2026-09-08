@@ -959,6 +959,17 @@ func _handle_events() -> void:
 					hud.show_message("%s ausgelöst!" % event["label"], 2.5)
 				"trap_triggered":
 					hud.show_message("Deine Falle hat zugeschnappt.", 2.5)
+				"toll_paid":
+					if int(event["id"]) != player_id:
+						hud.show_message("Dein Zöllner hat %d %s kassiert." % [event["amount"], data.resources[event["resource"]]["name"]], 3.0)
+		# Zoll aus Sicht des Fremden (Ziel der Forderung)
+		if int(event.get("target", -1)) == player_id:
+			match String(event.get("type", "")):
+				"toll_demand":
+					var keeper := world.get_character(id)
+					hud.show_message("%s verlangt Zoll: %d %s – zahle per E bei ihm (noch %d s), sonst greift er an." % [world.describe(world.get_character(player_id), keeper), event["amount"], data.resources[event["resource"]]["name"], int(ceilf(float(event["seconds_left"])))], 5.0)
+				"toll_attack":
+					hud.show_message("Zoll geprellt – der Zöllner greift an, solange du im Claim bist.", 4.0)
 		if mode == Mode.VERSUS and id == _yesterday_id and String(event.get("type", "")) == "death":
 			hud.show_message("Du hast deinen Charakter von gestern besiegt. Plündere ihn mit E.", 5.0)
 			continue
@@ -1008,6 +1019,10 @@ func _handle_events() -> void:
 				hud.show_message("Gekauft: %d %s für %d %s." % [event["sell_amount"], data.resources[event["sell"]]["name"], event["price_amount"], data.resources[event["price"]]["name"]], 2.0)
 			"theft":
 				hud.show_message("Diebstahl! Das ist der Claim von %s." % event["owner"], 2.0)
+			"toll_paid":
+				hud.show_message("Zoll gezahlt: %d %s. Freigang %d h in diesem Claim." % [event["amount"], data.resources[event["resource"]]["name"], int(event["hours"])], 3.0)
+			"toll_short":
+				hud.show_message("Zoll: %s" % event["reason"], 2.0)
 			"building_hit":
 				pass
 			"death":

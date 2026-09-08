@@ -60,8 +60,8 @@ static func stranger_in_claim(world: SimWorld, c: SimCharacter) -> bool:
 	for other: SimCharacter in world.characters.values():
 		if other == c or other.dead or other.hidden or world.allied(other.owner_id, c.owner_id):
 			continue
-		if claim.tiles.has(SimMap.cell_of(other.pos)):
-			return true
+		if claim.tiles.has(SimMap.cell_of(other.pos)) and not world.has_toll_pass(claim, other.owner_id):
+			return true  # wer Zoll gezahlt hat, gilt nicht als Fremder im Claim
 	return false
 
 

@@ -246,7 +246,7 @@ func to_list() -> Array:
 		result.append({
 			"id": claim.id, "owner": claim.owner_id, "anchor_building": claim.anchor_building_id,
 			"anchor_tile": [claim.anchor_tile.x, claim.anchor_tile.y], "tiles": tiles, "stock": claim.stock,
-			"starving_since": claim.starving_since, "grace_until": claim.grace_until,
+			"starving_since": claim.starving_since, "grace_until": claim.grace_until, "toll": claim.toll.duplicate(true),
 		})
 	return result
 
@@ -264,6 +264,9 @@ func load_list(list: Array, next_id: int) -> void:
 		claim.stock = float(entry.get("stock", 0.0))
 		claim.starving_since = float(entry.get("starving_since", -1.0))
 		claim.grace_until = float(entry.get("grace_until", -1.0))
+		for stranger: Variant in entry.get("toll", {}):
+			var t: Dictionary = entry["toll"][stranger]
+			claim.toll[String(stranger)] = {"debt": float(t.get("debt", 0.0)), "paid_until": float(t.get("paid_until", -1.0)), "last_seen": float(t.get("last_seen", 0.0)), "demanded": bool(t.get("demanded", false)), "attacking": bool(t.get("attacking", false))}
 		var tiles: PackedInt32Array = entry["tiles"]
 		for i in range(0, tiles.size() - 1, 2):
 			var tile := Vector2i(tiles[i], tiles[i + 1])

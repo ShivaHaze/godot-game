@@ -210,5 +210,11 @@
     "xp_per_rule": 1,
     "xp_per_level": 200,
     "max_level": 10
+  },
+  "toll": {
+    "_doc": "Zoll (Design: Eigentümer-NPCs setzen Regeln gegen Fremde durch). Regel-Aktion 'verlange Zoll': ein Fremder im Claim bekommt die Forderung und grace_seconds Zeit, per E beim Zöllner zu zahlen. Die Zeit im Claim ohne Zahlung wird je Claim und Fremdem als Zollschuld gemerkt – wer durchrennt, trägt die Schuld beim nächsten Besuch weiter, bis der Zöllner ihn im Claim auf Sicht angreift. Zahlung gibt pass_hours Freigang (kein 'Fremder im Claim', Turrets und Fallen des Claims verschonen ihn). Schuld und Freigang verjähren nach forget_hours ohne Besuch.",
+    "grace_seconds": 8,
+    "pass_hours": 2,
+    "forget_hours": 6
   }
 }

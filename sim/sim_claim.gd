@@ -11,3 +11,4 @@ var stock: float = 0.0               # Holz am Anker
 var starving_since: float = -1.0     # Sim-Zeit, seit der der Vorrat leer ist (-1 = versorgt)
 var grace_until: float = -1.0        # Ohne Anker: bis dahin kann neu verankert werden
 var hours_left_hint: float = -1.0    # Nur Client-Spiegel: Reichweite des Vorrats laut Server
+var toll: Dictionary = {}            # Zoll-Gedächtnis je Fremdem (owner_id): {debt, paid_until, last_seen, demanded, attacking}

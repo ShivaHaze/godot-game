@@ -52,6 +52,7 @@ func update(delta: float) -> void:
 				world.set_intent(c.id, info["intent"])
 		var started := Time.get_ticks_usec()
 		world.tick()
+		_forward_events()
 		var ms := (Time.get_ticks_usec() - started) / 1000.0
 		tick_ms_sum += ms
 		tick_ms_max = maxf(tick_ms_max, ms)
@@ -224,6 +225,34 @@ func _on_message(peer: ENetPacketPeer, msg: Dictionary) -> void:
 				info["claims"] = {}
 				info["self_hash"] = 0
 				_send(peer, {"t": "welcome", "id": fresh.id}, true)
+
+
+## Ereignisse, die ein Spieler als Meldung braucht (Zoll: Forderung, Angriff, Zahlung), an dessen Peer schicken.
+func _forward_events() -> void:
+	if world.events.is_empty() or peers.is_empty():
+		return
+	for event: Dictionary in world.events:
+		var text := ""
+		var recipient := -1
+		match String(event.get("type", "")):
+			"toll_demand":
+				recipient = int(event["target"])
+				var keeper := world.get_character(int(event["id"]))
+				text = "%s verlangt Zoll: %d %s – zahle per E bei ihm (noch %d s), sonst greift er an." % [world.describe(world.get_character(recipient), keeper), event["amount"], data.resources[event["resource"]]["name"], int(ceilf(float(event["seconds_left"])))]
+			"toll_attack":
+				recipient = int(event["target"])
+				text = "Zoll geprellt – der Zöllner greift an, solange du im Claim bist."
+			"toll_paid":
+				recipient = int(event["id"])
+				text = "Zoll gezahlt: %d %s. Freigang %d h in diesem Claim." % [event["amount"], data.resources[event["resource"]]["name"], int(event["hours"])]
+			"toll_short":
+				recipient = int(event["id"])
+				text = "Zoll: %s" % event["reason"]
+		if recipient < 0:
+			continue
+		for peer: ENetPacketPeer in peers:
+			if int(peers[peer]["char_id"]) == recipient:
+				_send(peer, {"t": "info", "text": text}, true)
 
 
 ## Chat: nah = alle in CHAT_NEAR_RADIUS um den Sprecher (mit Name); global = alle, ohne Positionsdaten.

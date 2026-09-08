@@ -61,7 +61,8 @@ static func _evaluate(world: SimWorld, c: SimCharacter) -> void:
 		if not leash.is_empty():
 			c.leash_center = leash["center"]
 			c.leash_radius = leash["radius"]
-		if String(rule["then"]["action"]) != "eat" and chosen != c.last_logged_rule_index:
+		# "iss" und "verlange Zoll" protokollieren sich selbst mit Details (Menge bzw. Name des Fremden)
+		if not ["eat", "toll"].has(String(rule["then"]["action"])) and chosen != c.last_logged_rule_index:
 			c.last_logged_rule_index = chosen
 			SimChronicle.log_rule(world, c, chosen, rule)
 	if chosen != RuleEngine.NO_MATCH and String(c.rules[chosen]["then"]["action"]) == "eat":
@@ -113,6 +114,14 @@ static func blocked_reason(world: SimWorld, c: SimCharacter, rule: Dictionary) -
 			var reason := world.craft_reason(c, product, true)
 			if not reason.is_empty():
 				return reason
+		"toll":
+			var claim := world.toll_claim_of(c)
+			if claim == null:
+				return "kein eigener Claim"
+			if c.inventory_count() + int(params["amount"]) > data.bali("inventory.capacity"):
+				return "kein Platz für den Zoll"
+			if world.toll_liable_in_claim(c, claim).is_empty():
+				return "kein Mensch ohne Freigang im Claim"
 		"deliver":
 			var rid := String(params["resource"])
 			if int(c.inventory.get(rid, 0)) <= 0:
@@ -165,6 +174,8 @@ static func _execute(world: SimWorld, c: SimCharacter, rule: Dictionary, intent:
 		"deliver":
 			_deliver(world, c, String(params["resource"]), c.place_pos(String(params["place"])), float(params["radius"]), intent, dt)
 			return true
+		"toll":
+			return _toll(world, c, String(params["resource"]), int(params["amount"]), intent, dt)
 		"craft":
 			var rid := String(params["product"])
 			var station := world.data.station_of(rid)
@@ -221,6 +232,45 @@ static func _deliver(world: SimWorld, c: SimCharacter, rid: String, center: Vect
 		return
 	var stand := SimMap.cell_center(world.map.nearest_walkable_cell(SimMap.cell_of(target.center())))
 	intent.move = SimNav.direction_toward(world, c, stand, dt, 0.15)
+
+
+## Zoll: jeden Fremden ohne Freigang im Claim zur Kasse bitten (Forderung einmal je Schuldperiode), zum nächsten
+## hingehen, damit er per E zahlen kann. Die Zeit im Claim ohne Zahlung wird als Schuld gemerkt – auch über mehrere
+## Besuche; ab toll.grace_seconds greift der Zöllner an, solange der Fremde im Claim steht (Design: "Zoll, Zutritt, Angriff").
+static func _toll(world: SimWorld, c: SimCharacter, rid: String, amount: int, intent: SimIntent, dt: float) -> bool:
+	var claim := world.toll_claim_of(c)
+	if claim == null:
+		return false
+	var grace := world.data.balf("toll.grace_seconds")
+	var target: SimCharacter = null
+	var best := INF
+	for other: SimCharacter in world.toll_liable_in_claim(c, claim):
+		var entry := world.toll_entry(claim, other.owner_id)
+		entry["debt"] = float(entry["debt"]) + dt
+		if not bool(entry["demanded"]):
+			entry["demanded"] = true
+			world.events.append({"type": "toll_demand", "id": c.id, "target": other.id, "owner": c.owner_id, "resource": rid, "amount": amount, "seconds_left": maxf(0.0, grace - float(entry["debt"]))})
+			var index := c.active_rule_index
+			SimChronicle.log_rule(world, c, index, c.rules[index], "von %s" % world.describe(c, other))
+		if float(entry["debt"]) >= grace and not bool(entry["attacking"]):
+			entry["attacking"] = true
+			world.events.append({"type": "toll_attack", "id": c.id, "target": other.id, "owner": c.owner_id})
+			SimChronicle.add(world, c, "Zoll geprellt: %s – Angriff" % world.describe(c, other))
+		var d := other.pos.distance_squared_to(c.pos)
+		if d < best:
+			best = d
+			target = other
+	c.action_state["toll_active"] = target != null
+	if target == null:
+		return false
+	if float(claim.toll[target.owner_id]["debt"]) >= grace:
+		_engage(world, c, target, intent, dt)
+		return false
+	intent.aim = target.pos - c.pos
+	var reach := world.data.balf("character.interact_range")
+	if c.pos.distance_to(target.pos) > reach * 0.9:
+		intent.move = SimNav.direction_toward(world, c, target.pos, dt, reach * 0.8)
+	return true
 
 
 ## Nächste Quelle mit Vorrat, deren Mitte innerhalb der Leine liegt.

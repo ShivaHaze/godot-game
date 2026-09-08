@@ -1002,7 +1002,7 @@ func _update_turrets(_dt: float) -> void:
 		var target: SimCharacter = null
 		var best := radius * radius
 		for other: SimCharacter in spatial.query(center, radius):
-			if other.dead or other.hidden or allied(other.owner_id, b.owner_id) or in_peace_zone(other.pos):
+			if other.dead or other.hidden or allied(other.owner_id, b.owner_id) or in_peace_zone(other.pos) or has_toll_pass_at(b, other.owner_id):
 				continue
 			var d := other.pos.distance_squared_to(center)
 			# Sichtlinie ab dem Rand des eigenen Bauteils (sonst blockiert sich das Turret selbst), Bauteile zählen
@@ -1074,7 +1074,7 @@ func _update_sensors_and_traps(dt: float) -> void:
 				break
 		elif def.has("trap_damage"):
 			for other: SimCharacter in spatial.query(b.center(), 1.5):
-				if other.dead or allied(other.owner_id, b.owner_id):
+				if other.dead or allied(other.owner_id, b.owner_id) or has_toll_pass_at(b, other.owner_id):
 					continue
 				var half := SimBuilding.half_cell_of(other.pos)
 				if not b.cells.has(half):
@@ -1083,6 +1083,100 @@ func _update_sensors_and_traps(dt: float) -> void:
 				events.append({"type": "trap_triggered", "building": b.id, "owner": b.owner_id, "by": other.id, "pos": b.center()})
 				map.remove_building(b.id)
 				break
+
+
+# --- Zoll -----------------------------------------------------------------
+## Design: Eigentümer-NPCs setzen Regeln gegen Fremde durch (Zoll). Der Claim merkt sich je Fremdem die unbezahlte Zeit
+## im Claim (Schuld); Zahlung gibt einen Passierschein. Zahlen in balance.json `toll`.
+
+## Claim, für den ein Charakter Zoll eintreibt: der eigene, sonst der verbündete, auf dem er steht.
+func toll_claim_of(c: SimCharacter) -> SimClaim:
+	var own := claims.claim_of_owner(c.owner_id)
+	if own != null:
+		return own
+	var here := claims.claim_at_pos(c.pos)
+	return here if here != null and allied(here.owner_id, c.owner_id) else null
+
+
+## Zoll-Eintrag eines Fremden an einem Claim; verjährt nach toll.forget_hours ohne Besuch. Setzt last_seen.
+func toll_entry(claim: SimClaim, owner_id: String) -> Dictionary:
+	var entry: Dictionary = claim.toll.get(owner_id, {})
+	if entry.is_empty() or time - float(entry.get("last_seen", -1e9)) > data.balf("toll.forget_hours") * 3600.0:
+		entry = {"debt": 0.0, "paid_until": -1.0, "last_seen": time, "demanded": false, "attacking": false}
+		claim.toll[owner_id] = entry
+	entry["last_seen"] = time
+	return entry
+
+
+## Hat der Fremde an diesem Claim gerade Freigang (Zoll gezahlt)?
+func has_toll_pass(claim: SimClaim, owner_id: String) -> bool:
+	if claim == null or not claim.toll.has(owner_id):
+		return false
+	return time < float(claim.toll[owner_id].get("paid_until", -1.0))
+
+
+## Freigang am Claim, auf dem ein Bauteil steht (Turrets und Fallen verschonen zahlende Gäste).
+func has_toll_pass_at(b: SimBuilding, owner_id: String) -> bool:
+	if claims.claims.is_empty():
+		return false
+	return has_toll_pass(claims.claim_at(SimMap.cell_of(b.center())), owner_id)
+
+
+## Zollpflichtige im Claim: lebende, sichtbare Menschen anderer Besitzer ohne Freigang.
+func toll_liable_in_claim(c: SimCharacter, claim: SimClaim) -> Array[SimCharacter]:
+	var result: Array[SimCharacter] = []
+	for other: SimCharacter in characters.values():
+		if other == c or other.dead or other.hidden or other.kind != SimCharacter.Kind.PLAYER or allied(other.owner_id, c.owner_id):
+			continue
+		if claim.tiles.has(SimMap.cell_of(other.pos)) and not has_toll_pass(claim, other.owner_id):
+			result.append(other)
+	return result
+
+
+## Zöllner in Reichweite, der von diesem Charakter gerade Zoll verlangt, sonst null.
+func toll_keeper_near(c: SimCharacter) -> SimCharacter:
+	var reach := data.balf("character.interact_range") + 0.5
+	for other: SimCharacter in spatial.query(c.pos, reach):
+		if other == c or other.dead or other.kind != SimCharacter.Kind.PLAYER or other.control != SimCharacter.Controller.RULES or allied(other.owner_id, c.owner_id):
+			continue
+		if other.pos.distance_to(c.pos) > reach or other.active_rule_index < 0 or other.active_rule_index >= other.rules.size():
+			continue
+		if String(other.rules[other.active_rule_index]["then"]["action"]) != "toll":
+			continue
+		var claim := toll_claim_of(other)
+		if claim != null and claim.toll.has(c.owner_id) and bool(claim.toll[c.owner_id].get("demanded", false)):
+			return other
+	return null
+
+
+## Zoll zahlen (live per E beim Zöllner): Ware wandert in sein Inventar, der Claim gibt Freigang. true = Zöllner war da.
+func pay_toll(c: SimCharacter) -> bool:
+	if c.control != SimCharacter.Controller.PLAYER or c.dead:
+		return false
+	var keeper := toll_keeper_near(c)
+	if keeper == null:
+		return false
+	var params: Dictionary = keeper.rules[keeper.active_rule_index]["then"]["params"]
+	var rid := String(params["resource"])
+	var amount := int(params["amount"])
+	if int(c.inventory.get(rid, 0)) < amount:
+		events.append({"type": "toll_short", "id": c.id, "keeper": keeper.id, "resource": rid, "amount": amount, "reason": "zu wenig %s (%d nötig)" % [data.resources[rid]["name"], amount]})
+		return true
+	if keeper.inventory_count() + amount > data.bali("inventory.capacity"):
+		events.append({"type": "toll_short", "id": c.id, "keeper": keeper.id, "resource": rid, "amount": amount, "reason": "der Zöllner hat keinen Platz mehr"})
+		return true
+	c.inventory[rid] = int(c.inventory[rid]) - amount
+	keeper.inventory[rid] = int(keeper.inventory.get(rid, 0)) + amount
+	var claim := toll_claim_of(keeper)
+	var entry := toll_entry(claim, c.owner_id)
+	var hours := data.balf("toll.pass_hours")
+	entry["paid_until"] = time + hours * 3600.0
+	entry["debt"] = 0.0
+	entry["demanded"] = false
+	entry["attacking"] = false
+	events.append({"type": "toll_paid", "id": c.id, "keeper": keeper.id, "owner": keeper.owner_id, "resource": rid, "amount": amount, "hours": hours})
+	SimChronicle.add(self, keeper, "Zoll kassiert: %d %s von %s (Freigang %d h)" % [amount, data.resources[rid]["name"], describe(keeper, c), int(hours)])
+	return true
 
 
 ## Liefert alles von `rid` in ein eigenes Bauteil (Anker: nur Holz; Handelstisch: alles) in Reichweite. Rückgabe: Menge.
@@ -1525,7 +1619,7 @@ func _needs_fine_step(c: SimCharacter) -> bool:
 		return true
 	if c.active_rule_index >= 0 and c.active_rule_index < c.rules.size():
 		var action := String(c.rules[c.active_rule_index]["then"]["action"])
-		return action == "fight_back" or action == "attack"
+		return action == "fight_back" or action == "attack" or (action == "toll" and bool(c.action_state.get("toll_active", false)))
 	return false
 
 
@@ -1568,7 +1662,7 @@ func _apply_intent(c: SimCharacter, intent: SimIntent, dt: float) -> void:
 			reveal(c)
 
 	if intent.interact:
-		if not _loot(c) and not _deposit_at_anchor(c) and not _load_turret_near(c):
+		if not _loot(c) and not _deposit_at_anchor(c) and not _load_turret_near(c) and not pay_toll(c):
 			_gather(c, dt, intent.gather_cell)
 	else:
 		c.gather_progress = 0.0
