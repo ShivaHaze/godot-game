@@ -200,3 +200,52 @@ func test_same_seed_same_result() -> void:
 		b.tick()
 	for id: int in a.characters:
 		assert_eq(a.characters[id].pos, b.characters[id].pos, "Charakter %d identisch" % id)
+
+
+## Befund Schritt 54: wer einen Wolf aus sicherer Entfernung trifft, wird gejagt – auch jenseits des Aggro-Radius.
+## Treffer ohne Schützen (Turret, Falle, Sprengsatz) locken ihn nicht.
+func test_wolf_turns_on_attacker_who_hit_it_from_range() -> void:
+	var wolf := _wolf()
+	wolf.pos = OPEN + Vector2(10, 0)
+	wolf.home_pos = wolf.pos
+	wolf.ai_target_pos = wolf.pos
+	assert_gt(10.0, data.balf("wolf.aggro_radius"), "außerhalb des Aggro-Radius")
+	_tick(10)
+	assert_eq(wolf.ai_state, WolfAI.STATE_WANDER, "sieht den Spieler nicht")
+	SimCombat.apply_damage(world, wolf, 1.0, Vector2.RIGHT, -1)
+	_tick(2)
+	assert_eq(wolf.ai_state, WolfAI.STATE_WANDER, "ohne Schützen kein Ziel")
+	var distance := wolf.pos.distance_to(player.pos)
+	SimCombat.apply_damage(world, wolf, 1.0, Vector2.RIGHT, player.id)  # Treffer aus rund 10 Kacheln
+	_tick(1)
+	assert_eq(wolf.ai_state, WolfAI.STATE_CHASE, "wendet sich gegen den Schützen")
+	_tick(20)
+	assert_lt(wolf.pos.distance_to(player.pos), distance - 3.0, "läuft auf ihn zu")
+
+
+## Befund Schritt 54: zwei Schützen, die abwechselnd treffen, drehten den Wolf bei jedem Treffer um – er erreichte keinen
+## (0 Bisse in 30 s). Er geht auf den Nächsten im Suchkreis los und beißt.
+func test_two_alternating_shooters_do_not_stun_lock_the_wolf() -> void:
+	var wolf := _wolf()
+	wolf.pos = OPEN
+	wolf.home_pos = OPEN
+	wolf.ai_target_pos = OPEN
+	wolf.max_hp = 1000.0  # flieht nie
+	wolf.hp = 1000.0
+	var other := world.spawn_player(OPEN + Vector2(5, 0), "p2", "B")
+	player.pos = OPEN + Vector2(-5, 0)
+	for c: SimCharacter in [player, other]:
+		c.max_hp = 1000.0
+		c.hp = 1000.0
+	world.spatial.rebuild(world.characters)
+	var shooters: Array[SimCharacter] = [player, other]
+	var bites := 0
+	for i in 20 * 10:
+		if i % 10 == 0:  # abwechselnd, je Schütze ein Treffer pro Sekunde
+			var shooter := shooters[(i / 10) % 2]
+			SimCombat.apply_damage(world, wolf, 0.01, (wolf.pos - shooter.pos).normalized(), shooter.id)
+		world.tick()
+		for event: Dictionary in world.events:
+			if event.get("type") == "hit" and int(event["attacker"]) == wolf.id:
+				bites += 1
+	assert_gt(bites, 4, "der Wolf erreicht einen der beiden und beißt")

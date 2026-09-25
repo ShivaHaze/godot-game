@@ -156,9 +156,12 @@ func apply_map(raw: Dictionary) -> PackedStringArray:
 	return problems
 
 
-## Roh-Dictionary der aktuellen Karte (für Übertragung und Speicherung).
+## Roh-Dictionary der aktuellen Karte (für Übertragung und Speicherung); 'start' hält den Start-Spawn vorn.
 func map_dict() -> Dictionary:
-	return {"width": map_width, "height": map_height, "rows": Array(map_rows), "spawn_chars": {"P": "player", "W": "wolf", "D": "depot", "R": "depot_outpost"}}
+	var result := {"width": map_width, "height": map_height, "rows": Array(map_rows), "spawn_chars": {"P": "player", "W": "wolf", "D": "depot", "R": "depot_outpost"}}
+	if not player_spawns.is_empty():
+		result["start"] = [player_spawns[0].x, player_spawns[0].y]
+	return result
 
 
 func tile_id_at(x: int, y: int) -> String:
@@ -452,6 +455,20 @@ func _parse_map(raw: Dictionary) -> void:
 				errors.append("map.json: unbekanntes Zeichen '%s' bei x=%d y=%d" % [ch, x, y])
 	if player_spawns.is_empty():
 		errors.append("map.json: mindestens ein Spieler-Spawn (P) nötig")
+		return
+	# Optional 'start' [x, y]: der Spieler-Spawn, an dem ein neues Spiel beginnt (steht dann vorn); sonst der erste P
+	var start: Variant = raw.get("start")
+	if start != null:
+		if not (start is Array) or start.size() != 2 or not _is_number(start[0]) or not _is_number(start[1]):
+			errors.append("map.json: 'start' muss [x, y] sein")
+			return
+		var cell := Vector2i(int(start[0]), int(start[1]))
+		var index := player_spawns.find(cell)
+		if index < 0:
+			errors.append("map.json: 'start' (%d, %d) ist kein Spieler-Spawn (P)" % [cell.x, cell.y])
+			return
+		player_spawns.remove_at(index)
+		player_spawns.insert(0, cell)
 
 
 func _parse_conditions(raw: Dictionary) -> void:

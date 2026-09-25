@@ -2,14 +2,18 @@ class_name NpcController
 extends RefCounted
 ## Offline-Modus: führt die Regelliste eines Charakters aus. Derselbe Körper und dasselbe Kampfsystem
 ## wie live, aber schlechter: zielt auf die aktuelle statt die zukünftige Position, dreht sich zur
-## Bedrohung (umlaufbar), hält vorsichtig Abstand. Die Leine – der Kreis der zuletzt gefeuerten
-## Ortsregel – wird nie verlassen. Erzeugt nur Absichten (SimIntent) und Chronik-Einträge.
+## Bedrohung (umlaufbar), handelt vorsichtig (hält Abstand, schießt nicht durch Unbeteiligte, fängt keinen
+## neuen Streit mit Menschen an). Die Leine – der Kreis der zuletzt gefeuerten Ortsregel – wird nie verlassen.
+## Erzeugt nur Absichten (SimIntent) und Chronik-Einträge.
 
 const THREAT_LOOK_RADIUS: float = 10.0  # Bis zu dieser Distanz dreht sich der NPC zum nächsten Fremden
+const ENGAGE_TARGET: String = "engage_target"  # action_state: Kennung des Ziels, das _engage in diesem Tick anvisiert
+const BYSTANDER_MARGIN: float = 0.45  # Sicherheitsabstand zur Schusslinie über den Körperradius hinaus (Ziele bewegen sich)
 
 
 static func decide(world: SimWorld, c: SimCharacter, dt: float) -> SimIntent:
 	var intent := SimIntent.new()
+	c.action_state.erase(ENGAGE_TARGET)  # gilt nur für den Tick, in dem _engage es setzt: nie ein veraltetes Nahkampfziel
 	c.decision_timer -= dt
 	if c.decision_timer <= 0.0 or c.active_rule_index < 0:
 		c.decision_timer = world.data.balf("npc.decision_interval")
@@ -296,18 +300,50 @@ static func _find_gather_node(world: SimWorld, c: SimCharacter, resource: String
 	return best
 
 
-## Zurückkämpfen: Angreifer (oder nächsten Feind) anvisieren, aktuelle Position beschießen,
-## vorsichtig Abstand halten. Nie über die Leine hinaus verfolgen (siehe _apply_leash).
+## Zurückkämpfen: den Angreifer anvisieren, aktuelle Position beschießen, vorsichtig Abstand halten. Als Angreifer gilt
+## nur, wer in den letzten combat.under_attack_window Sekunden getroffen hat (dieselbe Frist wie 'wird angegriffen') –
+## wer ihn vor Stunden traf, ist heute unbeteiligt. Ist er tot, versteckt oder weg (auch Turret, Falle, Sprengsatz),
+## gilt als Ersatzziel nur ein gewöhnlicher Wolf in wolf.aggro_radius (der greift ohnehin gleich an) – nie ein
+## unbeteiligter Mensch, nie ein streunender Wolf weiter weg (ein Treffer machte ihn erst zum Angreifer, Befund
+## Schritt 54) und nie der Leitwolf, der nicht selbst gebissen hat: vorsichtig handeln heißt, keinen neuen Streit
+## anzufangen, und Ereignis-Tiere greift ein Offline-Charakter nie zuerst an (Design [E]). Befund Schritt 54: mit
+## "nächster Fremder" als Ersatz sprang der Kampf gegen einen Wolf auf alle Offline-Nachbarn über.
+## Nie über die Leine hinaus verfolgen (siehe _apply_leash).
 ## Rückgabe true, wenn ein Ziel da ist: dann übersteuert die Leine die Kampfstellung nicht (innerhalb des Kreises
 ## kürzt sie Schritte trotzdem, außerhalb – etwa unterwegs zu einem Lieferziel – kämpft er, wo er steht).
 static func _fight_back(world: SimWorld, c: SimCharacter, intent: SimIntent, dt: float) -> bool:
-	var target := world.get_character(c.last_attacker_id)
-	if target == null or target.dead or target.hidden:
-		target = SimCombat.nearest_enemy(world, c, world.data.balf("offline.hot_radius"))
+	var target := _current_attacker(world, c)
+	if target == null:
+		target = _nearest_wolf(world, c, world.data.balf("wolf.aggro_radius"))
 	if target == null:
 		return false
 	_engage(world, c, target, intent, dt)
 	return true
+
+
+## Wer den Charakter gerade angreift: der letzte Angreifer, solange 'wird angegriffen' gilt und er lebt, sichtbar und
+## nicht verbündet ist; sonst null.
+static func _current_attacker(world: SimWorld, c: SimCharacter) -> SimCharacter:
+	if c.last_attacker_id < 0 or not SimSensors.is_under_attack(world, c):
+		return null
+	var attacker := world.get_character(c.last_attacker_id)
+	if attacker == null or attacker.dead or attacker.hidden or world.allied(attacker.owner_id, c.owner_id):
+		return null
+	return attacker
+
+
+## Nächster lebender gewöhnlicher Wolf im Radius (nicht der Leitwolf), sonst null.
+static func _nearest_wolf(world: SimWorld, c: SimCharacter, radius: float) -> SimCharacter:
+	var best: SimCharacter = null
+	var best_d := radius * radius
+	for other: SimCharacter in world.spatial.query(c.pos, radius):
+		if other.kind != SimCharacter.Kind.WOLF or other.boss or other.dead or other.hidden:
+			continue
+		var d := other.pos.distance_squared_to(c.pos)
+		if d <= best_d:
+			best_d = d
+			best = other
+	return best
 
 
 ## Angreifen (freigeschaltet): nächsten sichtbaren Fremden im Radius angreifen, ohne selbst angegriffen zu sein.
@@ -319,12 +355,15 @@ static func _attack_nearby(world: SimWorld, c: SimCharacter, radius: float, inte
 	return true
 
 
-## Gemeinsame Kampfausführung: Waffenwahl, Abstand, Schuss auf die aktuelle Position.
+## Gemeinsame Kampfausführung: Waffenwahl, Abstand, Schuss auf die aktuelle Position. Das Ziel merkt sich der
+## Charakter für diesen Tick (action_state ENGAGE_TARGET): der Nahkampf trifft genau es, nicht den Nächststehenden.
+## Auch die Karawanenwachen kämpfen hierüber (CaravanAI).
 static func _engage(world: SimWorld, c: SimCharacter, target: SimCharacter, intent: SimIntent, _dt: float) -> void:
 	var data := world.data
 	var to_target := target.pos - c.pos
 	var distance := to_target.length()
 	intent.aim = to_target  # zielt auf die aktuelle Position, kein Vorhalten
+	c.action_state[ENGAGE_TARGET] = target.id
 	# Waffenwahl: Nahkampf nur, wenn der Feind schon in Reichweite steht; sonst vorsichtig auf Abstand schießen
 	var melee_id := ""
 	var ranged_id := ""
@@ -345,14 +384,75 @@ static func _engage(world: SimWorld, c: SimCharacter, target: SimCharacter, inte
 		return
 	SimCrafting.set_active_weapon(world, c, ranged_id)
 	var preferred := data.balf("npc.preferred_combat_range")
-	if distance < preferred * 0.7:
+	var too_close := preferred * 0.7
+	if distance < too_close:
 		intent.move = -to_target.normalized()
 	elif distance > preferred * 1.3:
 		intent.move = to_target.normalized()
 	var weapon: Dictionary = data.items[ranged_id]
 	var reach := float(weapon["projectile_speed"]) * float(weapon["projectile_lifetime"])
-	if distance <= reach and SimNav.line_clear(world.map, c.pos, target.pos, 0.1):
-		intent.shoot = true
+	if distance > reach or distance <= 0.0:
+		return
+	# Sichtlinie ab der Mündung, wo das Projektil entsteht (SimCombat._shoot): wer mit dem Rücken an einem Baum steht,
+	# schießt trotzdem (Befund Schritt 54: ein NPC am Baum sah den Wolf vor sich nicht und starb ohne einen Schuss)
+	var dir := to_target / distance
+	var muzzle := c.pos + dir * (c.collision_radius + 0.15)
+	if not world.map.is_walkable(SimMap.cell_of(muzzle)) or not SimNav.line_clear(world.map, muzzle, target.pos, 0.1):
+		return
+	# Vorsichtig (nur Offline-Charaktere): kein Schuss, solange ein Unbeteiligter in der Schusslinie steht; stattdessen
+	# ein Schritt zur Seite, bis die Linie frei ist (die Leine kürzt ihn wie jeden Schritt). Geprüft wird
+	# nur, wenn der Schuss auch fallen könnte (sonst ist 'shoot' ohnehin wirkungslos) – das hält den heißen Pfad billig.
+	if c.control == SimCharacter.Controller.RULES and c.fire_cooldown <= 0.0:
+		var bystander := _bystander_in_line(world, c, target, reach, distance <= too_close)
+		if bystander != null:
+			# Seite so wählen, dass die Linie ihn verlässt: vor dem Ziel weg von ihm; hinter dem Ziel dreht sich die
+			# Linie um das Ziel, also zu seiner Seite hin
+			var side := dir.orthogonal()
+			var offset := bystander.pos - c.pos
+			if (offset.dot(side) > 0.0) != (offset.dot(dir) > distance):
+				side = -side
+			intent.move = (intent.move + side).normalized()
+			return
+	intent.shoot = true
+
+
+## Der erste Unbeteiligte in der Schusslinie zum Ziel, sonst null. Die Linie reicht bis zur vollen Reichweite (ein
+## Fehlschuss fliegt weiter) – außer das Ziel steht so nah, dass es den Schuss abfängt (target_shields: innerhalb des
+## Abstands, bei dem der NPC zurückweicht), dann nur bis zum Ziel. Hinter dem Ziel zählt nur, wen keine Wand und kein
+## Bauteil deckt (dort endet das Projektil). Befund Schritt 54: ohne diese Grenzen hielt ein NPC das Feuer gegen den
+## Wolf direkt vor sich, weil der Nachbar vier Kacheln dahinter stand, und starb ohne einen Schuss.
+## Unbeteiligt: sichtbare, lebende Menschen, Karawanenmitglieder und der Leitwolf, die weder das Ziel noch der aktuelle
+## Angreifer noch verbündet sind (Projektile lassen Verbündete ohnehin passieren). Gewöhnliche Wölfe zählen nicht: sie
+## jagen ohnehin jeden, und wer gegen ein Rudel kämpft, darf nicht verstummen. Der Leitwolf zählt, denn ein Streifschuss
+## reizt ihn (er jagt, wer ihn trifft), und Offline-Charaktere greifen ihn nie zuerst an. Wer in einer kampffreien Zone
+## steht (Markt), zählt nicht: dort verpuffen Projektile – sonst verstummte ein Händler am Markt, solange die Karawane
+## dort rastet, und ein Wolf davor hätte leichtes Spiel. Querschläger bleiben legitime Treffer (Design [E] 2026-09-07) –
+## der NPC vermeidet sie nur, wie es "handelt vorsichtig" verlangt.
+static func _bystander_in_line(world: SimWorld, c: SimCharacter, target: SimCharacter, reach: float, target_shields: bool) -> SimCharacter:
+	var dir := (target.pos - c.pos).normalized()
+	if dir == Vector2.ZERO:
+		return null
+	var start := c.pos + dir * (c.collision_radius + 0.15)  # dort entsteht das Projektil (SimCombat._shoot)
+	var to_target_along := (target.pos - start).dot(dir)
+	var length := maxf(to_target_along, 0.0) if target_shields else reach
+	var attacker := _current_attacker(world, c)
+	var attacker_id := attacker.id if attacker != null else -1
+	for other: SimCharacter in world.spatial.query(start + dir * (length * 0.5), length * 0.5 + 1.0):
+		if other == c or other == target or other.dead or other.hidden or other.id == attacker_id:
+			continue
+		if (other.kind == SimCharacter.Kind.WOLF and not other.boss) or world.allied(other.owner_id, c.owner_id):
+			continue
+		if world.in_peace_zone(other.pos):
+			continue
+		var along := clampf((other.pos - start).dot(dir), 0.0, length)
+		var closest := start + dir * along
+		var margin := other.collision_radius + BYSTANDER_MARGIN
+		if closest.distance_squared_to(other.pos) >= margin * margin:
+			continue
+		if along > to_target_along and not SimNav.line_clear(world.map, target.pos, closest, 0.05, "", world.data):
+			continue  # hinter dem Ziel und von einer Wand oder einem Bauteil gedeckt
+		return other
+	return null
 
 
 ## Ohne eigenes Ziel dreht sich der NPC zum nächsten sichtbaren Fremden – berechenbar und umlaufbar.

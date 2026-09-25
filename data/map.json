@@ -1,7 +1,11 @@
 {
-  "_doc": "Karte als Zeichenraster. Zeichen laut tiles.json ('char'); zusaetzlich Spawn-Zeichen aus 'spawn_chars' (liegen auf Boden). Koordinaten: x nach rechts, y nach unten, (0,0) oben links. D = Markt-Depot (liegt auf Marktboden M). R = Outpost-Depot (auf Outpost-Boden O).",
+  "_doc": "Karte als Zeichenraster. Zeichen laut tiles.json ('char'); zusaetzlich Spawn-Zeichen aus 'spawn_chars' (liegen auf Boden). Mehrere P = mehrere Spieler-Spawns: neue Charaktere (Server-Beitritt, R nach dem Tod ohne Spawn-Anker) erscheinen an einem zufälligen; 'start' [x, y] ist der P, an dem ein neues Einzelspiel beginnt (fehlt er, gilt der erste P in Lesereihenfolge). Koordinaten: x nach rechts, y nach unten, (0,0) oben links. D = Markt-Depot (liegt auf Marktboden M). R = Outpost-Depot (auf Outpost-Boden O).",
   "width": 40,
   "height": 30,
+  "start": [
+    7,
+    5
+  ],
   "spawn_chars": {
     "P": "player",
     "W": "wolf",
@@ -10,14 +14,14 @@
   },
   "rows": [
     "########################################",
-    "#.............................CC.......#",
+    "#...............P.............CC.......#",
     "#..TT..........##..........BB..........#",
     "#..TT..........##..........BB..........#",
     "#..............##......................#",
     "#......P...............................#",
     "#......................T...............#",
     "#..........B...........TT..............#",
-    "#..........B................FFsssss....#",
+    "#P.........B................FFsssss....#",
     "#.....................######..sHsHs....#",
     "#C...........SS.......#....#..sssss....#",
     "#C...........S........#....#.....W.....#",

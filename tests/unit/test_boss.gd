@@ -22,6 +22,13 @@ func before_each() -> void:
 			c.control = SimCharacter.Controller.NONE
 
 
+func _plain_wolf() -> SimCharacter:
+	for c: SimCharacter in world.characters.values():
+		if c.kind == SimCharacter.Kind.WOLF and not c.boss and not c.dead:
+			return c
+	return null
+
+
 func _events(kind: String) -> Array:
 	var result := []
 	for event: Dictionary in world.events:
@@ -132,6 +139,16 @@ func test_offline_character_fights_back_but_never_attacks_the_boss_first() -> vo
 		shots += _events("shoot").size()
 	assert_eq(shots, 0, "'greife an' meidet den Leitwolf")
 	assert_eq(boss.hp, boss.max_hp)
+	# Beißt ein Wolf und stirbt, ist der Leitwolf kein Ersatzziel für 'kämpfe zurück': er hat nicht gebissen
+	var wolf := _plain_wolf()
+	SimCombat.apply_damage(world, player, 1.0, Vector2.LEFT, wolf.id)
+	SimCombat.apply_damage(world, wolf, 1000.0, Vector2.LEFT, -1)
+	assert_true(wolf.dead)
+	for i in 40:
+		world.tick()
+		shots += _events("shoot").size()
+	assert_eq(shots, 0, "kein Ersatzziel Leitwolf")
+	assert_eq(boss.hp, boss.max_hp)
 	# Beißt er, wehrt sich der Charakter (kämpfe zurück)
 	SimCombat.apply_damage(world, player, 1.0, Vector2.LEFT, boss.id)
 	for i in 40:
@@ -160,3 +177,93 @@ func test_boss_stops_chasing_outside_its_territory() -> void:
 		world.tick()
 	assert_lt(boss.pos.distance_to(boss.home_pos), territory + 1.0, "kehrt heim")
 	assert_eq(prey.hp, 1000.0, "die Beute kommt davon")
+
+
+## Befund Schritt 54: ein Bogenschütze traf den Leitwolf aus 9–12 Kacheln sechsmal, er streunte weiter. Jetzt wendet er
+## sich gegen den Schützen – aber nur, solange er selbst in seinem Revier steht.
+func test_boss_turns_on_ranged_attacker_only_inside_territory() -> void:
+	var boss := SimEvents.spawn_boss(world)
+	var territory := data.balf("events.boss.territory_radius")
+	var archer := world.spawn_player(boss.home_pos + Vector2(0, -10), "p2", "Bogenschütze")  # jenseits von Aggro und Revier
+	archer.max_hp = 1000.0
+	archer.hp = 1000.0
+	world.spatial.rebuild(world.characters)
+	world.tick()
+	assert_eq(boss.ai_state, WolfAI.STATE_WANDER, "sieht den Schützen nicht")
+	var worst := 0.0
+	for i in 20 * 5:
+		if i % 20 == 0:
+			SimCombat.apply_damage(world, boss, 1.0, Vector2.DOWN, archer.id)  # ein Treffer je Sekunde aus 10 Kacheln
+		world.tick()
+		if i == 0:
+			assert_eq(boss.ai_state, WolfAI.STATE_CHASE, "wendet sich gegen den Schützen")
+		worst = maxf(worst, boss.pos.distance_to(boss.home_pos))
+	assert_gt(worst, 5.0, "läuft auf ihn zu")
+	assert_lt(worst, territory + 0.6, "aber nie aus dem Revier")
+	# Außerhalb des Reviers lässt ihn ein Treffer kalt: er kehrt heim
+	boss.pos = boss.home_pos + Vector2(0, -(territory + 1.0))
+	archer.pos = boss.pos + Vector2(0, -10)
+	world.spatial.rebuild(world.characters)
+	SimCombat.apply_damage(world, boss, 1.0, Vector2.DOWN, archer.id)
+	world.tick()
+	assert_eq(boss.ai_state, WolfAI.STATE_WANDER, "außerhalb des Reviers keine Verfolgung")
+	for i in 40:
+		world.tick()
+	assert_lt(boss.pos.distance_to(boss.home_pos), territory + 1.0, "kehrt heim")
+	assert_eq(archer.hp, 1000.0, "der Schütze kommt davon")
+
+
+## Vorsichtig schießen: steht der Leitwolf hinter dem Wolf in der Schusslinie, hält der Offline-Charakter das Feuer –
+## ein Streifschuss würde ihn reizen, und Ereignis-Tiere greift er nie zuerst an.
+func test_offline_character_never_shoots_through_the_boss() -> void:
+	var rules := data.normalize_rule_list([
+		{"if": {"condition": "under_attack"}, "then": {"action": "fight_back"}},
+		{"if": {"condition": "else"}, "then": {"action": "stay_at", "params": {"place": "here", "radius": 3}}},
+	], "Test")
+	world.logout(player.id, rules, "Wache")
+	player.logout_time = -1e9
+	var wolf := _plain_wolf()
+	wolf.pos = OPEN + Vector2(5, 0)  # steht still (Steuerung aus)
+	var boss := SimEvents.spawn_boss(world)
+	boss.pos = OPEN + Vector2(8, 0)  # hinter dem Wolf, in Schleuderreichweite
+	boss.control = SimCharacter.Controller.NONE
+	world.spatial.rebuild(world.characters)
+	var shots := 0
+	for i in 20:
+		player.last_damage_time = world.time  # vom Wolf angegriffen, ohne Schaden
+		player.last_attacker_id = wolf.id
+		player.pos = OPEN  # festhalten: kein Seitenschritt
+		world.tick()
+		shots += _events("shoot").size()
+	assert_eq(shots, 0, "Leitwolf in der Schusslinie: kein Schuss")
+	boss.pos = OPEN + Vector2(5, -4)  # aus der Linie
+	for i in 40:
+		player.last_damage_time = world.time
+		player.last_attacker_id = wolf.id
+		world.tick()
+		shots += _events("shoot").size()
+	assert_gt(shots, 0, "Linie frei: er schießt auf den Wolf")
+	assert_eq(boss.hp, boss.max_hp, "den Leitwolf nie")
+
+
+## Befund Schritt 54: zwei Schützen, die abwechselnd treffen, drehten den Leitwolf bei jedem Treffer um – sie erlegten
+## ihn, ohne einmal gebissen zu werden. Er geht auf den Nächsten los.
+func test_two_alternating_shooters_do_not_stun_lock_the_boss() -> void:
+	var boss := SimEvents.spawn_boss(world)
+	boss.max_hp = 1000.0
+	boss.hp = 1000.0
+	player.pos = boss.home_pos + Vector2(-5, 0)
+	var other := world.spawn_player(boss.home_pos + Vector2(5, 0), "p2", "B")
+	for c: SimCharacter in [player, other]:
+		c.max_hp = 1000.0
+		c.hp = 1000.0
+	world.spatial.rebuild(world.characters)
+	var shooters: Array[SimCharacter] = [player, other]
+	var bites := 0
+	for i in 20 * 10:
+		if i % 10 == 0:
+			var shooter := shooters[(i / 10) % 2]
+			SimCombat.apply_damage(world, boss, 0.01, (boss.pos - shooter.pos).normalized(), shooter.id)
+		world.tick()
+		bites += _events("hit").filter(func(e: Dictionary) -> bool: return int(e["attacker"]) == boss.id).size()
+	assert_gt(bites, 4, "der Leitwolf erreicht einen der beiden und beißt")

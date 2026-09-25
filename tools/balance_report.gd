@@ -1,6 +1,7 @@
 extends SceneTree
 ## Balancing-Bericht: simuliert jede Rolle mehrfach offline (Standard: 5 Seeds × 8 h) und druckt
-## Überleben, Leben, Vorräte, Angriffe, getötete Wölfe. Dazu ein Duell Wache gegen einen Wolf.
+## Überleben, Leben, Vorräte, Hunger am Ende (Ø der Überlebenden, dazu wie viele geschwächt sind), Angriffe,
+## getötete Wölfe. Dazu ein Duell Wache gegen einen Wolf.
 ## Aufruf: godot --headless --path . -s tools/balance_report.gd [-- <Seeds> <Stunden>]
 ## Zahlen ändern in data/balance.json, data/items.json, data/roles.json – dann erneut laufen lassen.
 
@@ -21,7 +22,7 @@ func _init() -> void:
 		quit(1)
 		return
 	print("Balancing-Bericht: %d Seeds × %.0f h offline pro Rolle, Start mit 5 Beeren am Spawn" % [seeds, hours])
-	print("%-12s %9s %9s %9s %9s %10s %9s %8s" % ["Rolle", "überlebt", "Leben Ø", "Beeren Ø", "Holz Ø", "angegriff.", "Wölfe †", "ms Ø"])
+	print("%-12s %9s %9s %9s %9s %9s %9s %10s %9s %8s" % ["Rolle", "überlebt", "Leben Ø", "Beeren Ø", "Holz Ø", "Hunger Ø", "geschw.", "angegriff.", "Wölfe †", "ms Ø"])
 	for role_id: String in data.role_order:
 		_report_role(data, role_id)
 	_report_duel(data)
@@ -33,6 +34,8 @@ func _report_role(data: SimData, role_id: String) -> void:
 	var hp_sum := 0.0
 	var berries_sum := 0
 	var wood_sum := 0
+	var hunger_sum := 0.0
+	var weakened := 0
 	var attacked_sum := 0
 	var kills_sum := 0
 	var ms_sum := 0
@@ -47,6 +50,9 @@ func _report_role(data: SimData, role_id: String) -> void:
 		ms_sum += Time.get_ticks_msec() - started
 		if not c.dead:
 			survived += 1
+			hunger_sum += c.hunger
+			if c.is_weakened():
+				weakened += 1
 		hp_sum += c.hp
 		berries_sum += int(c.inventory.get("berries", 0))
 		wood_sum += int(c.inventory.get("wood", 0))
@@ -56,9 +62,10 @@ func _report_role(data: SimData, role_id: String) -> void:
 			if line.contains("getötet"):
 				kills_sum += 1
 	var n := float(seeds)
-	print("%-12s %8d/%d %9.1f %9.1f %9.1f %10.1f %9.1f %8d" % [
+	var hunger_text := "%.1f" % (hunger_sum / float(survived)) if survived > 0 else "-"
+	print("%-12s %8d/%d %9.1f %9.1f %9.1f %9s %7d/%d %10.1f %9.1f %8d" % [
 		data.roles[role_id]["name"], survived, seeds, hp_sum / n, berries_sum / n, wood_sum / n,
-		attacked_sum / n, kills_sum / n, int(ms_sum / n),
+		hunger_text, weakened, survived, attacked_sum / n, kills_sum / n, int(ms_sum / n),
 	])
 
 

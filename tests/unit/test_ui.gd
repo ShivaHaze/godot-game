@@ -122,3 +122,22 @@ func test_main_scene_skip_and_versus() -> void:
 	main._toggle_yesterday_chronicle()
 	assert_eq(main._chronicle_id, npc_id)
 	await wait_frames(3)
+
+
+## Baumodus: was ein neuer Spieler braucht, liegt auf 1–9 (Anker, Kacheln, Wand, Tür, Werkbank …), und die Meldung nach
+## dem Claim nennt die richtige Taste (vorher "B, dann 3" – das war die Steinwand – obwohl man da schon im Baumodus ist).
+func test_build_choices_put_starter_parts_first() -> void:
+	var main: Node2D = MainScene.instantiate()
+	main.save_path = ""
+	add_child_autofree(main)
+	await wait_frames(2)
+	var choices: Array[String] = main._build_choices()
+	assert_eq(choices.slice(0, 8), ["anchor", "claim_tile", "wood_wall", "wood_door", "workbench", "campfire", "trade_table", "sign"] as Array[String])
+	assert_eq(main._build_choice_hint("claim_tile"), "B, dann 2")
+	assert_eq(main._build_choice_hint("workbench"), "B, dann 5")
+	assert_eq(main._build_choice_hint("turret"), "B, dann Tab bis „Turret“", "jenseits von 9: blättern")
+	# Die Meldung "Claim gegründet" kommt beim Setzen des Ankers, also im Baumodus: dort würde B ihn beenden
+	main._build_mode = true
+	assert_eq(main._build_choice_hint("claim_tile"), "Taste 2")
+	assert_eq(main._build_choice_hint("turret"), "Tab bis „Turret“")
+	main._build_mode = false

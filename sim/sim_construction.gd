@@ -68,8 +68,9 @@ static func can_place(world: SimWorld, c: SimCharacter, part_id: String, origin:
 		if world.claims.is_foreign(tile, c.owner_id) and not bool(def.get("anywhere", false)):
 			return "fremder Claim"
 		if bool(def.get("claim_only", false)):
+			# Nur auf eigenem Land; Gildenclaims zählen als eigenes (Verbündete teilen Claims)
 			var own := world.claims.claim_at(tile)
-			if own == null or own.owner_id != c.owner_id:
+			if own == null or not world.allied(own.owner_id, c.owner_id):
 				return "nur im eigenen Claim"
 	return ""
 

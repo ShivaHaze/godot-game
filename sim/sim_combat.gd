@@ -80,10 +80,19 @@ static func _shoot(world: SimWorld, c: SimCharacter, weapon: Dictionary) -> void
 	SimCrafting.wear(world, c, c.active_weapon)
 
 
+## Nahkampf: Live-Spieler und Tiere treffen den nächsten Feind in Reichweite. Regel- und KI-gesteuerte Kämpfer
+## (Offline-NPC, Karawanenwache) treffen nur das Ziel, das sie in diesem Tick anvisieren (NpcController._engage) –
+## sonst träfe die Keule gegen den Wolf den unbeteiligten Nachbarn daneben (NPC handelt vorsichtig).
 static func melee(world: SimWorld, c: SimCharacter) -> void:
 	if c.bite_cooldown > 0.0 or c.melee_damage <= 0.0:
 		return
-	var target := nearest_enemy(world, c, c.melee_range)
+	var target: SimCharacter = null
+	if c.control != SimCharacter.Controller.PLAYER and c.action_state.has(NpcController.ENGAGE_TARGET):
+		target = _engaged_in_reach(world, c)
+		if target == null:
+			return  # Ziel außer Reichweite: kein Schlag, auch nicht auf Umstehende oder Bauteile
+	else:
+		target = nearest_enemy(world, c, c.melee_range)
 	if target == null:
 		# Nur Live-Spieler schlagen Bauteile (Holz) ein; NPCs und Tiere nie (nur Live kann Nehmen und Verändern)
 		if c.control != SimCharacter.Controller.PLAYER or c.kind != SimCharacter.Kind.PLAYER:
@@ -101,6 +110,17 @@ static func melee(world: SimWorld, c: SimCharacter) -> void:
 	world.reveal(c)
 	apply_damage(world, target, c.melee_damage, (target.pos - c.pos).normalized(), c.id, c.melee_effect)
 	SimCrafting.wear(world, c, c.active_weapon)
+
+
+## Das anvisierte Ziel eines Regel-/KI-Kämpfers, wenn es lebt, sichtbar und nicht verbündet ist und in Nahkampfreichweite
+## steht; sonst null.
+static func _engaged_in_reach(world: SimWorld, c: SimCharacter) -> SimCharacter:
+	var target := world.get_character(int(c.action_state[NpcController.ENGAGE_TARGET]))
+	if target == null or target.dead or target.hidden or world.allied(target.owner_id, c.owner_id):
+		return null
+	if target.pos.distance_squared_to(c.pos) > c.melee_range * c.melee_range:
+		return null
+	return target
 
 
 ## Nächster lebender, sichtbarer Charakter eines anderen Besitzers im Radius. ignore_events: Leitwolf und Karawane

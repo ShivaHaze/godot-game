@@ -1,55 +1,6 @@
 {
-  "_doc": "Bauteile. Raster: halbe Kacheln (Design [E]); 'size' in Halbzellen [Breite, Höhe], drehbar (R). Nur live baubar, NPCs bauen und brechen nie (Design: nur Live kann Nehmen und Verändern). 'passable': none = blockiert alle, owner = nur der Besitzer (und seine NPCs) geht durch (Tür). 'tier': wood wird mit Nahkampf beschädigt und verfällt (decay_per_hour Lebenspunkte je Stunde); stone/iron kommen später (Eisenwerkzeug bzw. Sprengsatz). Projektile bleiben an Bauteilen hängen, ohne sie zu beschädigen. 'trade': true = Handelstisch mit Inhalt und Angeboten. Sensor: 'sensor_radius'/'sensor_hold'. Falle: 'trap_damage', 'hidden' (nur der Besitzer sieht sie). 'station': true = Herstellungsort: Gegenstände und Verbrauchsgüter mit 'needs_building' (items.json/resources.json) entstehen nur in Reichweite; auch die Reparatur. Jeder darf eine fremde Station benutzen, die er erreicht (Raidziel).",
+  "_doc": "Bauteile. Raster: halbe Kacheln (Design [E]); 'size' in Halbzellen [Breite, Höhe], drehbar (T). Die Reihenfolge hier ist die Auswahl im Baumodus (B, dann Tab/Mausrad oder 1–9): zuerst, was ein neuer Spieler braucht (Anker, Wände, Tür, Werkbank, Lagerfeuer, Handelstisch, Schild). Direkt hinter dem Anker schiebt der Baumodus das Werkzeug 'Kachel beanspruchen' ein (Taste 2), ab dem zweiten Eintrag hier ist die Taste also eins höher (Holzwand 3, Werkbank 5). Nur live baubar, NPCs bauen und brechen nie (Design: nur Live kann Nehmen und Verändern). 'passable': none = blockiert alle, owner = nur der Besitzer (und seine NPCs) geht durch (Tür). 'tier': wood wird mit Nahkampf beschädigt und verfällt (decay_per_hour Lebenspunkte je Stunde, auch bei bezahltem Unterhalt; Holzteile 0,25, damit eine Basis mehrere Nächte übersteht: Wand und Werkbank 160 h, Tür und Handelstisch 120 h, Sensor 60 h, Falle und Schild 40 h; Steinwand 0,1 = 1200 h; das Lagerfeuer brennt mit 4 in 3 h herunter); stone/iron kommen später (Eisenwerkzeug bzw. Sprengsatz). Projektile bleiben an Bauteilen hängen, ohne sie zu beschädigen. 'trade': true = Handelstisch mit Inhalt und Angeboten. Sensor: 'sensor_radius'/'sensor_hold'. Falle: 'trap_damage', 'hidden' (nur der Besitzer sieht sie). 'claim_only': nur im eigenen Claim baubar (Gildenclaims zählen als eigene). 'station': true = Herstellungsort: Gegenstände und Verbrauchsgüter mit 'needs_building' (items.json/resources.json) entstehen nur in Reichweite; auch die Reparatur. Jeder darf eine fremde Station benutzen, die er erreicht (Raidziel).",
   "buildings": [
-    {
-      "id": "wood_wall",
-      "name": "Holzwand",
-      "tier": "wood",
-      "cost": {
-        "wood": 4
-      },
-      "hp": 40,
-      "size": [
-        1,
-        2
-      ],
-      "passable": "none",
-      "decay_per_hour": 1.0,
-      "color": "#8a5a2b"
-    },
-    {
-      "id": "wood_door",
-      "name": "Holztür",
-      "tier": "wood",
-      "cost": {
-        "wood": 6
-      },
-      "hp": 30,
-      "size": [
-        1,
-        2
-      ],
-      "passable": "owner",
-      "decay_per_hour": 1.0,
-      "color": "#c48a4a"
-    },
-    {
-      "id": "stone_wall",
-      "name": "Steinwand",
-      "tier": "stone",
-      "cost": {
-        "stone": 6
-      },
-      "hp": 120,
-      "size": [
-        1,
-        2
-      ],
-      "passable": "none",
-      "decay_per_hour": 0.4,
-      "color": "#8c8c8c",
-      "_doc": "Stufe Stein: nur Werkzeuge mit 'breaks' stone (Eisenaxt) schlagen sie ein."
-    },
     {
       "id": "anchor",
       "name": "Claim-Anker",
@@ -68,106 +19,55 @@
       "_doc": "Gründet einen Claim (Kachel des Ankers). Nimmt Holz als Unterhalt an (E daneben). Nur live baubar."
     },
     {
-      "id": "trade_table",
-      "name": "Handelstisch",
+      "id": "wood_wall",
+      "name": "Holzwand",
       "tier": "wood",
       "cost": {
-        "wood": 8
+        "wood": 4
+      },
+      "hp": 40,
+      "size": [
+        1,
+        2
+      ],
+      "passable": "none",
+      "decay_per_hour": 0.25,
+      "color": "#8a5a2b"
+    },
+    {
+      "id": "wood_door",
+      "name": "Holztür",
+      "tier": "wood",
+      "cost": {
+        "wood": 6
       },
       "hp": 30,
       "size": [
+        1,
+        2
+      ],
+      "passable": "owner",
+      "decay_per_hour": 0.25,
+      "color": "#c48a4a"
+    },
+    {
+      "id": "workbench",
+      "name": "Werkbank",
+      "tier": "wood",
+      "cost": {
+        "wood": 8,
+        "stone": 4
+      },
+      "hp": 40,
+      "size": [
         2,
         1
       ],
       "passable": "none",
-      "decay_per_hour": 1.0,
-      "color": "#6fa8dc",
-      "trade": true,
-      "_doc": "Eigener Shop: der Besitzer lagert Waren ein und setzt bis zu 3 Angebote (verkaufe X für Y). Fremde kaufen live per E. Wird er zerstört, fällt der Inhalt dem Zerstörer zu (Shop ist auch Ziel)."
-    },
-    {
-      "id": "sensor",
-      "name": "Sensor",
-      "tier": "wood",
-      "cost": {
-        "wood": 2,
-        "wire": 1
-      },
-      "hp": 15,
-      "size": [
-        1,
-        1
-      ],
-      "passable": "all",
-      "decay_per_hour": 0.5,
-      "color": "#4fc3f7",
-      "sensor_radius": 6.0,
-      "sensor_hold": 5.0,
-      "_doc": "Meldet Fremde (auch versteckte) im Umkreis als Bedingung 'Sensor … ausgelöst' und ist als Ort in Regeln wählbar. Phase 1 aus Holz und Stein; laut Design später Kupferdraht. Braucht Draht aus der Kupferkette."
-    },
-    {
-      "id": "trap",
-      "name": "Falle",
-      "tier": "wood",
-      "cost": {
-        "wood": 3,
-        "stone": 1
-      },
-      "hp": 10,
-      "size": [
-        2,
-        2
-      ],
-      "passable": "all",
-      "decay_per_hour": 0.5,
-      "color": "#8d6e63",
-      "trap_damage": 12.0,
-      "hidden": true,
-      "_doc": "Für Fremde unsichtbar. Wer sie betritt (Fremde und Tiere), nimmt Schaden und wird enttarnt; die Falle ist danach verbraucht."
-    },
-    {
-      "id": "turret",
-      "name": "Turret",
-      "tier": "stone",
-      "cost": {
-        "iron": 4,
-        "wood": 6,
-        "wire": 2
-      },
-      "hp": 90,
-      "size": [
-        2,
-        2
-      ],
-      "passable": "none",
-      "decay_per_hour": 0.5,
-      "color": "#506070",
-      "turret": {
-        "radius": 6.0,
-        "damage": 12.0,
-        "cooldown": 1.0,
-        "ammo": "shot",
-        "capacity": 60
-      },
-      "_doc": "Schießt auf sichtbare Fremde und Tiere im Radius mit Sichtlinie, verbraucht je Schuss eine Kugel. Besitzer lädt per E daneben (oder NPC-Lieferung 'liefere Kugeln zu Turret 1'). Stufe Stein: nur Eisenwerkzeug bricht es."
-    },
-    {
-      "id": "sign",
-      "name": "Schild",
-      "tier": "wood",
-      "cost": {
-        "wood": 2
-      },
-      "hp": 10,
-      "size": [
-        1,
-        1
-      ],
-      "passable": "all",
-      "decay_per_hour": 0.5,
-      "color": "#e0c068",
-      "sign": true,
-      "_doc": "Text bis 80 Zeichen, den jeder in der Nähe liest (E daneben zum Beschriften, nur der Besitzer). Die einzige Kommunikation eines Offline-Charakters."
+      "decay_per_hour": 0.25,
+      "color": "#a07850",
+      "station": true,
+      "_doc": "Stufe 1 (wie Rust: Workbench Level 1): Bogen, Steinbeil, Kupferspeer, Stoff- und Holzrüstung, Draht, Pulver und Medizin entstehen nur in Reichweite; hier wird auch repariert. Von Hand gehen nur Schleuder, Keule, Stoff, Verband, Pfeile und Gegenmittel."
     },
     {
       "id": "campfire",
@@ -188,23 +88,77 @@
       "_doc": "Brennt etwa 3 Stunden herunter (Verfall). Jeder in Reichweite brät daran Fleisch (C oder NPC-Aktion 'stelle Gebratenes Fleisch her')."
     },
     {
-      "id": "workbench",
-      "name": "Werkbank",
+      "id": "trade_table",
+      "name": "Handelstisch",
       "tier": "wood",
       "cost": {
-        "wood": 8,
-        "stone": 4
+        "wood": 8
       },
-      "hp": 40,
+      "hp": 30,
       "size": [
         2,
         1
       ],
       "passable": "none",
-      "decay_per_hour": 0.5,
-      "color": "#a07850",
-      "station": true,
-      "_doc": "Stufe 1 (wie Rust: Workbench Level 1): Bogen, Steinbeil, Kupferspeer, Stoff- und Holzrüstung, Draht, Pulver und Medizin entstehen nur in Reichweite; hier wird auch repariert. Von Hand gehen nur Schleuder, Keule, Stoff, Verband, Pfeile und Gegenmittel."
+      "decay_per_hour": 0.25,
+      "color": "#6fa8dc",
+      "trade": true,
+      "_doc": "Eigener Shop: der Besitzer lagert Waren ein und setzt bis zu 3 Angebote (verkaufe X für Y). Fremde kaufen live per E. Wird er zerstört, fällt der Inhalt dem Zerstörer zu (Shop ist auch Ziel)."
+    },
+    {
+      "id": "sign",
+      "name": "Schild",
+      "tier": "wood",
+      "cost": {
+        "wood": 2
+      },
+      "hp": 10,
+      "size": [
+        1,
+        1
+      ],
+      "passable": "all",
+      "decay_per_hour": 0.25,
+      "color": "#e0c068",
+      "sign": true,
+      "_doc": "Text bis 80 Zeichen, den jeder in der Nähe liest (E daneben zum Beschriften, nur der Besitzer). Die einzige Kommunikation eines Offline-Charakters."
+    },
+    {
+      "id": "stone_wall",
+      "name": "Steinwand",
+      "tier": "stone",
+      "cost": {
+        "stone": 6
+      },
+      "hp": 120,
+      "size": [
+        1,
+        2
+      ],
+      "passable": "none",
+      "decay_per_hour": 0.1,
+      "color": "#8c8c8c",
+      "_doc": "Stufe Stein: nur Werkzeuge mit 'breaks' stone (Eisenaxt) schlagen sie ein."
+    },
+    {
+      "id": "trap",
+      "name": "Falle",
+      "tier": "wood",
+      "cost": {
+        "wood": 3,
+        "stone": 1
+      },
+      "hp": 10,
+      "size": [
+        2,
+        2
+      ],
+      "passable": "all",
+      "decay_per_hour": 0.25,
+      "color": "#8d6e63",
+      "trap_damage": 12.0,
+      "hidden": true,
+      "_doc": "Für Fremde unsichtbar. Wer sie betritt (Fremde und Tiere), nimmt Schaden und wird enttarnt; die Falle ist danach verbraucht."
     },
     {
       "id": "furnace",
@@ -224,6 +178,48 @@
       "color": "#b06040",
       "station": true,
       "_doc": "Schmelzen (wie Rust: Furnace): Kupfer (Erz + Holz) und Eisen (Erz + Kohle) entstehen nur hier. Stufe Stein: nur Eisenwerkzeug oder Sprengsatz bricht ihn."
+    },
+    {
+      "id": "mine",
+      "name": "Mine",
+      "tier": "wood",
+      "cost": {
+        "wood": 12,
+        "stone": 6
+      },
+      "hp": 80,
+      "size": [
+        2,
+        2
+      ],
+      "passable": "none",
+      "decay_per_hour": 0.25,
+      "color": "#7a6248",
+      "next_to_resource": [
+        "iron_ore",
+        "coal"
+      ],
+      "_doc": "Muss direkt neben einer Eisenader oder einem Kohleflöz stehen. Erst damit bauen Offline-Charaktere dort ab (Design: 'offline nur mit Mine'); live geht es von Hand."
+    },
+    {
+      "id": "sensor",
+      "name": "Sensor",
+      "tier": "wood",
+      "cost": {
+        "wood": 2,
+        "wire": 1
+      },
+      "hp": 15,
+      "size": [
+        1,
+        1
+      ],
+      "passable": "all",
+      "decay_per_hour": 0.25,
+      "color": "#4fc3f7",
+      "sensor_radius": 6.0,
+      "sensor_hold": 5.0,
+      "_doc": "Meldet Fremde (auch versteckte) im Umkreis als Bedingung 'Sensor … ausgelöst' und ist als Ort in Regeln wählbar. Phase 1 aus Holz und Stein; laut Design später Kupferdraht. Braucht Draht aus der Kupferkette."
     },
     {
       "id": "forge",
@@ -246,6 +242,33 @@
       "_doc": "Stufe 2 (wie Rust: Workbench Level 2): Eisenaxt, Eisenrüstung, Kugeln und Sprengsätze entstehen nur hier. Braucht Eisen zum Bau, also erst den Schmelzofen."
     },
     {
+      "id": "turret",
+      "name": "Turret",
+      "tier": "stone",
+      "cost": {
+        "iron": 4,
+        "wood": 6,
+        "wire": 2
+      },
+      "hp": 90,
+      "size": [
+        2,
+        2
+      ],
+      "passable": "none",
+      "decay_per_hour": 0.5,
+      "color": "#506070",
+      "claim_only": true,
+      "turret": {
+        "radius": 6.0,
+        "damage": 12.0,
+        "cooldown": 1.0,
+        "ammo": "shot",
+        "capacity": 60
+      },
+      "_doc": "Schießt auf sichtbare Fremde und Tiere im Radius mit Sichtlinie, verbraucht je Schuss eine Kugel. Besitzer lädt per E daneben (oder NPC-Lieferung 'liefere Kugeln zu Turret 1'). Stufe Stein: nur Eisenwerkzeug bricht es. Nur im eigenen oder verbündeten Claim ('claim_only', Tendenz 2026-09-25): sonst sperrt ein einzelnes Turret den Spawn oder das Erzzentrum für alle."
+    },
+    {
       "id": "spawn_anchor",
       "name": "Spawn-Anker",
       "tier": "wood",
@@ -259,52 +282,12 @@
         2
       ],
       "passable": "none",
-      "decay_per_hour": 0.5,
+      "decay_per_hour": 0.25,
       "color": "#60c0e0",
       "spawn": true,
       "claim_only": true,
       "one_per_owner": true,
-      "_doc": "Teures Claim-Upgrade: nur im eigenen Claim, einer je Besitzer. Neue Charaktere des Besitzers (R nach dem Tod, Beitritt) erscheinen daneben statt am Kartenrand."
-    },
-    {
-      "id": "depot",
-      "name": "Markt-Depot",
-      "tier": "stone",
-      "cost": {},
-      "hp": 1000,
-      "size": [
-        2,
-        2
-      ],
-      "passable": "none",
-      "decay_per_hour": 0,
-      "color": "#c8a050",
-      "depot": true,
-      "placeable": false,
-      "indestructible": true,
-      "_doc": "Kartenfeature des neutralen Markts (Zeichen D), gehört niemandem, unzerstörbar. Jeder lagert per E eigene Waren ein (Gebühr balance.json market.depot_fee, Kapazität market.depot_capacity je Besitzer und Depot) und holt sie gebührenfrei wieder – nur an diesem Depot, kein Teleport. Für Regeln ein Ort für alle ('Markt-Depot 1'), NPCs liefern hin."
-    },
-    {
-      "id": "mine",
-      "name": "Mine",
-      "tier": "wood",
-      "cost": {
-        "wood": 12,
-        "stone": 6
-      },
-      "hp": 80,
-      "size": [
-        2,
-        2
-      ],
-      "passable": "none",
-      "decay_per_hour": 1.0,
-      "color": "#7a6248",
-      "next_to_resource": [
-        "iron_ore",
-        "coal"
-      ],
-      "_doc": "Muss direkt neben einer Eisenader oder einem Kohleflöz stehen. Erst damit bauen Offline-Charaktere dort ab (Design: 'offline nur mit Mine'); live geht es von Hand."
+      "_doc": "Teures Claim-Upgrade: nur im eigenen Claim (Gildenclaims zählen als eigene), einer je Besitzer. Neue Charaktere des Besitzers (R nach dem Tod, Beitritt) erscheinen daneben statt am Kartenrand."
     },
     {
       "id": "bomb",
@@ -329,6 +312,24 @@
         "character_damage": 30.0
       },
       "_doc": "Raidwerkzeug: darf auf fremdem Claim liegen (nicht auf dem Markt), zündet nach fuse Sekunden und trifft alle Bauteile (jede Stufe) und Charaktere im Radius. Wer es rechtzeitig einschlägt (5 LP), entschärft es."
+    },
+    {
+      "id": "depot",
+      "name": "Markt-Depot",
+      "tier": "stone",
+      "cost": {},
+      "hp": 1000,
+      "size": [
+        2,
+        2
+      ],
+      "passable": "none",
+      "decay_per_hour": 0,
+      "color": "#c8a050",
+      "depot": true,
+      "placeable": false,
+      "indestructible": true,
+      "_doc": "Kartenfeature des neutralen Markts (Zeichen D), gehört niemandem, unzerstörbar. Jeder lagert per E eigene Waren ein (Gebühr balance.json market.depot_fee, Kapazität market.depot_capacity je Besitzer und Depot) und holt sie gebührenfrei wieder – nur an diesem Depot, kein Teleport. Für Regeln ein Ort für alle ('Markt-Depot 1'), NPCs liefern hin."
     }
   ]
 }

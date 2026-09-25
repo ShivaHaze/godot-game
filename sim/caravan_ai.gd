@@ -9,6 +9,7 @@ const FOLLOW_DISTANCE: float = 1.6
 
 static func decide(world: SimWorld, c: SimCharacter, dt: float) -> SimIntent:
 	var intent := SimIntent.new()
+	c.action_state.erase(NpcController.ENGAGE_TARGET)  # Nahkampfziel gilt nur für den Tick, in dem _engage es setzt
 	var caravan: Dictionary = world.caravans.get(c.caravan_id, {})
 	var leader := world.get_character(c.caravan_leader_id)
 	match c.caravan_role:

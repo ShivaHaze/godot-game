@@ -203,6 +203,12 @@ func test_offline_characters_turrets_and_wolves_leave_the_caravan_alone() -> voi
 	var shots := _run(2.0, "shoot")
 	assert_eq(shots.size(), 0, "'greife an' meidet die Karawane")
 	world.login(player.id)
+	# Turrets nur im eigenen Claim: Anker auf Kachel (21, 4), dazu (22, 4) und die Turret-Kachel (22, 5)
+	player.pos = OPEN
+	player.inventory["wood"] = 12 + 6
+	assert_not_null(SimConstruction.place_building(world, player, "anchor", Vector2i(42, 8), 0), "Anker")
+	assert_true(world.claims.claim_tile(world, player, Vector2i(22, 4)))
+	assert_true(world.claims.claim_tile(world, player, Vector2i(22, 5)))
 	var turret := SimConstruction.place_building(world, player, "turret", Vector2i(44, 10), 0)
 	assert_not_null(turret, "Turret: %s" % SimConstruction.can_place(world, player, "turret", Vector2i(44, 10), 0))
 	turret.contents["shot"] = 10

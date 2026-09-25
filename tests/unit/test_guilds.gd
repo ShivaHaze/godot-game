@@ -86,6 +86,10 @@ func test_shared_alarm_and_defenses_spare_allies() -> void:
 	player.inventory["iron"] = 4
 	var sensor := SimConstruction.place_building(world, player, "sensor", Vector2i(46, 11), 0)
 	assert_not_null(sensor)
+	# Turrets nur im eigenen Claim: Anker auf Kachel (21, 4), Turret-Kachel (22, 4) beansprucht
+	player.inventory["wood"] = int(player.inventory["wood"]) + 11
+	assert_not_null(SimConstruction.place_building(world, player, "anchor", Vector2i(42, 8), 0), "Anker")
+	assert_true(world.claims.claim_tile(world, player, Vector2i(22, 4)))
 	var turret := SimConstruction.place_building(world, player, "turret", Vector2i(44, 8), 0)
 	assert_not_null(turret, "Turret: %s" % SimConstruction.can_place(world, player, "turret", Vector2i(44, 8), 0))
 	turret.contents["shot"] = 5

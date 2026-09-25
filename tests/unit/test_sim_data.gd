@@ -29,7 +29,8 @@ func test_real_data_is_valid() -> void:
 	assert_eq(data.map_width, 40)
 	assert_eq(data.map_height, 30)
 	assert_eq(data.map_tile_ids.size(), 40 * 30)
-	assert_eq(data.player_spawns.size(), 1)
+	assert_eq(data.player_spawns.size(), 3, "drei Spieler-Spawns (Testabend: nicht alle an einem Punkt)")
+	assert_eq(data.player_spawns[0], Vector2i(7, 5), "'start' steht vorn: dort beginnt ein neues Einzelspiel")
 	assert_eq(data.wolf_spawns.size(), 3)
 	assert_eq(data.tile_id_at(0, 0), "obstacle")
 	assert_eq(data.tile_id_at(data.player_spawns[0].x, data.player_spawns[0].y), "floor")
@@ -69,6 +70,17 @@ func test_map_unknown_char_reported() -> void:
 	raw["map"]["rows"][5] = row.substr(0, 10) + "?" + row.substr(11)
 	var data := SimData.from_dicts(raw)
 	_assert_errors_contain(data, "unbekanntes Zeichen '?'")
+
+
+## 'start' muss ein Spieler-Spawn sein; ohne 'start' gilt der erste P in Lesereihenfolge.
+func test_map_start_must_be_player_spawn() -> void:
+	var raw := _load_raw()
+	raw["map"]["start"] = [1, 1]
+	_assert_errors_contain(SimData.from_dicts(raw), "kein Spieler-Spawn")
+	raw["map"].erase("start")
+	var data := SimData.from_dicts(raw)
+	assert_true(data.is_valid(), "Fehler: %s" % data.errors)
+	assert_eq(data.player_spawns[0], Vector2i(16, 1), "ohne 'start': erster P in Lesereihenfolge")
 
 
 func test_unknown_condition_in_role_reported() -> void:

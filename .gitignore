@@ -9,3 +9,5 @@ build/
 # OS
 Thumbs.db
 .DS_Store
+# Godot legt beim Neuladen gesperrter GDExtensions Kopien mit ~ an
+addons/godot-sqlite/bin/~*

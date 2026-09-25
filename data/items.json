@@ -9,7 +9,7 @@
       "damage": 10,
       "projectile_speed": 7.0,
       "projectile_lifetime": 1.6,
-      "cooldown": 0.5,
+      "cooldown": 0.7,
       "max_projectiles": 3,
       "starting": true,
       "cost": {
@@ -26,7 +26,7 @@
       "damage": 14,
       "projectile_speed": 10.0,
       "projectile_lifetime": 1.4,
-      "cooldown": 0.9,
+      "cooldown": 0.7,
       "max_projectiles": 2,
       "starting": false,
       "cost": {

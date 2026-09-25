@@ -28,6 +28,10 @@ curl -fsSLO https://github.com/ShivaHaze/godot-game/releases/download/latest/ins
 sudo bash install-server.sh 7777 200
 ```
 
+Die zweite Zahl ist die Füllung: so viele NPC-Charaktere ohne Spieler setzt der Server beim Start in die Welt. Für eine
+kleine Runde (5–10 Leute) auf der Standardkarte besser `0` (höchstens 20): 200 leeren alle Beerenbüsche in wenigen
+Minuten, und jeder Neustart füllt wieder auf (Design-Dokument, Abschnitt 5, *Füll-NPCs*).
+
 Das Skript lädt den aktuellen Server-Build selbst, legt den Systembenutzer `prototyp` an, richtet den Dienst
 `prototyp-server` ein (startet beim Booten neu, Strg+C bzw. `systemctl stop` speichert), öffnet Port 7777/udp in ufw und
 zeigt am Ende die Adresse, die Mitspieler eintragen. Hängt an dem Server eine Hetzner-Cloud-Firewall, dort ebenfalls

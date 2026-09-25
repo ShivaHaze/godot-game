@@ -674,14 +674,28 @@ func _toggle_build_mode(player: SimCharacter) -> void:
 		hud.set_hint(HINT_VERSUS if mode == Mode.VERSUS else HINT_LIVE)
 
 
-## Auswahl im Baumodus: alle baubaren Teile plus das Kachel-Werkzeug.
+## Auswahl im Baumodus: alle baubaren Teile in der Reihenfolge aus buildings.json, das Kachel-Werkzeug direkt hinter
+## dem Anker (nach dem Anker kommen die Kacheln).
 func _build_choices() -> Array[String]:
 	var result: Array[String] = []
 	for id: String in data.building_order:
 		if bool(data.buildings[id].get("placeable", true)):
 			result.append(id)
-	result.append(CLAIM_TOOL)
+			if id == "anchor":
+				result.append(CLAIM_TOOL)
+	if not result.has(CLAIM_TOOL):
+		result.append(CLAIM_TOOL)
 	return result
+
+
+## Wie man eine Auswahl im Baumodus erreicht, für Hinweistexte: "B, dann 2" oder "B, dann Tab bis …". Im Baumodus
+## ohne "B, dann" (B beendete ihn): die Meldung zum neuen Claim kommt, während man noch baut.
+func _build_choice_hint(choice: String) -> String:
+	var index := _build_choices().find(choice)
+	if index >= 0 and index < 9:
+		return ("Taste %d" if _build_mode else "B, dann %d") % (index + 1)
+	var label := "Kachel beanspruchen" if choice == CLAIM_TOOL else String(data.buildings.get(choice, {}).get("name", choice))
+	return ("Tab bis „%s“" if _build_mode else "B, dann Tab bis „%s“") % label
 
 
 func _build_hint() -> String:
@@ -1031,7 +1045,7 @@ func _handle_events() -> void:
 		if String(event.get("owner", "")) == player_owner and not player_owner.is_empty():
 			match String(event.get("type", "")):
 				"claim_created":
-					hud.show_message("Claim gegründet. Kacheln beanspruchen: B, dann 3. Holz am Anker abliefern: E daneben.", 5.0)
+					hud.show_message("Claim gegründet. Kacheln beanspruchen: %s. Holz am Anker abliefern: E daneben." % _build_choice_hint(CLAIM_TOOL), 5.0)
 				"claim_starving":
 					hud.show_message("Dein Claim hat keinen Vorrat mehr, er schrumpft von außen!", 4.0)
 				"claim_shrink":

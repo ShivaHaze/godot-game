@@ -475,11 +475,12 @@ func step(dt: float) -> void:
 	spatial.rebuild(characters)
 	var coarse_dt := data.balf("offline.coarse_tick_dt")
 	var lod_radius := data.balf("offline.lod_radius")
+	var attack_window := data.balf("combat.under_attack_window")  # einmal je Schritt statt je Charakter (heißer Pfad)
 	for c: SimCharacter in characters.values():
 		if c.dead:
 			continue
 		var step_dt := dt
-		if lod_enabled and c.control != SimCharacter.Controller.PLAYER and dt < coarse_dt and not _needs_fine_step(c) and not _near_online(c, lod_radius):
+		if lod_enabled and c.control != SimCharacter.Controller.PLAYER and dt < coarse_dt and not _needs_fine_step(c, attack_window) and not _near_online(c, lod_radius):
 			c.lod_accumulator += dt
 			if c.lod_accumulator + 1e-6 < coarse_dt:
 				continue
@@ -517,10 +518,12 @@ func step(dt: float) -> void:
 ## Ist ein lebender Online-Spieler (vom Spieler gesteuert oder beobachtet) in Reichweite?
 ## Kämpfende laufen immer fein (Design: "fein bei Kampf"), auch ohne Zuschauer – sonst entscheidet die grobe Stufe
 ## das Duell (ein Schuss je Sekunde, veraltete Ziele). Billig: kein Raster, nur Zustand.
-func _needs_fine_step(c: SimCharacter) -> bool:
+## attack_window = combat.under_attack_window (wie SimSensors.is_under_attack, nur ohne Nachschlagen je Charakter).
+func _needs_fine_step(c: SimCharacter, attack_window: float) -> bool:
+	var under_attack := time - c.last_damage_time <= attack_window
 	if c.kind == SimCharacter.Kind.WOLF:
-		return c.ai_state != WolfAI.STATE_WANDER
-	if SimSensors.is_under_attack(self, c):
+		return c.ai_state != WolfAI.STATE_WANDER or under_attack  # getroffen: wendet sich sofort um
+	if under_attack:
 		return true
 	if c.active_rule_index >= 0 and c.active_rule_index < c.rules.size():
 		var action := String(c.rules[c.active_rule_index]["then"]["action"])

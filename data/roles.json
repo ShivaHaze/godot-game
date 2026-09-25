@@ -183,7 +183,7 @@
     {
       "id": "trader",
       "name": "Händler",
-      "tip": "Sammelt Beeren, bringt volle Ladungen zum eigenen Handelstisch – ohne Tisch zum nächsten kampffreien Markt (Gebühr). Der Weg ist das Risiko: gegen Wölfe hilft nur Zurückkämpfen; verletzt rastet er bei Hier, bis er wieder bei Kräften ist.",
+      "tip": "Sammelt Beeren und bringt volle Ladungen zum eigenen Handelstisch – ohne Tisch zum nächsten Markt (Gebühr). Sehr riskant: unterwegs lauern Wölfe und der Leitwolf – allein überlebt er eine lange Nacht nur etwa jedes fünfte Mal (im Test 6 von 30 über 16 Stunden). Kurze Wege helfen: nahe am eigenen Handelstisch ausloggen.",
       "rules": [
         {
           "if": {

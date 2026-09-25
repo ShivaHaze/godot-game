@@ -32,7 +32,7 @@ func _wall_right() -> SimBuilding:
 
 func test_data_and_cells() -> void:
 	assert_true(data.is_valid(), "Fehler: %s" % data.errors)
-	assert_eq(data.building_order, ["wood_wall", "wood_door", "stone_wall", "anchor", "trade_table", "sensor", "trap", "turret", "sign", "campfire", "workbench", "furnace", "forge", "spawn_anchor", "depot", "mine", "bomb"] as Array[String])
+	assert_eq(data.building_order, ["anchor", "wood_wall", "wood_door", "workbench", "campfire", "trade_table", "sign", "stone_wall", "trap", "furnace", "mine", "sensor", "forge", "turret", "spawn_anchor", "bomb", "depot"] as Array[String])
 	assert_eq(SimBuilding.cells_for([1, 2], Vector2i(4, 6), 0), [Vector2i(4, 6), Vector2i(4, 7)] as Array[Vector2i])
 	assert_eq(SimBuilding.cells_for([1, 2], Vector2i(4, 6), 1), [Vector2i(4, 6), Vector2i(5, 6)] as Array[Vector2i])
 	assert_eq(SimBuilding.half_cell_of(Vector2(20.5, 5.5)), Vector2i(41, 11))
@@ -123,9 +123,14 @@ func test_melee_breaks_wood_wall_but_npc_never() -> void:
 
 func test_decay_and_demolish_refund() -> void:
 	var b := _wall_right()
+	var decay := float(data.buildings["wood_wall"]["decay_per_hour"])
+	assert_eq(decay, 0.25, "Holzwand: 0,25 Lebenspunkte je Stunde (160 h bis zum Einsturz)")
 	world.advance(10 * 3600.0)
-	assert_almost_eq(b.hp, 30.0, 0.01, "1 Lebenspunkt je Stunde")
-	world.advance(31 * 3600.0)
+	assert_almost_eq(b.hp, float(data.buildings["wood_wall"]["hp"]) - 10.0 * decay, 0.01, "decay_per_hour Lebenspunkte je Stunde")
+	b.hp = decay * 1.5  # Rest für anderthalb Stunden, statt 150 h zu simulieren
+	world.advance(1 * 3600.0)
+	assert_true(world.map.buildings.has(b.id), "steht noch")
+	world.advance(1 * 3600.0)
 	assert_false(world.map.buildings.has(b.id), "verfallen")
 	var wood := int(player.inventory["wood"])
 	var d := SimConstruction.place_building(world, player, "wood_door", Vector2i(44, 10), 0)

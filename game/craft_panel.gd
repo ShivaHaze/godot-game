@@ -87,7 +87,7 @@ func _build_rows() -> void:
 	var all_ids: Array[String] = []
 	all_ids.assign(data.item_order)
 	all_ids.append_array(data.craftable_resources())
-	# Nach Station gruppiert: von Hand zuerst, dann Werkbank, Schmelzofen, Schmiede, Lagerfeuer (Reihenfolge aus buildings.json)
+	# Nach Station gruppiert: von Hand zuerst, dann Werkbank, Lagerfeuer, Schmelzofen, Schmiede (Reihenfolge aus buildings.json)
 	var groups: Dictionary = {"": []}
 	for station: String in data.building_order:
 		groups[station] = []

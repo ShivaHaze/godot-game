@@ -1,7 +1,9 @@
 class_name WolfAI
 extends RefCounted
-## Wolf-Verhalten als PvE-Druck: streunt um seinen Spawn, greift sichtbare Charaktere in Reichweite an,
-## beißt im Nahkampf, flieht bei wenig Leben und erholt sich danach. Erzeugt nur Absichten (SimIntent).
+## Wolf-Verhalten als PvE-Druck: streunt um seinen Spawn, greift sichtbare Charaktere in Reichweite an, wendet sich
+## gegen jeden, der ihn trifft (auch aus der Ferne; steht jemand näher, zuerst gegen den), beißt im Nahkampf, flieht
+## bei wenig Leben und erholt sich danach.
+## Erzeugt nur Absichten (SimIntent).
 
 const STATE_WANDER: String = "wander"
 const STATE_CHASE: String = "chase"
@@ -13,6 +15,14 @@ static func decide(world: SimWorld, wolf: SimCharacter, dt: float) -> SimIntent:
 	var data := world.data
 	wolf.ai_timer -= dt
 	var search_radius := data.balf("wolf.give_up_radius") if wolf.ai_state == STATE_CHASE else data.balf("wolf.aggro_radius")
+	# Getroffen: der Suchkreis reicht bis zum Schützen, auch jenseits von aggro_radius/give_up_radius – sonst ließe sich
+	# jeder Wolf aus sicherer Entfernung abschießen (Befund Schritt 54: 6 Bogentreffer aus 9–12 Kacheln, der Leitwolf
+	# streunte weiter). Das gilt, solange Treffer kommen (combat.under_attack_window). Gejagt wird aber die nächste Beute
+	# in diesem Kreis, nicht stur der letzte Schütze: sonst drehten zwei Schützen, die abwechselnd treffen, den Wolf bei
+	# jedem Treffer um, und er erreichte keinen (Befund Schritt 54: 0 Bisse in 30 s, auch beim Leitwolf).
+	var provoker := _provoker(world, wolf)
+	if provoker != null:
+		search_radius = maxf(search_radius, wolf.pos.distance_to(provoker.pos) + 0.01)
 	var target := nearest_prey(world, wolf, search_radius)
 	# Der Leitwolf verteidigt sein Revier, jagt aber nie quer über die Karte: außerhalb ignoriert er Beute und kehrt heim
 	if wolf.boss and wolf.pos.distance_to(wolf.home_pos) > data.balf("events.boss.territory_radius"):
@@ -65,6 +75,18 @@ static func nearest_prey(world: SimWorld, wolf: SimCharacter, radius: float) -> 
 			best_d = d
 			best = c
 	return best
+
+
+## Wer den Wolf gerade getroffen hat (innerhalb combat.under_attack_window): ein lebender, sichtbarer Spielercharakter
+## außerhalb kampffreier Zonen – dieselbe Beute, die nearest_prey auch sonst findet (so liegt der Schütze sicher im
+## erweiterten Suchkreis). Turrets, Fallen und Sprengsätze haben keinen Schützen (Angreifer -1) und locken ihn nicht weg.
+static func _provoker(world: SimWorld, wolf: SimCharacter) -> SimCharacter:
+	if wolf.last_attacker_id < 0 or not SimSensors.is_under_attack(world, wolf):
+		return null
+	var attacker := world.get_character(wolf.last_attacker_id)
+	if attacker == null or attacker.kind != SimCharacter.Kind.PLAYER or attacker.dead or attacker.hidden or world.in_peace_zone(attacker.pos):
+		return null
+	return attacker
 
 
 static func _wander(world: SimWorld, wolf: SimCharacter, intent: SimIntent) -> void:

@@ -21,13 +21,43 @@ func before_each() -> void:
 			c.control = SimCharacter.Controller.NONE
 
 
+## Turrets stehen nur im eigenen Claim (claim_only): Anker auf Kachel (21, 4), dazu (22, 4) und die Turret-Kachel (22, 5).
+## Verbraucht genau das Holz dafür (12), damit E am Turret lädt statt am Anker abzuliefern.
+func _claim_for_turret() -> void:
+	player.inventory["wood"] = 12
+	assert_not_null(SimConstruction.place_building(world, player, "anchor", Vector2i(42, 8), 0), "Anker")
+	assert_true(world.claims.claim_tile(world, player, Vector2i(22, 4)))
+	assert_true(world.claims.claim_tile(world, player, Vector2i(22, 5)))
+
+
 func _turret(origin: Vector2i = Vector2i(44, 10)) -> SimBuilding:
+	_claim_for_turret()
 	player.inventory["iron"] = 4
 	player.inventory["wood"] = 6
 	player.inventory["wire"] = 2
 	var b := SimConstruction.place_building(world, player, "turret", origin, 0)
 	assert_not_null(b, "Turret: %s" % SimConstruction.can_place(world, player, "turret", origin, 0))
 	return b
+
+
+func test_turret_only_on_own_or_guild_claim() -> void:
+	assert_true(bool(data.buildings["turret"].get("claim_only", false)), "Turret: claim_only")
+	player.inventory["iron"] = 4
+	player.inventory["wood"] = 6
+	player.inventory["wire"] = 2
+	assert_eq(SimConstruction.can_place(world, player, "turret", Vector2i(44, 10), 0), "nur im eigenen Claim", "freies Land: kein Turret (Spawn, Erzzentrum)")
+	_claim_for_turret()
+	player.inventory["wood"] = 6
+	assert_eq(SimConstruction.can_place(world, player, "turret", Vector2i(44, 10), 0), "", "eigener Claim")
+	var mate := world.spawn_player(OPEN + Vector2(0, 1), "p2", "Kamerad")
+	mate.inventory["iron"] = 4
+	mate.inventory["wood"] = 6
+	mate.inventory["wire"] = 2
+	assert_eq(SimConstruction.can_place(world, mate, "turret", Vector2i(44, 10), 0), "fremder Claim", "Fremde nie")
+	assert_eq(world.guilds.found("p1", "Wachturm"), "")
+	assert_eq(world.guilds.invite("p1", "p2"), "")
+	assert_eq(world.guilds.accept("p2"), "")
+	assert_eq(SimConstruction.can_place(world, mate, "turret", Vector2i(44, 10), 0), "", "Gildenclaim zählt als eigener")
 
 
 func test_sulfur_is_live_only_and_chain_to_shot() -> void:
