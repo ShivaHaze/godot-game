@@ -4,7 +4,7 @@ extends Node
 ##                                                        als 'dedicated_server' automatisch
 ##   --connect host[:port] --name X [--password P]        direkt als Client verbinden (Werkzeuge, Bots)
 ##   sonst                                                Startbildschirm: Name, Passwort, Server, Einzelspieler
-## Argumente stehen hinter `--`: Prototyp-Server.exe --headless -- --server 7777 200
+## Argumente stehen hinter `--`: Prototyp-Server.exe --headless -- --server 7777 10
 
 const MainScene := preload("res://game/main.tscn")
 const StartMenuScript := preload("res://game/start_menu.gd")

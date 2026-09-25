@@ -99,3 +99,50 @@ func test_snapshot_reveals_name_only_in_range() -> void:
 	assert_eq(snap.get("intro", []).size(), 0, "einmal gesehen bleibt bekannt")
 	NetProtocol.apply_snapshot(mirror, NetProtocol.decode(NetProtocol.encode(snap)))
 	assert_eq(mirror.get_character(stranger.id).name, "Geheim")
+
+
+func _intro_of(snap: Dictionary, id: int) -> Dictionary:
+	for intro: Dictionary in snap.get("intro", []):
+		if int(intro["i"]) == id:
+			return intro
+	return {}
+
+
+## Befund Schritt 55: die Stammdaten trugen Besitzer und Gilde auch ohne Namen – ein veränderter Client las beides auf
+## jede Distanz. Design [E]: Name und Gilde erst in unmittelbarer Nähe; Verbündete kennt man immer.
+func test_intro_carries_owner_and_guild_only_with_the_name() -> void:
+	var stranger := world.spawn_player(OPEN + Vector2(10, 0), "p2", "Geheim")
+	world.guild_command("p2", "found", "Nordwacht")
+	var ally := world.spawn_player(OPEN + Vector2(-10, 0), "p3", "Freund")
+	world.guild_command("p3", "found", "Bund")
+	world.guild_command("p3", "invite", "p1")
+	world.guild_command("p1", "accept", "")
+	assert_true(world.allied("p1", "p3"))
+	world.tick()
+	var known := {}
+	var mirror := SimWorld.new(data, 0)
+	var snap := NetProtocol.decode(NetProtocol.encode(NetProtocol.snapshot(world, player.id, known, {}, {})))
+	var far := _intro_of(snap, stranger.id)
+	assert_false(far.is_empty(), "Stammdaten kommen")
+	assert_eq(String(far["n"]), "", "kein Name")
+	assert_false(far.has("o"), "kein Besitzer")
+	assert_false(far.has("g"), "keine Gilde")
+	var friend := _intro_of(snap, ally.id)
+	assert_eq(String(friend["n"]), "Freund", "Verbündete kennt man auch auf Distanz")
+	assert_eq(String(friend["o"]), "p3")
+	assert_eq(String(friend["g"]), "Bund")
+	NetProtocol.apply_snapshot(mirror, snap)
+	assert_eq(mirror.get_character(stranger.id).owner_id, "", "der Spiegel kennt den Besitzer nicht")
+	assert_eq(mirror.guilds.guild_of("p2"), -1, "und die Gilde nicht")
+	assert_eq(mirror.guilds.name_of("p3"), "Bund")
+	# In unmittelbarer Nähe: Name, Besitzer und Gilde zusammen
+	stranger.pos = OPEN + Vector2(3, 0)
+	world.tick()
+	snap = NetProtocol.decode(NetProtocol.encode(NetProtocol.snapshot(world, player.id, known, {}, {})))
+	var near := _intro_of(snap, stranger.id)
+	assert_eq(String(near["n"]), "Geheim")
+	assert_eq(String(near["o"]), "p2")
+	assert_eq(String(near["g"]), "Nordwacht")
+	NetProtocol.apply_snapshot(mirror, snap)
+	assert_eq(mirror.get_character(stranger.id).owner_id, "p2")
+	assert_eq(mirror.guilds.name_of("p2"), "Nordwacht")

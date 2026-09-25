@@ -374,6 +374,12 @@ func _refresh_view(player: SimCharacter) -> void:
 func _process_live_input(player: SimCharacter) -> void:
 	if player == null:
 		return
+	# Tippen im Chat: keine Spielsteuerung. Muss vor allen Tasten stehen – vorher aß F beim Tippen, H legte einen Verband
+	# an, M setzte Marker, Q wechselte die Waffe und C öffnete die Werkbank (Befund Schritt 55).
+	if hud.chat_input.visible:
+		if Input.is_action_just_pressed("logout_menu"):
+			_close_chat()
+		return
 	if Input.is_action_just_pressed("eat"):
 		_eat_pressed = true
 	if Input.is_action_just_pressed("heal"):
@@ -403,11 +409,7 @@ func _process_live_input(player: SimCharacter) -> void:
 			craft_panel.close()
 		else:
 			craft_panel.open(data, player, world)
-	if hud.chat_input.visible:
-		if Input.is_action_just_pressed("logout_menu"):
-			_close_chat()
-		return  # Tippen im Chat: keine Spielsteuerung
-	if Input.is_action_just_pressed("chat") and not player.dead:
+	if Input.is_action_just_pressed("chat") and not player.dead and Engine.get_process_frames() != _chat_closed_frame:
 		hud.chat_input.visible = true
 		hud.chat_input.grab_focus()
 		return
@@ -429,8 +431,8 @@ func _build_player_intent(player: SimCharacter) -> SimIntent:
 		return intent  # keine Bewegung, während getippt wird
 	intent.move = Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	intent.aim = view.mouse_world_pos() - player.pos
-	intent.shoot = Input.is_action_pressed("shoot") and not craft_panel.visible and not _build_mode
-	intent.interact = Input.is_action_pressed("interact") and not trade_panel.visible and not depot_panel.visible and not caravan_panel.visible
+	intent.shoot = Input.is_action_pressed("shoot") and not _build_mode and _world_click_allowed()
+	intent.interact = Input.is_action_pressed("interact") and not _panel_open()
 	intent.eat = _eat_pressed
 	_eat_pressed = false
 	if intent.shoot or player.hp >= player.max_hp:
@@ -439,20 +441,53 @@ func _build_player_intent(player: SimCharacter) -> SimIntent:
 	return intent
 
 
+## Offene Tafel oder offenes Menü: Klicks und E gehören der Tafel, nicht dem Spiel.
+func _panel_open() -> bool:
+	return craft_panel.visible or trade_panel.visible or depot_panel.visible or caravan_panel.visible or menu.visible
+
+
+## Maus über einem Bedienelement (Knopf, Auswahl, Eingabezeile, Schieber wie die Bildlaufleiste der Chronik): ein Klick
+## dort ist kein Schuss. Reine Anzeigen zählen nicht – über dem Text der offenen Chronik (rechtes Drittel des Bildschirms,
+## bleibt nach dem Einloggen offen) wird weiter geschossen. Offene Tafeln sperren ohnehin ganz (_panel_open).
+func _pointer_over_gui() -> bool:
+	return gui_blocks_world_click(get_viewport().gui_get_hovered_control())
+
+
+## Gehört ein Klick auf dieses Element (oder eines seiner Eltern) der Oberfläche?
+static func gui_blocks_world_click(control: Control) -> bool:
+	while control != null:
+		if control is BaseButton or control is LineEdit or control is TextEdit or control is Range or control is ItemList:
+			return true
+		control = control.get_parent() as Control
+	return false
+
+
+## Darf ein Linksklick in die Welt wirken (Schuss, Bauteil setzen)? Nicht bei offener Tafel und nicht über einem
+## Bedienelement – vorher schoss ein Klick auf "verkaufe" in der Karawanen-Tafel (Befund Schritt 55).
+func _world_click_allowed() -> bool:
+	return not _panel_open() and not _pointer_over_gui()
+
+
 # --- Chat und Schilder ----------------------------------------------------
 
+var _chat_closed_frame: int = -1     # Frame, in dem Enter die Chatzeile abgeschickt hat (öffnet sie nicht gleich wieder)
+
+
+## Schließt die Chatzeile (Enter oder Esc) und beendet dabei auch das Beschriften eines Schilds – sonst landete nach
+## E am Schild und Esc die nächste Chatnachricht auf dem Schild (Befund Schritt 55).
 func _close_chat() -> void:
 	hud.chat_input.text = ""
 	hud.chat_input.visible = false
 	hud.chat_input.release_focus()
+	_chat_closed_frame = Engine.get_process_frames()
+	_sign_edit = null
+	hud.chat_input.placeholder_text = hud.CHAT_PLACEHOLDER
 
 
 func _on_chat_submitted(text: String) -> void:
 	var line := text.strip_edges()
 	if _sign_edit != null:
 		_apply_sign_text(line)
-		_sign_edit = null
-		hud.chat_input.placeholder_text = "Nah-Chat … (/g für global, Esc bricht ab)"
 		_close_chat()
 		return
 	if line.is_empty():
@@ -751,7 +786,7 @@ func _update_build_mode(player: SimCharacter) -> void:
 	var origin := SimBuilding.half_cell_of(view.mouse_world_pos())
 	var reason := SimConstruction.can_place(world, player, _build_part, origin, _build_rot)
 	view.ghost = {"cells": SimBuilding.cells_for(def["size"], origin, _build_rot), "valid": reason.is_empty()}
-	if Input.is_action_just_pressed("shoot"):
+	if Input.is_action_just_pressed("shoot") and _world_click_allowed():
 		if net != null:
 			net.send({"t": "build", "part": _build_part, "x": origin.x, "y": origin.y, "rot": _build_rot}, true)
 		elif reason.is_empty():
@@ -780,7 +815,7 @@ func _update_claim_tool(player: SimCharacter) -> void:
 	var reason := world.claims.claim_tile_reason(world, player, tile)
 	var cells: Array[Vector2i] = [Vector2i(tile.x * 2, tile.y * 2), Vector2i(tile.x * 2 + 1, tile.y * 2), Vector2i(tile.x * 2, tile.y * 2 + 1), Vector2i(tile.x * 2 + 1, tile.y * 2 + 1)]
 	view.ghost = {"cells": cells, "valid": reason.is_empty()}
-	if Input.is_action_just_pressed("shoot"):
+	if Input.is_action_just_pressed("shoot") and _world_click_allowed():
 		if net != null:
 			net.send({"t": "claim_tile", "x": tile.x, "y": tile.y}, true)
 		elif reason.is_empty():
@@ -1071,6 +1106,10 @@ func _handle_events() -> void:
 					hud.show_message("%s verlangt Zoll: %d %s – zahle per E bei ihm (noch %d s), sonst greift er an." % [world.describe(world.get_character(player_id), keeper), event["amount"], data.resources[event["resource"]]["name"], int(ceilf(float(event["seconds_left"])))], 5.0)
 				"toll_attack":
 					hud.show_message("Zoll geprellt – der Zöllner greift an, solange du im Claim bist.", 4.0)
+		# Leitwolf-Leine: der Schütze erfährt, warum seine Treffer abprallen
+		if String(event.get("type", "")) == "boss_evade" and int(event.get("attacker", -1)) == player_id and mode != Mode.OFFLINE:
+			hud.show_message(SimEvents.event_text(event), 3.0)
+			continue
 		if mode == Mode.VERSUS and id == _yesterday_id and String(event.get("type", "")) == "death":
 			hud.show_message("Du hast deinen Charakter von gestern besiegt. Plündere ihn mit E.", 5.0)
 			continue

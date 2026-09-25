@@ -55,6 +55,7 @@ const REQUIRED_BALANCE: Array[String] = [
 	"claim.shrink_interval_hours", "claim.grace_hours", "claim.min_anchor_distance", "claim.foreign_decay_multiplier",
 	"toll.grace_seconds", "toll.pass_hours", "toll.forget_hours",
 	"events.boss.interval_hours", "events.boss.first_after_hours", "events.boss.lifetime_hours", "events.boss.max_hp", "events.boss.bite_damage",
+	"events.boss.territory_radius", "events.boss.provoked_chase_radius", "events.boss.return_max_seconds",
 	"events.caravan.first_after_hours", "events.caravan.interval_hours", "events.caravan.rest_minutes", "events.caravan.markup",
 ]
 

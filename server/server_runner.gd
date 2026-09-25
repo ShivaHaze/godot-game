@@ -1,6 +1,6 @@
 class_name ServerRunner
 extends RefCounted
-## Betreibt den autoritativen Server: Welt laden oder neu anlegen, NPC-Füllung, Tick über NetServer, Statistik,
+## Betreibt den autoritativen Server: Welt laden oder neu anlegen, NPC-Füllung (nur bei neuer Welt), Tick über NetServer, Statistik,
 ## regelmäßiges Speichern in SQLite (WorldStore), Konten (AccountDbStore), tägliche Sicherung. Wird vom
 ## Skript-Einstieg (server/server_main.gd, `-s`) und vom exportierten Programm (game/boot.gd mit --server) gleich
 ## benutzt. Keine Nodes; der Aufrufer treibt update(delta) je Frame.
@@ -8,11 +8,16 @@ extends RefCounted
 const WORLD_DB: String = "world.db"
 const ACCOUNTS_DB: String = "accounts.db"
 const LEGACY_SAVE: String = "server_save.dat"      # Spielstand vor Schritt 52, wird einmalig übernommen
+const LEGACY_DONE_SUFFIX: String = ".uebernommen"  # danach so umbenannt: eine beiseitegelegte world.db heißt neue Welt
 const LEGACY_ACCOUNTS: String = "accounts.dat"     # Konten vor Schritt 52, werden einmalig übernommen
 const BACKUP_DIR: String = "backups"
 const BACKUP_KEEP: int = 7
 const STATS_INTERVAL: float = 5.0
 const SAVE_INTERVAL: float = 10.0                  # nur geänderte Zeilen, daher günstig
+const FILL_SPAWN_DISTANCE: float = 6.0             # Füll-NPCs mindestens so viele Kacheln von jedem Spieler-Spawn
+const FILL_SPACING: float = 5.0                    # Füll-NPCs möglichst so viele Kacheln voneinander
+const FILL_SKIP_ROLES: Array[String] = ["trader"]  # Füll-NPCs ohne Händler (läuft mit voller Ladung quer über die Karte)
+const RESTART_NOTE: String = "Server-Neustart"     # steht in der Chronik von Charakteren, die beim Stopp live waren
 
 var port: int = 7777
 var data_dir: String = "user://"   # Ordner für world.db, accounts.db, backups/; leer = nur im Speicher (Tests)
@@ -27,6 +32,7 @@ var server := NetServer.new()
 var store: WorldStore = null
 var account_store: AccountDbStore = null
 var running: bool = false
+var world_created: bool = false    # true = diese Welt wurde bei diesem Start neu angelegt (nur dann wird gefüllt)
 
 var _stats_timer: float = 0.0
 var _save_timer: float = 0.0
@@ -69,7 +75,14 @@ func start() -> Error:
 	var err := _open_world()
 	if err != OK:
 		return err
-	_fill_npcs()
+	if world_created:
+		var fillers := spawn_fillers(world, fill_npcs)
+		if fill_npcs > 0:
+			print("Füll-NPCs: %d von %d gesetzt (nur bei neuer Welt)." % [fillers.size(), fill_npcs])
+	else:
+		var orphans := logout_orphans(world)
+		if orphans > 0:
+			print("%d Charaktere waren beim Stopp live und handeln jetzt nach ihren Regeln (%s)." % [orphans, RESTART_NOTE])
 	_open_accounts()
 	err = server.start(data, world, port)
 	if err != OK:
@@ -136,8 +149,11 @@ func _open_world() -> Error:
 		store = WorldStore.new()
 		if store.open(data_dir.path_join(WORLD_DB)) != OK:
 			return ERR_CANT_OPEN
-		if not store.has_world() and store.import_legacy(data, data_dir.path_join(LEGACY_SAVE)):
-			print("Alter Spielstand übernommen: %s → %s" % [LEGACY_SAVE, WORLD_DB])
+		var legacy := data_dir.path_join(LEGACY_SAVE)
+		if not store.has_world() and store.import_legacy(data, legacy):
+			# Umbenennen: wer später world.db beiseitelegt, will eine neue Welt – nicht die von vor Schritt 52 zurück
+			DirAccess.rename_absolute(legacy, legacy + LEGACY_DONE_SUFFIX)
+			print("Alter Spielstand übernommen: %s → %s (die alte Datei heißt jetzt %s%s)" % [LEGACY_SAVE, WORLD_DB, LEGACY_SAVE, LEGACY_DONE_SUFFIX])
 		if store.has_world():
 			world = store.load_world(data)
 			if world == null:
@@ -148,6 +164,7 @@ func _open_world() -> Error:
 	world = SimWorld.new(data, int(Time.get_unix_time_from_system()) % 100000)
 	world.setup_new_game()
 	world.characters.erase(1)  # der lokale 'Du'-Charakter gehört auf dem Server niemandem
+	world_created = true
 	print("Neue Welt.")
 	return OK
 
@@ -181,25 +198,96 @@ func _load_map_arg(arg: String) -> Dictionary:
 	return json.data
 
 
-## Offline-Siedler bis zur Zielzahl auffüllen (ein geladener Spielstand bringt seine schon mit).
-func _fill_npcs() -> void:
-	if fill_npcs <= 0:
-		return
+## Nach einem Neustart: wer beim Stopp live war (Steuerung PLAYER), hat keine Verbindung mehr und stünde ohne Regeln
+## herum, bis er verhungert. Solche Charaktere loggen aus wie beim Trennen – mit ihren eigenen Regeln (leer: Standardregeln);
+## die Chronik beginnt mit "ausgeloggt als <Rolle> (Server-Neustart)". Rückgabe: Anzahl.
+static func logout_orphans(p_world: SimWorld) -> int:
+	var count := 0
+	for c: SimCharacter in p_world.characters.values():
+		if c.kind != SimCharacter.Kind.PLAYER or c.dead or c.control != SimCharacter.Controller.PLAYER:
+			continue
+		var rules: Array = c.rules if not c.rules.is_empty() else p_world.data.default_rules
+		var role_name := String(p_world.data.roles.get(c.role_id, {}).get("name", "eigene Regeln"))
+		p_world.logout(c.id, rules, "%s (%s)" % [role_name, RESTART_NOTE])
+		count += 1
+	return count
+
+
+## Füll-NPCs für eine neue Welt: Offline-Siedler mit 5 Beeren, Rollen reihum aus role_order ohne FILL_SKIP_ROLES, ohne
+## Übergang. Sie stehen auf freiem Boden (Kachel "floor"), nicht in einer Zone (Markt, Outpost, Sumpf), nicht auf einem
+## Claim, mindestens FILL_SPAWN_DISTANCE Kacheln von jedem Spieler-Spawn – dort erscheinen die echten Spieler –,
+## außerhalb von wolf.aggro_radius um jeden Wolf-Spawn und außerhalb des Leitwolf-Reviers (filler_cells). Jede Zelle
+## höchstens einmal, möglichst FILL_SPACING Kacheln voneinander (Fremde nebeneinander: ein Querschläger auf den Wolf
+## löst Gegenwehr aus – Messung Schritt 55: vier Füll-NPCs auf 3 Kacheln, einer erschoss den anderen). Nur bei neuer
+## Welt (vorher füllte jeder Start bis zur Zielzahl auf und legte mit jedem Update neue Beute in die Welt). Auch
+## tools/playtest_sim.gd setzt sie so. Rückgabe: die neuen NPCs.
+static func spawn_fillers(p_world: SimWorld, count: int, rng_seed: int = 7) -> Array[SimCharacter]:
+	var result: Array[SimCharacter] = []
+	var p_data := p_world.data
+	var roles: Array[String] = []
+	for role: String in p_data.role_order:
+		if not FILL_SKIP_ROLES.has(role):
+			roles.append(role)
+	var cells := filler_cells(p_world)
+	if count <= 0 or roles.is_empty() or cells.is_empty():
+		return result
 	var rng := RandomNumberGenerator.new()
-	rng.seed = 7
-	var walkable: Array[Vector2i] = []
-	for y in world.map.height:
-		for x in world.map.width:
-			if world.map.is_walkable(Vector2i(x, y)):
-				walkable.append(Vector2i(x, y))
-	var existing := 0
-	for other: SimCharacter in world.characters.values():
-		if other.kind == SimCharacter.Kind.PLAYER and not other.dead and other.owner_id.begins_with("füll"):
-			existing += 1
-	for i in range(existing, fill_npcs):
-		var cell: Vector2i = walkable[rng.randi_range(0, walkable.size() - 1)]
-		var c := world.spawn_player(SimMap.cell_center(cell), "füll%d" % i, "Siedler %d" % i)
+	rng.seed = rng_seed
+	var free: Array[Vector2i] = cells.duplicate()
+	var spaced: Array[Vector2i] = cells.duplicate()  # freie Zellen mit FILL_SPACING Abstand zu allen gesetzten
+	for i in count:
+		if free.is_empty():
+			free.assign(cells)
+		var pool := spaced if not spaced.is_empty() else free
+		var cell: Vector2i = pool[rng.randi_range(0, pool.size() - 1)]
+		free.erase(cell)
+		var still: Array[Vector2i] = []
+		for candidate: Vector2i in spaced:
+			if Vector2(candidate).distance_to(Vector2(cell)) >= FILL_SPACING:
+				still.append(candidate)
+		spaced = still
+		var c := p_world.spawn_player(SimMap.cell_center(cell), "füll%d" % i, "Siedler %d" % i)
 		c.inventory["berries"] = 5
-		var role: String = data.role_order[i % data.role_order.size()]
-		world.logout(c.id, data.roles[role]["rules"], String(data.roles[role]["name"]))
+		var role: String = roles[i % roles.size()]
+		c.role_id = role
+		p_world.logout(c.id, p_data.roles[role]["rules"], String(p_data.roles[role]["name"]))
 		c.logout_time = -1e9
+		result.append(c)
+	return result
+
+
+## Zellen, auf denen Füll-NPCs stehen dürfen (siehe spawn_fillers). Wolf-Spawns und Leitwolf-Revier meiden: Review Schritt 55 – auf der
+## Standardkarte standen mit Seed 7 zwei der drei Wachen im Leitwolf-Revier (eine 1,4 Kacheln von seinem Spawn) und die
+## dritte 1 Kachel neben einem Wolf-Spawn; alle drei waren nach 2 h tot. Bleibt dann nichts übrig (sehr kleine Karte),
+## zählen Wolf-Spawns und Revier nicht.
+static func filler_cells(p_world: SimWorld) -> Array[Vector2i]:
+	var result: Array[Vector2i] = []
+	var near_wolves: Array[Vector2i] = []
+	var wolf_distance := p_world.data.balf("wolf.aggro_radius")
+	var boss_home := SimEvents.boss_home_cell(p_world)
+	var territory := p_world.data.balf("events.boss.territory_radius")
+	var map := p_world.map
+	for y in map.height:
+		for x in map.width:
+			var cell := Vector2i(x, y)
+			if map.tile_id(cell) != "floor" or not map.zone(cell).is_empty() or not map.is_walkable_for(cell, "", p_world.data):
+				continue
+			if p_world.claims.claim_at(cell) != null:
+				continue
+			var near_spawn := false
+			for spawn: Vector2i in p_world.data.player_spawns:
+				if Vector2(cell).distance_to(Vector2(spawn)) < FILL_SPAWN_DISTANCE:
+					near_spawn = true
+					break
+			if near_spawn:
+				continue
+			var near_wolf := boss_home.x >= 0 and Vector2(cell).distance_to(Vector2(boss_home)) <= territory
+			for spawn: Vector2i in p_world.data.wolf_spawns:
+				if Vector2(cell).distance_to(Vector2(spawn)) <= wolf_distance:
+					near_wolf = true
+					break
+			if near_wolf:
+				near_wolves.append(cell)
+			else:
+				result.append(cell)
+	return result if not result.is_empty() else near_wolves

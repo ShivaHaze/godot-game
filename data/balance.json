@@ -74,7 +74,7 @@
     "flee_duration": 8.0,
     "_flee_duration": "Sekunden, die der Wolf nach dem Fluchtentschluss wegläuft.",
     "give_up_radius": 11.0,
-    "_give_up_radius": "Ab dieser Distanz verliert ein jagender Wolf sein Ziel – außer ihn trifft jemand: solange Treffer kommen (combat.under_attack_window, 5 s), reicht sein Suchkreis bis zum Schützen, und er jagt den Nächsten darin, meist den Schützen (der Leitwolf nur innerhalb von events.boss.territory_radius). Den Nächsten statt stur den letzten Schützen, damit zwei Schützen, die abwechselnd treffen, ihn nicht hin und her drehen.",
+    "_give_up_radius": "Ab dieser Distanz verliert ein jagender Wolf sein Ziel – außer ihn trifft jemand: solange Treffer kommen (combat.under_attack_window, 5 s), reicht sein Suchkreis bis zum Schützen, und er jagt den Nächsten darin, meist den Schützen (der Leitwolf nur in seinem Revier, bei einem Live-Schützen bis events.boss.provoked_chase_radius von seinem Zuhause). Den Nächsten statt stur den letzten Schützen, damit zwei Schützen, die abwechselnd treffen, ihn nicht hin und her drehen.",
     "regen_per_second": 0.5,
     "_regen_per_second": "Lebensregeneration beim Streunen (nach einer Flucht).",
     "wander_radius": 12.0,
@@ -223,7 +223,7 @@
     "forget_hours": 6
   },
   "events": {
-    "_doc": "Ereignisse (Design PvE: Zentrum wertvoll/tödlich; Ereignisse: Karawanen, Bossspawns). boss = Leitwolf: erscheint first_after_hours nach Spielstart und dann alle interval_hours am Wolf-Spawn, der der Kartenmitte am nächsten liegt; stärker als ein Wolf (max_hp, armor, bite_damage, move_speed), streunt nur wander_radius um seinen Spawn, verfolgt Beute höchstens bis territory_radius von dort (das Zentrum ist tödlich, der Rest der Karte nicht) – auch wer ihn aus der Ferne trifft, wird nur so weit gejagt, flieht nie und zieht nach lifetime_hours weiter, wenn ihn niemand erlegt. Beute (loot: viel Fleisch und Fell, was zu einem Wolf passt) liegt in seiner Leiche – nur wer live da ist, plündert sie. Offline-Charaktere sind eingeschränkt beteiligt: sie kämpfen zurück, wenn er sie beißt, aber 'greife an' meidet ihn. Alle Spieler bekommen die Meldung ohne Ortsangabe. caravan = Karawane: Händler mit Kasse (currency_stock Kupfer), Wachen (stark, verteidigen nur, Leine um den Händler) und Lasttiere (Fracht bis cargo_capacity). Route über die Depots der Zonen in route (Start am ersten, danach zurück und weiter); je Depot rest_minutes Rast, nur dann handelt sie: kauft Waren aus prices (lot Stück für pay Kupfer) und verkauft ihre Fracht zu pay × markup. Raidwaren und die Währung selbst nie. Sie ist ein Raid-Boss: Händler (200 Leben, Rüstung 6), drei Wachen (150 Leben, Rüstung 5, Bogen und Kupferspeer) und Lasttiere (100 Leben, Rüstung 3) – gegen die Schleuder praktisch unverwundbar, eine Gruppe mit Bögen oder Eisenwaffen zahlt teuer. Wird ein Mitglied getötet, gilt sie als überfallen; stirbt der Händler, bleibt der Rest stehen und zieht nach linger_minutes ab. Fracht und Kasse liegen bei den Leichen. Offline-Charaktere greifen sie nie zuerst an; Turrets und Fallen verschonen sie (neutral).",
+    "_doc": "Ereignisse (Design PvE: Zentrum wertvoll/tödlich; Ereignisse: Karawanen, Bossspawns). boss = Leitwolf: erscheint first_after_hours nach Spielstart und dann alle interval_hours am Wolf-Spawn, der der Kartenmitte am nächsten liegt; stärker als ein Wolf (max_hp, armor, bite_damage, move_speed), streunt nur wander_radius um seinen Spawn, verfolgt Beute höchstens bis territory_radius von dort (das Zentrum ist tödlich, der Rest der Karte nicht) – ein Live-Spieler, der ihn trifft, bis provoked_chase_radius –; endet eine Jagd außerhalb des Reviers, läuft er unverwundbar heim und heilt voll (return_max_seconds), flieht nie und zieht nach lifetime_hours weiter, wenn ihn niemand erlegt. Beute (loot: viel Fleisch und Fell, was zu einem Wolf passt) liegt in seiner Leiche – nur wer live da ist, plündert sie. Offline-Charaktere sind eingeschränkt beteiligt: sie kämpfen zurück, wenn er sie beißt, aber 'greife an' meidet ihn. Alle Spieler bekommen die Meldung ohne Ortsangabe. caravan = Karawane: Händler mit Kasse (currency_stock Kupfer), Wachen (stark, verteidigen nur, Leine um den Händler) und Lasttiere (Fracht bis cargo_capacity). Route über die Depots der Zonen in route (Start am ersten, danach zurück und weiter); je Depot rest_minutes Rast, nur dann handelt sie: kauft Waren aus prices (lot Stück für pay Kupfer) und verkauft ihre Fracht zu pay × markup. Raidwaren und die Währung selbst nie. Sie ist ein Raid-Boss: Händler (200 Leben, Rüstung 6), drei Wachen (150 Leben, Rüstung 5, Bogen und Kupferspeer) und Lasttiere (100 Leben, Rüstung 3) – gegen die Schleuder praktisch unverwundbar, eine Gruppe mit Bögen oder Eisenwaffen zahlt teuer. Wird ein Mitglied getötet, gilt sie als überfallen; stirbt der Händler, bleibt der Rest stehen und zieht nach linger_minutes ab. Fracht und Kasse liegen bei den Leichen. Offline-Charaktere greifen sie nie zuerst an; Turrets und Fallen verschonen sie (neutral).",
     "boss": {
       "name": "Leitwolf",
       "interval_hours": 2.5,
@@ -233,13 +233,18 @@
       "max_hp": 120,
       "armor": 2,
       "bite_damage": 10,
-      "move_speed": 4.2,
+      "move_speed": 4.6,
+      "_move_speed": "So schnell wie ein Wolf und schneller als ein Spieler (4,0; vorher 4,2): wer knapp außerhalb des Reviers steht und schießt, wird eingeholt. Wer rückwärts gehend weiterschießt, kommt zwar davon, erlegt ihn aber nicht: an der Grenze (provoked_chase_radius) läuft er unverwundbar heim und heilt voll (return_max_seconds).",
       "wander_radius": 6.0,
       "loot": {
         "meat": 8,
         "hide": 3
       },
-      "territory_radius": 9.0
+      "territory_radius": 9.0,
+      "provoked_chase_radius": 16.0,
+      "_provoked_chase_radius": "Beschießt ihn ein Live-Spieler (Treffer in den letzten combat.under_attack_window Sekunden), jagt der Leitwolf bis zu dieser Distanz von seinem Zuhause statt nur bis territory_radius, danach kehrt er heim (return_max_seconds). Revier + 7: vorher erlegte ihn ein Bogenschütze knapp außerhalb des Reviers gefahrlos (Entscheidung [T] 2026-09-25). Ein Offline-Charakter, der sich wehrt, lockt ihn nicht hinaus (sonst starben mehr als doppelt so viele Offline-Charaktere am Leitwolf).",
+      "return_max_seconds": 20.0,
+      "_return_max_seconds": "Endet eine Jagd außerhalb des Reviers (Beute jenseits der Grenze, im Markt, versteckt oder tot), läuft der Leitwolf mit voller Geschwindigkeit heim, bis er wieder in wander_radius ist – dabei prallt jeder Treffer ab, er heilt voll und vergisst den Schützen (höchstens so viele Sekunden, falls der Weg verbaut ist). Sonst erlegte ihn ein Bogenschütze allein im Rückwärtsgang: jenseits der Grenze kehrte er gemächlich um, und der nächste Treffer holte ihn zurück (Review Schritt 55: 0 Bisse, tot nach 13 s). Gruppen trifft das nicht: sie kämpfen im Revier (Entscheidung [T] 2026-09-25)."
     },
     "caravan": {
       "first_after_hours": 0.25,

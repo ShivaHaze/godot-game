@@ -4,7 +4,8 @@ extends RefCounted
 ## Kanal 0 zuverlässig (Beitritt, Ausloggen, Werkbank, eigene Details), Kanal 1 unzuverlässig-sequenziert
 ## (Absichten, Snapshots). Snapshots enthalten nur die Umgebung des Empfängers (Area of Interest):
 ## pro Charakter eine kompakte Zeile [id, PackedFloat32Array(px, py, fx, fy, hp, sammeln), flags];
-## Stammdaten (Name, Art, Besitzer) gehen nur, wenn der Empfänger den Charakter noch nicht kennt.
+## Stammdaten (Name, Art, Besitzer) gehen nur, wenn der Empfänger den Charakter noch nicht kennt; Name, Besitzer und
+## Gilde eines Fremden erst in unmittelbarer Nähe.
 ## Die eigenen Details (Regeln, Chronik, Marker, Ausrüstung) gehen zuverlässig und nur bei Änderung.
 ## Regeln anderer Charaktere werden nie gesendet (Design: Regelwerk anderer ist verborgen).
 
@@ -69,9 +70,15 @@ static func _safe_vector(value: Variant) -> Vector2:
 
 # --- Server -> Client -----------------------------------------------------
 
-## Stammdaten eines Charakters (einmal je Empfänger, solange er in Sicht bleibt).
+## Stammdaten eines Charakters (einmal je Empfänger, solange er in Sicht bleibt). Besitzer und Gilde gehen nur mit dem
+## Namen raus (Design [E]: Name und Gilde erst in unmittelbarer Nähe) – vorher las ein veränderter Client beides auf
+## jede Distanz. Der Client braucht sie bei Fremden nicht: Verbündete und Tiere kennt man immer beim Namen.
 static func character_intro(c: SimCharacter, named: bool = true, guild: String = "") -> Dictionary:
-	return {"i": c.id, "n": c.name if named else "", "k": c.kind, "o": c.owner_id, "mh": c.max_hp, "g": guild, "b": c.boss, "cr": c.caravan_role, "ci": c.caravan_id}
+	var intro := {"i": c.id, "n": c.name if named else "", "k": c.kind, "mh": c.max_hp, "b": c.boss, "cr": c.caravan_role, "ci": c.caravan_id}
+	if named:
+		intro["o"] = c.owner_id
+		intro["g"] = guild
+	return intro
 
 
 ## Bewegliche Daten eines Charakters, kompakt.
@@ -238,8 +245,9 @@ static func apply_snapshot(mirror: SimWorld, snap: Dictionary) -> void:
 		c.boss = bool(intro.get("b", false))
 		c.caravan_role = String(intro.get("cr", ""))
 		c.caravan_id = int(intro.get("ci", -1))
-		c.owner_id = String(intro["o"])
-		mirror.guilds.register(c.owner_id, String(intro.get("g", "")))
+		if intro.has("o"):  # ohne Namen kein Besitzer und keine Gilde; ein bekannter Besitzer bleibt
+			c.owner_id = String(intro["o"])
+			mirror.guilds.register(c.owner_id, String(intro.get("g", "")))
 		c.max_hp = float(intro["mh"])
 	var seen := {}
 	for row: Array in snap.get("chars", []):

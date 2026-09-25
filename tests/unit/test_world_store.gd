@@ -203,3 +203,116 @@ func test_runner_without_directory_keeps_everything_in_memory() -> void:
 	assert_eq(runner.server.accounts.login("Anna", "geheim"), "")
 	runner.stop()
 	assert_false(DirAccess.dir_exists_absolute(DIR))
+
+
+## Befund Schritt 55: wer beim Stopp live war, blieb nach dem Neustart vom Spieler gesteuert – ohne Verbindung, ohne
+## Regeln, bis er verhungerte. Jetzt loggt er beim Laden mit seinen eigenen Regeln aus.
+func test_runner_restart_hands_live_characters_to_their_rules() -> void:
+	var runner := ServerRunner.new()
+	runner.data_dir = DIR
+	runner.configure(PackedStringArray([str(PORT + 3), "0", "0"]))
+	assert_eq(runner.start(), OK)
+	var world := runner.world
+	var anna := world.spawn_player(world.random_player_spawn(), "Anna", "Anna")
+	anna.rules = data.roles["guard"]["rules"].duplicate(true)
+	anna.role_id = "guard"
+	var ben := world.spawn_player(world.random_player_spawn(), "Ben", "Ben")
+	ben.rules = []
+	var dead := world.spawn_player(world.random_player_spawn(), "Cleo", "Cleo")
+	dead.dead = true
+	var offline := world.spawn_player(world.random_player_spawn(), "Dora", "Dora")
+	world.logout(offline.id, data.roles["hide"]["rules"], "Verstecken")
+	var offline_log := SimChronicle.format_all(offline)
+	runner.stop()
+	var second := ServerRunner.new()
+	second.data_dir = DIR
+	second.configure(PackedStringArray([str(PORT + 3), "0", "0"]))
+	assert_eq(second.start(), OK)
+	var a := second.world.get_character(anna.id)
+	assert_eq(a.control, SimCharacter.Controller.RULES, "live beim Stopp: jetzt NPC")
+	assert_eq(a.rules, data.roles["guard"]["rules"], "mit den eigenen Regeln")
+	var lines := SimChronicle.format_all(a)
+	assert_true(lines[lines.size() - 1].contains("ausgeloggt als Wache (Server-Neustart)"), "Chronik: %s" % [lines])
+	var b := second.world.get_character(ben.id)
+	assert_eq(b.control, SimCharacter.Controller.RULES)
+	assert_eq(b.rules, data.default_rules, "ohne Regeln: Standardregeln")
+	assert_true(SimChronicle.format_all(b)[0].contains("eigene Regeln (Server-Neustart)"))
+	assert_true(second.world.get_character(dead.id).dead, "Tote bleiben tot")
+	assert_eq(SimChronicle.format_all(second.world.get_character(offline.id)), offline_log, "wer schon offline war, bleibt unberührt")
+	assert_true(second.world.get_character(offline.id).rules == data.roles["hide"]["rules"])
+	second.stop()
+
+
+## Füll-NPCs nur für eine neue Welt (vorher füllte jeder Start auf und legte mit jedem Update neue Beute in die Welt), auf
+## freiem Boden außerhalb der Zonen, nicht am Spieler-Spawn, ohne Händler.
+func test_runner_fills_only_a_new_world_away_from_spawns() -> void:
+	var runner := ServerRunner.new()
+	runner.data_dir = DIR
+	runner.configure(PackedStringArray([str(PORT + 4), "6", "0"]))
+	assert_eq(runner.start(), OK)
+	assert_true(runner.world_created)
+	var fillers := _fillers(runner.world)
+	assert_eq(fillers.size(), 6)
+	var cells := {}
+	for c: SimCharacter in fillers:
+		var cell := SimMap.cell_of(c.pos)
+		cells[cell] = true
+		assert_eq(runner.world.map.tile_id(cell), "floor", "freier Boden")
+		assert_eq(runner.world.map.zone(cell), "", "nicht in Markt, Outpost oder Sumpf")
+		for spawn: Vector2i in data.player_spawns:
+			assert_gte(Vector2(cell).distance_to(Vector2(spawn)), ServerRunner.FILL_SPAWN_DISTANCE, "weg vom Spieler-Spawn")
+		for spawn: Vector2i in data.wolf_spawns:
+			assert_gt(Vector2(cell).distance_to(Vector2(spawn)), data.balf("wolf.aggro_radius"), "weg vom Wolf-Spawn")
+		assert_gt(Vector2(cell).distance_to(Vector2(SimEvents.boss_home_cell(runner.world))), data.balf("events.boss.territory_radius"), "nicht im Leitwolf-Revier")
+		assert_ne(c.role_id, "trader", "kein Händler")
+		assert_true(data.role_order.has(c.role_id))
+		assert_eq(c.control, SimCharacter.Controller.RULES)
+		assert_eq(int(c.inventory["berries"]), 5)
+	assert_eq(cells.size(), fillers.size(), "jede Zelle nur einmal")
+	for a: SimCharacter in fillers:
+		for b: SimCharacter in fillers:
+			if a != b:
+				assert_gte(a.pos.distance_to(b.pos), ServerRunner.FILL_SPACING, "Abstand untereinander")
+	fillers[0].dead = true
+	runner.stop()
+	var second := ServerRunner.new()
+	second.data_dir = DIR
+	second.configure(PackedStringArray([str(PORT + 5), "20", "0"]))
+	assert_eq(second.start(), OK)
+	assert_false(second.world_created)
+	assert_eq(_fillers(second.world).size(), 5, "geladene Welt: keine Füllung, auch nicht für Tote")
+	second.stop()
+
+
+func _fillers(world: SimWorld) -> Array[SimCharacter]:
+	var result: Array[SimCharacter] = []
+	for c: SimCharacter in world.characters.values():
+		if c.kind == SimCharacter.Kind.PLAYER and not c.dead and c.owner_id.begins_with("füll"):
+			result.append(c)
+	return result
+
+
+## Review Schritt 55: der alte Spielstand wurde bei jeder leeren world.db wieder übernommen – wer vor dem Testabend
+## world.db beiseitelegte, bekam die Welt von vor Schritt 52 zurück statt einer neuen. Jetzt wird er nach der Übernahme
+## umbenannt.
+func test_runner_imports_the_legacy_save_only_once() -> void:
+	DirAccess.make_dir_recursive_absolute(DIR)
+	var legacy := DIR.path_join(ServerRunner.LEGACY_SAVE)
+	assert_eq(SimSave.save_to_file(_busy_world(8), legacy), OK)
+	var runner := ServerRunner.new()
+	runner.data_dir = DIR
+	runner.configure(PackedStringArray([str(PORT + 6), "0", "0"]))
+	assert_eq(runner.start(), OK)
+	assert_false(runner.world_created, "alter Spielstand übernommen")
+	runner.stop()
+	assert_false(FileAccess.file_exists(legacy), "danach umbenannt")
+	assert_true(FileAccess.file_exists(legacy + ServerRunner.LEGACY_DONE_SUFFIX), "aber nicht gelöscht")
+	for name: String in DirAccess.get_files_at(DIR):
+		if name.begins_with(ServerRunner.WORLD_DB):
+			DirAccess.remove_absolute(DIR.path_join(name))  # world.db beiseitelegen (samt -wal/-shm)
+	var second := ServerRunner.new()
+	second.data_dir = DIR
+	second.configure(PackedStringArray([str(PORT + 6), "0", "0"]))
+	assert_eq(second.start(), OK)
+	assert_true(second.world_created, "ohne world.db: neue Welt")
+	second.stop()

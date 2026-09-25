@@ -14,15 +14,24 @@ static func boss_alive(world: SimWorld) -> SimCharacter:
 	return null
 
 
-## Ereignis Leitwolf: erscheint am Wolf-Spawn, der der Kartenmitte am nächsten liegt (Zentrum wertvoll/tödlich).
-static func spawn_boss(world: SimWorld) -> SimCharacter:
+## Zuhause des Leitwolfs: der Wolf-Spawn, der der Kartenmitte am nächsten liegt (Zentrum wertvoll/tödlich).
+## Ohne Wolf-Spawns (-1, -1).
+static func boss_home_cell(world: SimWorld) -> Vector2i:
 	if world.data.wolf_spawns.is_empty():
-		return null
+		return Vector2i(-1, -1)
 	var center := Vector2(world.map.width * 0.5, world.map.height * 0.5)
 	var best: Vector2i = world.data.wolf_spawns[0]
 	for cell: Vector2i in world.data.wolf_spawns:
 		if SimMap.cell_center(cell).distance_to(center) < SimMap.cell_center(best).distance_to(center):
 			best = cell
+	return best
+
+
+## Ereignis Leitwolf: erscheint an seinem Zuhause (boss_home_cell).
+static func spawn_boss(world: SimWorld) -> SimCharacter:
+	if world.data.wolf_spawns.is_empty():
+		return null
+	var best := boss_home_cell(world)
 	var spec: Dictionary = world.data.balance["events"]["boss"]
 	var c := world.spawn_wolf(SimMap.cell_center(best))
 	c.boss = true
@@ -78,6 +87,8 @@ static func event_text(event: Dictionary) -> String:
 			return "Die Karawane wurde überfallen."
 		"caravan_left":
 			return "Die Karawane ist weitergezogen."
+		"boss_evade":  # nur für den Schützen (Leitwolf-Leine, WolfAI._start_return)
+			return "Der %s kehrt in sein Revier zurück und erholt sich – bis er dort ist, prallt jeder Treffer ab." % name
 	return ""
 
 

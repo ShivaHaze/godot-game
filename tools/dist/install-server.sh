@@ -1,12 +1,36 @@
 #!/bin/bash
 # Richtet den Spielserver auf einem Ubuntu-Server (z. B. Hetzner) als Systemdienst ein – oder aktualisiert ihn.
-# Aufruf als root:  sudo bash install-server.sh [Port] [NPC-Füllung]
+# Aufruf als root:  sudo bash install-server.sh [Port] [NPC-Füllung] [Karte]
+#   Port: UDP-Port (Standard 7777). NPC-Füllung: so viele Offline-Siedler setzt der Server in eine NEUE Welt (Standard 10;
+#   für 5–10 Spieler 0–20). Karte: 'gen:60x45:7' = generiert (Breite×Höhe:Seed), 'standard' = Standardkarte 40×30, oder
+#   Pfad zu einer Karten-JSON, die der Dienstbenutzer lesen darf (z. B. unter /var/lib/prototyp/; /root und /home sind für
+#   den Dienst gesperrt). Leer: beim ersten Einrichten die Standardkarte, danach bleibt die eingerichtete Karte – die Welt
+#   in world.db gehört zu ihr. Für eine andere Karte die alte Welt beiseitelegen (siehe README, neue Welt).
 # Liegt kein prototyp-server.x86_64 neben dem Skript, wird der aktuelle Build von GitHub (Release "latest") geladen.
 # Läuft der Dienst schon, wird er vorher gestoppt (speichert), die Welt gesichert und danach neu gestartet.
 # Danach: systemctl status prototyp-server · journalctl -u prototyp-server -f · Welt und Konten in /var/lib/prototyp/
 set -euo pipefail
 PORT="${1:-7777}"
-NPCS="${2:-200}"
+NPCS="${2:-10}"
+MAP="${3:-}"
+case "$PORT$NPCS" in
+  *[!0-9]*) echo "Port und NPC-Füllung müssen Zahlen sein (Aufruf: $0 [Port] [NPC-Füllung] [Karte])." >&2; exit 1 ;;
+esac
+case "$MAP" in
+  *[[:space:]]*) echo "Die Karte darf keine Leerzeichen enthalten: '$MAP'" >&2; exit 1 ;;
+esac
+UNIT=/etc/systemd/system/prototyp-server.service
+# Ohne Kartenargument die Karte des eingerichteten Dienstes behalten (sonst läge eine Welt von gen:60x45:7 nach einem
+# erneuten Aufruf, etwa über tools/deploy.sh, auf der Standardkarte – Charaktere und Bauteile außerhalb der Karte).
+# ExecStart=... --server <Port> <NPCs> [<Laufzeit> <Karte>]
+if [ -z "$MAP" ] && [ -f "$UNIT" ]; then
+  read -r _OLD_PORT _OLD_NPCS _OLD_RUNTIME MAP _OLD_REST < <(sed -n 's/^ExecStart=.*--server //p' "$UNIT") || true
+  [ -n "$MAP" ] && echo "Behalte die eingerichtete Karte: $MAP ('standard' als drittes Argument wechselt zur Standardkarte)."
+fi
+[ "$MAP" = "standard" ] && MAP=""
+# Argumente für den Server: <Port> <Füllung> [<Laufzeit 0 = endlos> <Karte>]
+SERVER_ARGS="$PORT $NPCS"
+[ -n "$MAP" ] && SERVER_ARGS="$PORT $NPCS 0 $MAP"
 BIN_DIR=/opt/prototyp
 DATA_DIR=/var/lib/prototyp
 SAVE_DIR="$DATA_DIR/godot/app_userdata/Prototyp"
@@ -45,7 +69,7 @@ install -m 755 "$HERE/prototyp-server.x86_64" "$BIN_DIR/prototyp-server"
 [ -f "$HERE/LIZENZEN.txt" ] && install -m 644 "$HERE/LIZENZEN.txt" "$BIN_DIR/LIZENZEN.txt"
 chown -R prototyp:prototyp "$DATA_DIR"
 
-cat > /etc/systemd/system/prototyp-server.service <<EOF
+cat > "$UNIT" <<EOF
 [Unit]
 Description=Prototyp Spielserver (Port $PORT/udp)
 After=network-online.target
@@ -59,7 +83,7 @@ Environment=XDG_DATA_HOME=$DATA_DIR
 Environment=XDG_CONFIG_HOME=$DATA_DIR/config
 Environment=XDG_CACHE_HOME=$DATA_DIR/cache
 WorkingDirectory=$BIN_DIR
-ExecStart=$BIN_DIR/prototyp-server --headless -- --server $PORT $NPCS
+ExecStart=$BIN_DIR/prototyp-server --headless -- --server $SERVER_ARGS
 Restart=on-failure
 RestartSec=5
 KillSignal=SIGINT
@@ -88,6 +112,6 @@ if ! systemctl is-active --quiet prototyp-server; then
 fi
 systemctl --no-pager status prototyp-server | head -12
 echo
-echo "Fertig. Spieler tragen im Startbildschirm ein: $(hostname -I 2>/dev/null | awk '{print $1}'):$PORT"
+echo "Fertig ($NPCS Füll-NPCs bei neuer Welt, Karte ${MAP:-Standard}). Spieler tragen im Startbildschirm ein: $(hostname -I 2>/dev/null | awk '{print $1}'):$PORT"
 echo "Log: journalctl -u prototyp-server -f · Welt: $SAVE_DIR/world.db (Sicherungen in backups/), Konten: accounts.db"
 echo "Update später: sudo bash $BIN_DIR/update-server.sh"

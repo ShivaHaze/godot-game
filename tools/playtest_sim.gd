@@ -1,6 +1,7 @@
 extends SceneTree
-## Testabend-Nacht headless: baut die Lage auf dem Server nach und lässt sie laufen. Füll-NPCs wie
-## ServerRunner._fill_npcs (zufällige begehbare Zelle, Rollen reihum, 5 Beeren, ohne Übergang), dazu 8 Test-Charaktere
+## Testabend-Nacht headless: baut die Lage auf dem Server nach und lässt sie laufen. Füll-NPCs genau wie der Server
+## (ServerRunner.spawn_fillers: freier Boden außerhalb der Zonen, weg von Spieler- und Wolf-Spawns und vom Leitwolf-Revier,
+## mit Abstand untereinander, Rollen reihum ohne Händler, 5 Beeren, ohne Übergang), dazu 8 Test-Charaktere
 ## (4 Rollen × nackt mit 5 Beeren bzw. Keule + angelegter Holzpanzer mit 8 Beeren, Hunger 90) höchstens 6 Kacheln
 ## um den Start-Spawn, wie Freunde, die nebeneinander ausloggen. Wölfe, Leitwolf und Karawane laufen normal.
 ## Druckt je Berichtsintervall: Überlebende, Wölfe, Ereignisse, Beeren auf der Karte, Todesursachen, Hunger der Tests.
@@ -77,7 +78,7 @@ func _init() -> void:
 	var walkable := _walkable_cells(world)
 	print("Karte %s: %d×%d, begehbar %d, Spieler-Spawns %d, Wolf-Spawns %d, Depots %d" % [map_arg, world.map.width, world.map.height,
 		walkable.size(), data.player_spawns.size(), data.wolf_spawns.size(), data.depot_spawns.size()])
-	_fill(world, walkable)
+	ServerRunner.spawn_fillers(world, fillers)
 	var tests := _spawn_tests(world, walkable)
 	if guild:
 		var founder := tests[0].owner_id
@@ -109,21 +110,6 @@ func _walkable_cells(world: SimWorld) -> Array[Vector2i]:
 			if world.map.is_walkable(Vector2i(x, y)):
 				result.append(Vector2i(x, y))
 	return result
-
-
-## Füll-NPCs wie ServerRunner._fill_npcs (gleicher Seed 7), zusätzlich mit role_id für die Statistik.
-func _fill(world: SimWorld, walkable: Array[Vector2i]) -> void:
-	var data := world.data
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 7
-	for i in fillers:
-		var cell: Vector2i = walkable[rng.randi_range(0, walkable.size() - 1)]
-		var c := world.spawn_player(SimMap.cell_center(cell), "füll%d" % i, "Siedler %d" % i)
-		c.inventory["berries"] = 5
-		var role: String = data.role_order[i % data.role_order.size()]
-		c.role_id = role
-		world.logout(c.id, data.roles[role]["rules"], String(data.roles[role]["name"]))
-		c.logout_time = -1e9
 
 
 ## Test-Charaktere: Rollen reihum, die zweite Hälfte ausgerüstet. Sie loggen normal aus (Übergang läuft).

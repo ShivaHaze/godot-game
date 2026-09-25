@@ -186,6 +186,9 @@ static func apply_damage(world: SimWorld, victim: SimCharacter, base_damage: flo
 	if world.in_peace_zone(victim.pos) or (peace_attacker != null and world.in_peace_zone(peace_attacker.pos)):
 		world.events.append({"type": "market_peace", "id": victim.id, "attacker": attacker_id, "pos": victim.pos})
 		return {}
+	if victim.ai_state == WolfAI.STATE_RETURN:  # Leitwolf auf dem Heimweg ins Revier: unverwundbar (WolfAI._start_return)
+		world.events.append({"type": "boss_evade", "id": victim.id, "attacker": attacker_id, "name": victim.name, "pos": victim.pos})
+		return {}
 	var side := SimCombat.hit_side(victim.facing, hit_dir, world.data.balf("combat.front_arc_degrees"), world.data.balf("combat.back_arc_degrees"))
 	var amount := SimCombat.damage(base_damage, victim.armor, side, world.data)
 	victim.hp = maxf(0.0, victim.hp - amount)

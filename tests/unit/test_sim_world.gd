@@ -163,3 +163,30 @@ func map_node_for(resource: String) -> SimResourceNode:
 		if node.resource == resource:
 			return node
 	return null
+
+
+func _event_types() -> Array:
+	return world.events.map(func(e: Dictionary) -> String: return String(e.get("type", "")))
+
+
+## Befund Schritt 55: Ereignisse aus Nachrichten und Tafeln zwischen zwei Ticks (Depot, Handelstisch, Karawane, Marker …)
+## löschte der nächste step(), bevor Server oder Einzelspieler sie lasen. Jetzt gehören sie zum nächsten Tick.
+func test_events_between_ticks_reach_the_next_tick() -> void:
+	player.hunger = 40.0
+	player.inventory["berries"] = 2
+	var intent := SimIntent.new()
+	intent.eat = true
+	_tick_with(intent, 1)
+	assert_true(_event_types().has("eat"), "Ereignis des Ticks")
+	world.add_marker(player.id)  # wie eine Nachricht zwischen zwei Ticks
+	world.tick()
+	assert_false(_event_types().has("eat"), "Ereignisse des vorigen Ticks sind weg")
+	assert_eq(_event_types().count("marker"), 1, "das Ereignis zwischen den Ticks ist nach dem nächsten Tick da, genau einmal")
+	world.tick()
+	assert_false(_event_types().has("marker"), "und nach dem übernächsten weg")
+	# Wer die Liste zwischendurch leert, verliert nichts, was danach kommt
+	world.tick()
+	world.events.clear()
+	world.add_marker(player.id)
+	world.tick()
+	assert_eq(_event_types().count("marker"), 1)

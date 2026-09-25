@@ -2,18 +2,23 @@ class_name WolfAI
 extends RefCounted
 ## Wolf-Verhalten als PvE-Druck: streunt um seinen Spawn, greift sichtbare Charaktere in Reichweite an, wendet sich
 ## gegen jeden, der ihn trifft (auch aus der Ferne; steht jemand näher, zuerst gegen den), beißt im Nahkampf, flieht
-## bei wenig Leben und erholt sich danach.
-## Erzeugt nur Absichten (SimIntent).
+## bei wenig Leben und erholt sich danach. Der Leitwolf flieht nie und kehrt nach einer Jagd außerhalb seines Reviers
+## unverwundbar heim (Leitwolf-Leine, _start_return).
+## Erzeugt Absichten (SimIntent); nur die Leitwolf-Leine setzt Leben und Angreifer direkt zurück.
 
 const STATE_WANDER: String = "wander"
 const STATE_CHASE: String = "chase"
 const STATE_FLEE: String = "flee"
+const STATE_RETURN: String = "return"   # nur Leitwolf: Jagd außerhalb des Reviers abgebrochen, läuft heim (unverwundbar)
 
 
 static func decide(world: SimWorld, wolf: SimCharacter, dt: float) -> SimIntent:
 	var intent := SimIntent.new()
 	var data := world.data
 	wolf.ai_timer -= dt
+	if wolf.ai_state == STATE_RETURN:
+		_return_home(world, wolf, intent, dt)
+		return intent
 	var search_radius := data.balf("wolf.give_up_radius") if wolf.ai_state == STATE_CHASE else data.balf("wolf.aggro_radius")
 	# Getroffen: der Suchkreis reicht bis zum Schützen, auch jenseits von aggro_radius/give_up_radius – sonst ließe sich
 	# jeder Wolf aus sicherer Entfernung abschießen (Befund Schritt 54: 6 Bogentreffer aus 9–12 Kacheln, der Leitwolf
@@ -25,8 +30,14 @@ static func decide(world: SimWorld, wolf: SimCharacter, dt: float) -> SimIntent:
 		search_radius = maxf(search_radius, wolf.pos.distance_to(provoker.pos) + 0.01)
 	var target := nearest_prey(world, wolf, search_radius)
 	# Der Leitwolf verteidigt sein Revier, jagt aber nie quer über die Karte: außerhalb ignoriert er Beute und kehrt heim
-	if wolf.boss and wolf.pos.distance_to(wolf.home_pos) > data.balf("events.boss.territory_radius"):
-		target = null
+	# (STATE_RETURN, siehe _start_return). Beschießt ihn ein Live-Spieler, jagt er weiter (provoked_chase_radius), sonst
+	# erlegte ihn ein Bogenschütze knapp außerhalb des Reviers gefahrlos (Entscheidung [T] 2026-09-25). Ein
+	# Offline-Charakter, der sich nur wehrt, lockt ihn nicht hinaus (Offline eingeschränkt beteiligt, [E]).
+	if wolf.boss:
+		var provoked := provoker != null and provoker.control == SimCharacter.Controller.PLAYER
+		var limit := data.balf("events.boss.provoked_chase_radius") if provoked else data.balf("events.boss.territory_radius")
+		if wolf.pos.distance_to(wolf.home_pos) > limit:
+			target = null
 
 	if wolf.ai_state != STATE_FLEE and target != null and not wolf.boss and wolf.health_percent() < data.balf("wolf.flee_hp_percent"):  # der Leitwolf flieht nie
 		wolf.ai_state = STATE_FLEE
@@ -45,7 +56,10 @@ static func decide(world: SimWorld, wolf: SimCharacter, dt: float) -> SimIntent:
 				else:
 					_wander(world, wolf, intent)
 		STATE_CHASE:
-			if target == null:
+			if target == null and wolf.boss and wolf.pos.distance_to(wolf.home_pos) > data.balf("events.boss.territory_radius"):
+				_start_return(world, wolf)
+				_return_home(world, wolf, intent, dt)
+			elif target == null:
 				wolf.ai_state = STATE_WANDER
 				wolf.ai_timer = 0.0
 			else:
@@ -87,6 +101,33 @@ static func _provoker(world: SimWorld, wolf: SimCharacter) -> SimCharacter:
 	if attacker == null or attacker.kind != SimCharacter.Kind.PLAYER or attacker.dead or attacker.hidden or world.in_peace_zone(attacker.pos):
 		return null
 	return attacker
+
+
+## Leitwolf-Leine: endet eine Jagd außerhalb seines Reviers (Beute zu weit weg, im Markt, versteckt oder tot), läuft er
+## mit voller Geschwindigkeit heim, bis er wieder in seinem Streifgebiet (events.boss.wander_radius) ist – dabei ist er
+## unverwundbar (SimCombat.apply_damage), heilt voll und vergisst den Schützen. Vorher kehrte er gemächlich um, und der
+## nächste Treffer holte ihn zurück: ein Bogenschütze im Rückwärtsgang erlegte ihn allein ohne einen Biss (Review
+## Schritt 55: tot nach 13 s, auch mit der Schleuder und am Markt). Entscheidung [T] 2026-09-25.
+static func _start_return(world: SimWorld, wolf: SimCharacter) -> void:
+	if wolf.last_attacker_id >= 0 and SimSensors.is_under_attack(world, wolf):
+		world.events.append({"type": "boss_evade", "id": wolf.id, "attacker": wolf.last_attacker_id, "name": wolf.name, "pos": wolf.pos})
+	wolf.ai_state = STATE_RETURN
+	wolf.ai_timer = world.data.balf("events.boss.return_max_seconds")
+	wolf.hp = wolf.max_hp
+	wolf.effects.clear()
+	wolf.last_attacker_id = -1
+	wolf.last_damage_time = -1e9
+
+
+## Heimweg nach _start_return. Endet im Streifgebiet – oder nach return_max_seconds, falls der Weg verbaut ist.
+static func _return_home(world: SimWorld, wolf: SimCharacter, intent: SimIntent, dt: float) -> void:
+	var r := world.data.balf("events.boss.wander_radius")
+	if wolf.pos.distance_to(wolf.home_pos) <= r or wolf.ai_timer <= 0.0:
+		wolf.ai_state = STATE_WANDER
+		wolf.ai_timer = 0.0
+		return
+	intent.move = SimNav.direction_toward(world, wolf, wolf.home_pos, dt, r * 0.5)
+	intent.aim = intent.move
 
 
 static func _wander(world: SimWorld, wolf: SimCharacter, intent: SimIntent) -> void:

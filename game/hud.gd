@@ -2,6 +2,8 @@ extends CanvasLayer
 ## Kopfanzeige: Uhr, Leben, Hunger, Inventar, Modus, Hinweise, kurze Meldungen,
 ## Chronik-Tafel (rechts) und Knopfleiste (unten rechts). Liest nur den Sim-Zustand.
 
+const CHAT_PLACEHOLDER: String = "Nah-Chat … (/g global, /gi Gilde, /gilde …, /brief <Spieler> <Text>, Esc bricht ab)"
+
 var world: SimWorld
 var player_id: int = -1
 var mode_text: String = "Live"
@@ -23,6 +25,7 @@ var _chat_lines: PackedStringArray = []
 func _ready() -> void:
 	var panel := PanelContainer.new()
 	panel.position = Vector2(8, 8)
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE  # nur Anzeige: fängt keine Maus ab (Mausrad, Klicks gehen an das Spiel)
 	add_child(panel)
 	_status = Label.new()
 	_status.add_theme_font_size_override("font_size", 14)
@@ -94,7 +97,7 @@ func _ready() -> void:
 	chat_input.offset_top = -58
 	chat_input.offset_right = 520
 	chat_input.offset_bottom = -34
-	chat_input.placeholder_text = "Nah-Chat … (/g global, /gi Gilde, /gilde …, /brief <Spieler> <Text>, Esc bricht ab)"
+	chat_input.placeholder_text = CHAT_PLACEHOLDER
 	chat_input.max_length = 160
 	chat_input.visible = false
 	add_child(chat_input)
@@ -109,6 +112,7 @@ func _ready() -> void:
 	_buttons.offset_top = -44
 	_buttons.offset_bottom = -8
 	_buttons.alignment = BoxContainer.ALIGNMENT_END
+	_buttons.mouse_filter = Control.MOUSE_FILTER_IGNORE  # die leere Leiste fängt keine Maus ab, nur die Knöpfe selbst
 	add_child(_buttons)
 
 

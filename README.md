@@ -25,12 +25,38 @@ Einmalig auf einem frischen Ubuntu (22.04 oder 24.04), als root oder mit sudo:
 
 ```
 curl -fsSLO https://github.com/ShivaHaze/godot-game/releases/download/latest/install-server.sh
-sudo bash install-server.sh 7777 200
+sudo bash install-server.sh 7777 10
 ```
 
-Die zweite Zahl ist die Füllung: so viele NPC-Charaktere ohne Spieler setzt der Server beim Start in die Welt. Für eine
-kleine Runde (5–10 Leute) auf der Standardkarte besser `0` (höchstens 20): 200 leeren alle Beerenbüsche in wenigen
-Minuten, und jeder Neustart füllt wieder auf (Design-Dokument, Abschnitt 5, *Füll-NPCs*).
+Die Argumente sind `[Port] [Füllung] [Karte]`, alle optional:
+
+| Argument | Standard | Bedeutung |
+|---|---|---|
+| Port | `7777` | UDP-Port, den Mitspieler hinter der Adresse eintragen (`1.2.3.4:7777`). |
+| Füllung | `10` | So viele Offline-Siedler (NPCs ohne Spieler, Rollen Verstecken/Wache/Sammler) setzt der Server in eine **neue** Welt – auf freien Boden, weg von Spieler- und Wolf-Spawns und voneinander, nicht auf Markt, Outpost oder Sumpf. Eine geladene Welt wird nie aufgefüllt, auch nach Updates nicht. Für 5–10 Spieler auf der Standardkarte **0 bis 20** (Empfehlung 10: die Welt wirkt belebt, die Beeren reichen; nach 3 Stunden leben in der Simulation noch 7–9 von 10); 200 leeren alle Beerenbüsche in wenigen Minuten. |
+| Karte | beim ersten Mal die Standardkarte 40×30, danach die eingerichtete | `gen:60x45:7` erzeugt eine Karte (Breite×Höhe:Seed), `standard` wählt die Standardkarte 40×30, sonst ein Pfad zu einer Karten-JSON, die der Dienstbenutzer lesen darf (z. B. `/var/lib/prototyp/karte.json`; unter `/root` und `/home` sperrt der Dienst den Zugriff). Für 5–10 Spieler reicht die Standardkarte; größere Karten heißen weniger Begegnungen. |
+
+Die Karte gehört zur Welt: ohne Kartenargument behalten `install-server.sh`, `update-server.sh` und `tools/deploy.sh`
+die Karte des eingerichteten Dienstes (`update-server.sh` auch Port und Füllung). Wer die Karte wechseln will, braucht
+eine neue Welt (siehe unten) und ruft `install-server.sh` mit der neuen Karte auf, z. B.
+`sudo bash install-server.sh 7777 10 gen:60x45:7`.
+
+**Neue Welt, z. B. vor dem Testabend.** Die Füllung wirkt nur in einer neuen Welt; eine Welt, die ein älterer Server
+angelegt hat, behält ihre Füll-NPCs (bis Schritt 54 füllte jeder Start bis zur eingestellten Zahl auf, Standard war 200). Auch `update-server.sh` aus einer
+älteren Installation übernimmt die alte Füllung 200 – deshalb die Zahl beim Neuanlegen ausdrücklich angeben:
+
+```
+sudo systemctl stop prototyp-server
+cd /var/lib/prototyp/godot/app_userdata/Prototyp
+sudo mkdir -p backups/alte-welt
+sudo mv world.db* backups/alte-welt/                    # world.db samt world.db-wal/-shm
+sudo mv server_save.dat backups/alte-welt/ 2>/dev/null  # nur falls vorhanden: Spielstand von vor Schritt 52, käme sonst zurück
+cd ~ && curl -fsSLO https://github.com/ShivaHaze/godot-game/releases/download/latest/install-server.sh
+sudo bash install-server.sh 7777 10
+```
+
+Vom Entwicklungsrechner aus nach den ersten fünf Zeilen stattdessen `tools/deploy.sh root@<IP> 7777 10`. Konten
+(`accounts.db`) bleiben erhalten – Name und Passwort gelten weiter, die Charaktere beginnen neu.
 
 Das Skript lädt den aktuellen Server-Build selbst, legt den Systembenutzer `prototyp` an, richtet den Dienst
 `prototyp-server` ein (startet beim Booten neu, Strg+C bzw. `systemctl stop` speichert), öffnet Port 7777/udp in ufw und
@@ -41,14 +67,14 @@ UDP 7777 eingehend erlauben. Nützlich danach:
 |---|---|
 | `sudo bash /opt/prototyp/update-server.sh` | Neuen Build einspielen: stoppt (speichert), sichert die Welt, tauscht das Programm, startet. |
 | `journalctl -u prototyp-server -f` | Log live (Tickzeit, Spieler, Speichern, Sicherungen). |
-| `systemctl restart prototyp-server` | Neustart; `stop` speichert die Welt. |
+| `systemctl restart prototyp-server` | Neustart; `stop` speichert die Welt. Wer beim Stopp online war, handelt danach nach seinen Regeln weiter (Chronik: „Server-Neustart“). |
 | `ls /var/lib/prototyp/godot/app_userdata/Prototyp/` | `world.db`, `accounts.db`, `backups/` (tägliche Sicherungen plus eine vor jedem Update). |
 
-Vom Entwicklungsrechner aus geht beides in einem Schritt per SSH: `tools/deploy.sh root@<IP> 7777 200` (nimmt
+Vom Entwicklungsrechner aus geht beides in einem Schritt per SSH: `tools/deploy.sh root@<IP> 7777 10 [Karte]` (nimmt
 `build/prototyp-server.x86_64`, sonst den Build von GitHub).
 
 ## Aus dem Quelltext
 
 Godot 4.7.2: `godot --path .` startet das Spiel, `tools/run_tests.ps1` die Tests, `tools/build.ps1` baut die Programme
 nach `build/` (braucht die Export-Vorlagen 4.7.2). Server aus dem Quelltext:
-`godot --headless --path . -s server/server_main.gd -- 7777 200 0`.
+`godot --headless --path . -s server/server_main.gd -- 7777 10 0` (Port, Füllung, Laufzeit in s mit 0 = endlos, optional Karte).

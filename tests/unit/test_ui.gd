@@ -3,6 +3,7 @@ extends GutTest
 
 const LogoutMenuScript := preload("res://game/logout_menu.gd")
 const MainScene := preload("res://game/main.tscn")
+const MainScript := preload("res://game/main.gd")
 
 var data: SimData
 
@@ -141,3 +142,146 @@ func test_build_choices_put_starter_parts_first() -> void:
 	assert_eq(main._build_choice_hint("claim_tile"), "Taste 2")
 	assert_eq(main._build_choice_hint("turret"), "Tab bis „Turret“")
 	main._build_mode = false
+
+
+func _live_main() -> Node2D:
+	var main: Node2D = MainScene.instantiate()
+	main.save_path = ""
+	add_child_autofree(main)
+	await wait_frames(2)
+	await get_tree().process_frame  # weiter im Prozess-Frame: dort wertet main.gd "gerade gedrückt" aus (wait_frames endet im Physik-Frame)
+	return main
+
+
+func _key(keycode: Key, pressed: bool) -> void:
+	var event := InputEventKey.new()
+	event.keycode = keycode
+	event.physical_keycode = keycode
+	event.pressed = pressed
+	Input.parse_input_event(event)
+
+
+func _move_mouse(main: Node2D, pos: Vector2) -> void:
+	var motion := InputEventMouseMotion.new()
+	motion.position = pos
+	motion.global_position = pos
+	main.get_viewport().push_input(motion)
+
+
+## Befund Schritt 55: die Tasten F, H, M, Q und C wurden vor der Chat-Prüfung ausgewertet – wer "Holz für Fasern"
+## tippte, aß, legte einen Verband an, setzte Marker, wechselte die Waffe und öffnete die Werkbank.
+func test_typing_in_chat_triggers_no_game_keys() -> void:
+	var main := await _live_main()
+	var player: SimCharacter = main.world.get_character(main.player_id)
+	player.inventory["berries"] = 3
+	var actions: Array[String] = ["eat", "place_marker", "switch_weapon", "craft_menu", "heal", "interact", "build_mode"]
+	# Gegenprobe ohne Chat: F wird als Essen gemerkt
+	Input.action_press("eat")
+	main._process_live_input(player)
+	Input.action_release("eat")
+	assert_true(main._eat_pressed, "ohne Chat: F isst")
+	main._eat_pressed = false
+	main.hud.chat_input.visible = true
+	var markers := player.markers.size()
+	for action: String in actions:
+		Input.action_press(action)
+	main._process_live_input(player)
+	for action: String in actions:
+		Input.action_release(action)
+	assert_false(main._eat_pressed, "F im Chat isst nicht")
+	assert_eq(player.markers.size(), markers, "M im Chat setzt keinen Marker")
+	assert_false(main.craft_panel.visible, "C im Chat öffnet keine Werkbank")
+	assert_false(main._heal_active, "H im Chat legt keinen Verband an")
+	assert_false(main._build_mode, "B im Chat startet keinen Baumodus")
+	assert_true(main.hud.chat_input.visible, "der Chat bleibt offen")
+	Input.action_press("logout_menu")
+	main._process_live_input(player)
+	Input.action_release("logout_menu")
+	assert_false(main.hud.chat_input.visible, "Esc schließt den Chat")
+	assert_eq(main.mode, main.Mode.LIVE, "und öffnet nicht das Ausloggen-Menü")
+
+
+## Befund Schritt 55: Enter schickte die Zeile ab und öffnete sie im selben Frame wieder – danach tippte WASD in den Chat.
+func test_enter_sends_chat_and_keeps_it_closed() -> void:
+	var main := await _live_main()
+	main.hud.chat_input.visible = true
+	main.hud.chat_input.grab_focus()
+	main.hud.chat_input.text = "hallo"
+	await wait_frames(1)
+	_key(KEY_ENTER, true)
+	await wait_frames(5)
+	_key(KEY_ENTER, false)
+	await wait_frames(2)
+	assert_eq(main.hud._chat_lines.size(), 1, "abgeschickt")
+	assert_false(main.hud.chat_input.visible, "und zu")
+
+
+## Befund Schritt 55: nur die Werkbank sperrte den Schuss – ein Klick auf "verkaufe" in der Karawanen-Tafel schoss.
+func test_open_panels_block_shooting_and_interacting() -> void:
+	var main := await _live_main()
+	var player: SimCharacter = main.world.get_character(main.player_id)
+	Input.action_press("shoot")
+	Input.action_press("interact")
+	var intent: SimIntent = main._build_player_intent(player)
+	assert_true(intent.shoot, "ohne Tafel: Klick schießt")
+	assert_true(intent.interact, "ohne Tafel: E sammelt")
+	for panel: CanvasLayer in [main.craft_panel, main.trade_panel, main.depot_panel, main.caravan_panel, main.menu]:
+		panel.visible = true
+		intent = main._build_player_intent(player)
+		assert_false(intent.shoot, "%s offen: kein Schuss" % panel.get_script().resource_path.get_file())
+		assert_false(intent.interact, "%s offen: kein Sammeln" % panel.get_script().resource_path.get_file())
+		panel.visible = false
+	Input.action_release("shoot")
+	Input.action_release("interact")
+
+
+## Maus über einem Bedienelement (Knopf, Eingabezeile, Bildlaufleiste): der Klick gehört dem Element, nicht der Waffe.
+## Reine Anzeigen sperren nicht – Review Schritt 55: die offene Chronik (rechtes Drittel des Bildschirms, bleibt nach dem
+## Einloggen offen) sperrte jeden Schuss darüber. Geprüft an den Elementen selbst: headless ist das Fenster 64×64 Pixel
+## groß, und darüber liegt die Oberfläche von GUT (Ebene 128) – die Maus trifft dort nie die Elemente des Spiels.
+func test_only_controls_block_the_shot_not_displays() -> void:
+	var main := await _live_main()
+	var player: SimCharacter = main.world.get_character(main.player_id)
+	var hud: CanvasLayer = main.hud
+	hud.show_chronicle(true)
+	hud.set_chronicle(PackedStringArray(["08:00 – hungrig, Regel 1: gegessen (Beeren 4→3)"]))
+	var button := Button.new()
+	var caption := Label.new()
+	button.add_child(caption)
+	add_child_autofree(button)
+	assert_true(MainScript.gui_blocks_world_click(button), "Knopf")
+	assert_true(MainScript.gui_blocks_world_click(caption), "Beschriftung auf einem Knopf")
+	assert_true(MainScript.gui_blocks_world_click(hud.chat_input), "Chatzeile")
+	assert_true(MainScript.gui_blocks_world_click(hud._chronicle_scroll.get_v_scroll_bar()), "Bildlaufleiste der Chronik")
+	assert_false(MainScript.gui_blocks_world_click(hud._chronicle_panel), "Chroniktafel")
+	assert_false(MainScript.gui_blocks_world_click(hud._chronicle_scroll), "Chronik-Bildlauf")
+	assert_false(MainScript.gui_blocks_world_click(hud._chronicle_label), "Chroniktext")
+	assert_false(MainScript.gui_blocks_world_click(null), "nichts unter der Maus")
+	_move_mouse(main, Vector2(-500, -500))  # außerhalb: nichts darunter
+	assert_null(main.get_viewport().gui_get_hovered_control())
+	Input.action_press("shoot")
+	assert_true(main._build_player_intent(player).shoot, "der Klick schießt, auch bei offener Chronik")
+	Input.action_release("shoot")
+	hud.show_chronicle(false)
+
+
+## Review Schritt 55: E am eigenen Schild, dann Esc – die nächste Chatnachricht landete auf dem Schild statt im Chat.
+func test_esc_ends_sign_editing() -> void:
+	var main := await _live_main()
+	var player: SimCharacter = main.world.get_character(main.player_id)
+	player.pos = Vector2(20.5, 5.5)
+	player.inventory["wood"] = 10
+	var sign := SimConstruction.place_building(main.world, player, "sign", Vector2i(42, 11), 0)
+	assert_not_null(sign)
+	SimConstruction.set_sign_text(main.world, player, sign, "Alt")
+	assert_true(main._toggle_sign_edit(player), "E am eigenen Schild")
+	assert_true(main.hud.chat_input.visible, "Schildtext wird eingegeben")
+	Input.action_press("logout_menu")
+	main._process_live_input(player)
+	Input.action_release("logout_menu")
+	assert_false(main.hud.chat_input.visible, "Esc bricht ab")
+	assert_eq(main.hud.chat_input.placeholder_text, main.hud.CHAT_PLACEHOLDER, "wieder die Chatzeile")
+	main.hud.chat_input.visible = true
+	main._on_chat_submitted("hallo")
+	assert_eq(sign.label, "Alt", "das Schild bleibt, wie es war")
+	assert_eq(main.hud._chat_lines.size(), 1, "die Zeile ging in den Chat")

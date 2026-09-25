@@ -256,6 +256,9 @@ func _forward_events() -> void:
 			"toll_short":
 				recipient = int(event["id"])
 				text = "Zoll: %s" % event["reason"]
+			"boss_evade":  # Leitwolf-Leine: nur der Schütze erfährt, warum seine Treffer abprallen
+				recipient = int(event["attacker"])
+				text = SimEvents.event_text(event)
 			"boss_spawned", "boss_killed", "boss_left", "caravan_spawned", "caravan_rest", "caravan_raided", "caravan_left":
 				# Ereignis für alle, ohne Ortsangabe (Design: global keine Positionsdaten)
 				var line := SimEvents.event_text(event)

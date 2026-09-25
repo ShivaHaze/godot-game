@@ -16,7 +16,10 @@ var spatial := SimSpatial.new(4.0)      # Nachbarschaftsraster, pro Tick neu gef
 var lod_enabled: bool = true             # Simulationsstufen pro Charakter (false: alles fein, z. B. in Tests)
 var observer_ids: Array[int] = []        # Charaktere, die wie Online-Spieler zählen (Zuschauer-Kamera)
 var projectiles: Array[SimProjectile] = []
-var events: Array[Dictionary] = []       # Ereignisse des letzten Ticks (für Darstellung/Chronik)
+var events: Array[Dictionary] = []       # Ereignisse des letzten Ticks (für Darstellung/Chronik), dazu alles, was seitdem
+                                         # hinzukam (Nachrichten und Tafeln zwischen zwei Ticks) – das gehört zum nächsten Tick
+var _step_event_count: int = 0           # so viele Einträge am Anfang von events stammen aus dem letzten step()
+var _step_event_last: Dictionary = {}    # der letzte davon: erkennt, ob jemand events inzwischen geleert hat
 var time: float = 0.0                    # Sim-Sekunden seit Spielstart
 var tick_count: int = 0
 var tick_dt: float = 0.05
@@ -465,7 +468,7 @@ func tick() -> void:
 ## Simulationsstufen: Charaktere ohne Online-Spieler in offline.lod_radius rechnen nur alle coarse_tick_dt
 ## Sekunden (mit entsprechend großem Schritt), alle anderen jeden Tick.
 func step(dt: float) -> void:
-	events.clear()
+	_drop_step_events()
 	tick_count += 1
 	time += dt
 	for c: SimCharacter in characters.values():
@@ -513,6 +516,25 @@ func step(dt: float) -> void:
 	_update_wolves(dt)
 	SimEvents.update(self)
 	SimEvents.update_caravans(self)
+	_step_event_count = events.size()
+	_step_event_last = events.back() if not events.is_empty() else {}
+
+
+## Verwirft die Ereignisse des vorigen Schritts. Was danach hinzukam – Nachrichten und Tafeln zwischen zwei Ticks
+## (Depot, Handelstisch, Karawane, Bauen, Aus- und Einloggen …) –, bleibt stehen und gehört zu diesem Schritt; vorher
+## löschte step() alles, und weder Server (NetServer._forward_events) noch Einzelspieler (main._handle_events) sahen es.
+## Hat jemand die Liste zwischendurch geleert, ist alles darin neu.
+func _drop_step_events() -> void:
+	var n := _step_event_count
+	_step_event_count = 0
+	if n <= 0 or events.size() < n or not is_same(events[n - 1], _step_event_last):
+		return
+	if n == events.size():
+		events.clear()
+		return
+	var rest := events.slice(n)
+	events.clear()
+	events.append_array(rest)
 
 
 ## Ist ein lebender Online-Spieler (vom Spieler gesteuert oder beobachtet) in Reichweite?
